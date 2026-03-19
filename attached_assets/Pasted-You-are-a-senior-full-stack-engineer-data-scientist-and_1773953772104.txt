@@ -1,0 +1,126 @@
+You are a senior full-stack engineer, data scientist, and product designer.
+
+Build a modern, enterprise-grade desktop + web hybrid application called "R&D Intelligence Suite" for a Food Science company.
+
+CORE REQUIREMENTS:
+- Must support up to 30 active users with role-based access (Admin, Manager, R&D Scientist, Analyst, Viewer)
+- Must run as:
+  1. Web app (browser-based)
+  2. Desktop app (Windows & Mac) using Electron or Tauri
+
+TECH STACK:
+- Frontend: React + TypeScript + TailwindCSS + Framer Motion (for premium animations)
+- Backend: Node.js (Express or Fastify)
+- Database: PostgreSQL
+- Charts: Recharts or Chart.js
+- Authentication: JWT-based with secure login
+- State management: Zustand or Redux Toolkit
+
+UI/UX:
+- Modern, sleek, premium UI (better than ClickUp)
+- Dark/light mode toggle
+- Glassmorphism + soft shadows + smooth transitions
+- Dashboard-first design
+
+CORE FEATURES:
+
+1. DASHBOARD
+- KPI overview (Revenue impact, Product success rate, Time-to-market)
+- Interactive charts (bar, line, pie, heatmaps)
+- Project status summary
+- Team performance metrics
+
+2. PROJECT MANAGEMENT SYSTEM
+- Project lifecycle stages:
+  Ideation → Research → Formulation → Testing → Validation → Scale-up → Commercialization
+- Task assignment with deadlines
+- Dependencies & timelines (Gantt chart)
+- File uploads (formulations, reports, lab results)
+- Commenting & collaboration
+
+3. R&D DATA CAPTURE MODULE
+- Capture:
+  - Ingredient composition
+  - Formulation percentages
+  - Sensory evaluation scores
+  - Shelf-life data
+  - Costing data
+- Structured forms + CSV/Excel upload support
+
+4. ADVANCED DATA ANALYTICS ENGINE
+- Trend analysis (product success vs formulation variables)
+- Correlation analysis (ingredients vs sensory score)
+- Predictive modeling (basic ML using regression)
+- Cost optimization suggestions
+- Revenue impact forecasting
+
+5. EXPORT & REPORTING
+- Export full project lifecycle (PDF/Excel)
+- Auto-generate:
+  - Technical reports
+  - Product development summaries
+  - Management dashboards
+
+6. TEAM MANAGEMENT
+- Invite users (max 30)
+- Assign roles & permissions
+- Activity logs
+
+7. NOTIFICATIONS SYSTEM
+- Deadlines
+- Project updates
+- Task reminders
+
+8. SEARCH & FILTERING
+- Global search across:
+  projects, formulations, reports
+
+9. API LAYER
+- REST API for all operations
+
+10. SECURITY
+- Data encryption
+- Secure authentication
+- Role-based access control
+
+ADVANCED FEATURES (IMPORTANT):
+- AI assistant for:
+  - Suggesting formulations
+  - Predicting product success
+- Scenario simulation:
+  “If ingredient cost increases by 10%, what happens to margin?”
+- Data visualization:
+  - Heatmaps
+  - Scatter plots
+  - Multi-variable comparison charts
+
+DESKTOP APP:
+- Wrap the web app using Electron or Tauri
+- Enable offline mode with local caching
+
+DESIGN INSPIRATION:
+- Combine aesthetics of:
+  - ClickUp
+  - Notion
+  - Linear
+- Must feel premium and futuristic
+
+DELIVERABLES:
+- Fully structured folder architecture
+- Clean, modular, scalable code
+- Setup instructions
+- Seed data for demo (food product projects)
+
+GOAL:
+This app must help an R&D department:
+- Reduce product development time
+- Improve formulation success rate
+- Optimize cost and increase profitability
+- Provide actionable data insights to drive revenue growth
+
+Start by:
+1. Designing database schema
+2. Building backend API
+3. Creating frontend UI components
+4. Connecting analytics engine
+5. Packaging as desktop app
