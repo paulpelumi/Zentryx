@@ -44,6 +44,36 @@ router.post("/login", async (req, res) => {
   }
 });
 
+router.post("/register", async (req, res) => {
+  try {
+    const { email, password, name, role, department } = req.body;
+    if (!email || !password || !name) {
+      res.status(400).json({ error: "BadRequest", message: "Name, email, and password required" });
+      return;
+    }
+    const existing = await db.select().from(usersTable).where(eq(usersTable.email, email)).limit(1);
+    if (existing.length > 0) {
+      res.status(409).json({ error: "Conflict", message: "Email already registered" });
+      return;
+    }
+    const passwordHash = await bcrypt.hash(password, 10);
+    const [user] = await db.insert(usersTable).values({
+      email, name, passwordHash,
+      role: role || "viewer",
+      department: department || null,
+      isActive: true,
+    }).returning();
+    const token = signToken({ userId: user.id, email: user.email, role: user.role });
+    res.status(201).json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, department: user.department, isActive: user.isActive, createdAt: user.createdAt },
+    });
+  } catch (err) {
+    console.error("Register error:", err);
+    res.status(500).json({ error: "InternalServerError", message: "Registration failed" });
+  }
+});
+
 router.get("/me", requireAuth, async (req: AuthRequest, res) => {
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId)).limit(1);

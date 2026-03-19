@@ -9,6 +9,11 @@ import analyticsRouter from "./analytics";
 import notificationsRouter from "./notifications";
 import activityRouter from "./activity";
 import searchRouter from "./search";
+import departmentsRouter from "./departments";
+import businessDevRouter from "./business_dev";
+import projectCommentsRouter from "./project_comments";
+import chatRouter from "./chat";
+import aiChatRouter from "./ai_chat";
 
 const router: IRouter = Router();
 
@@ -16,11 +21,16 @@ router.use(healthRouter);
 router.use("/auth", authRouter);
 router.use("/users", usersRouter);
 router.use("/projects", projectsRouter);
+router.use("/projects/:projectId/comments", projectCommentsRouter);
 router.use("/tasks", tasksRouter);
 router.use("/formulations", formulationsRouter);
 router.use("/analytics", analyticsRouter);
 router.use("/notifications", notificationsRouter);
 router.use("/activity", activityRouter);
 router.use("/search", searchRouter);
+router.use("/departments", departmentsRouter);
+router.use("/business-dev", businessDevRouter);
+router.use("/chat", chatRouter);
+router.use("/ai-chat", aiChatRouter);
 
 export default router;
