@@ -1,8 +1,8 @@
-# R&D Intelligence Suite
+# Zentryx — R&D Intelligence Suite
 
 ## Overview
 
-Enterprise-grade R&D management platform for Food Science companies. Full-stack web application with JWT authentication, project lifecycle management, formulation science data capture, analytics engine, and AI-powered suggestions.
+Enterprise-grade R&D management platform for Food Science companies built under the **Zentryx** brand. Full-stack web app with JWT authentication, project lifecycle management, AI-powered analytics (GPT streaming), team management, business development tracking, real-time team chat, and light/dark mode.
 
 ## Stack
 
@@ -16,7 +16,8 @@ Enterprise-grade R&D management platform for Food Science companies. Full-stack 
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Auth**: JWT (bcryptjs + jsonwebtoken)
-- **Build**: esbuild (CJS bundle)
+- **AI**: OpenAI via Replit AI Integrations proxy (GPT streaming SSE)
+- **File uploads**: multer (chat images + voice notes)
 
 ## Login Credentials (Demo)
 
@@ -26,6 +27,8 @@ Enterprise-grade R&D management platform for Food Science companies. Full-stack 
 | Manager | manager@rnd.com | manager123 |
 | Scientist | alice@rnd.com | scientist123 |
 | Analyst | carol@rnd.com | analyst123 |
+
+New users can register via the "Create Account" tab on the login page.
 
 ## Structure
 
@@ -46,70 +49,90 @@ artifacts-monorepo/
 ## Features
 
 ### 1. Dashboard
-- KPI cards: total projects, active projects, success rate, avg time-to-market, revenue impact, team size
-- Charts: projects by stage (bar), projects by status (pie), monthly trends (line)
-- Recent projects table
+- KPI cards: total projects, active projects, completed, team size
+- Innovation Velocity area chart (monthly projects)
+- Pipeline Distribution: Pie / Donut / Bar / Histogram / Line chart selector
+- Team section with List / Pie / Donut / Bar views
+- Click team member → view their assigned projects → click project to navigate
 
-### 2. Project Management
-- Full CRUD for projects
-- Lifecycle stages: Ideation → Research → Formulation → Testing → Validation → Scale-Up → Commercialization
-- Priority levels: Low, Medium, High, Critical
-- Status: Active, On Hold, Completed, Cancelled
-- Task management per project with kanban-style views
-- Lead assignment
+### 2. Project Portfolio
+- Full CRUD with delete confirmation
+- Stages: Testing, Reformulation, Innovation, Cost Optimization, Modification
+- Status filters: Approved, Awaiting Feedback, On Hold, In Progress, New Inventory, Cancelled, Pushed to Live
+- Product types: Seasoning, Snack Dusting, Bread & Dough Premix, Dairy Premix, Functional Blend, Pasta Sauce, Sweet Flavour, Savoury Flavour
+- Customer metadata: name, email, phone, cost target, start/due dates
+- Assignee multi-select from team
+- Inline stage/status editing on project detail
+- Kanban task board with drag-left/right
+- Status reports/comments tab
+- Export tab: CSV download with 17-column structured export
 
-### 3. Formulations
-- Ingredient composition with percentages and costs
-- Sensory evaluation scores (taste, texture, appearance, aroma, overall)
-- Shelf-life tracking
-- Cost per unit and target margin
-- Version management
-- Status workflow: Draft → Active → Approved/Rejected
+### 3. Analytics & AI
+- Overview charts: product category bar, stage donut, status horizontal bar, radar chart
+- **AI Analyst tab**: live GPT streaming chat with SSE — ask anything about R&D strategy
+- Quick prompts for common queries
 
-### 4. Analytics Engine
-- Trends: success by product category, sensory correlation scatter plot, cost trends
-- Cost Simulator: ingredient price change impact analysis with recommendations
-- AI Suggestions: formulation recommendations with predicted success rate
+### 4. Team Directory
+- Add/edit/remove members
+- Roles: Manager, NPD Technologist, Head of Product Development, Key Account Manager, Senior Key Account Manager, Project Manager, Admin, Scientist, Analyst, Viewer
+- Department filter: NPD, Marketing & Sales, Account Management + create custom departments
+- Member metadata: name, email, role, department, active status
 
-### 5. Team Management
-- User CRUD with role-based access
-- Roles: Admin, Manager, Scientist, Analyst, Viewer
-- Department tracking
-- Active/Inactive status
+### 5. Business Development
+- Mirrors project structure with full CRUD
+- Same product types, stages, statuses, customer metadata
+- Inline title editing, status quick-edit on hover
 
-### 6. Notifications & Activity
+### 6. Chat Room
+- Group channels + private direct messages
+- Image sharing (upload)
+- Voice note recording (Web Audio API → upload)
+- Video meeting via Jitsi Meet (opens in new tab)
+- Real-time polling every 3 seconds
+- Create new group channels with member selection
+
+### 7. Notifications & Activity
 - Notification types: Deadline, Update, Reminder, Mention, System
-- Mark as read
 - Full activity audit log
-
-### 7. Global Search
-- Cross-entity search across projects, formulations, and tasks
 
 ## Database Schema
 
-- `users` - User accounts with roles
-- `projects` - R&D projects with stages and metadata
-- `tasks` - Project tasks with assignees and deadlines
-- `formulations` - Formulation records with ingredients (JSONB)
-- `notifications` - User notifications
-- `activity_logs` - Audit trail
+- `users` — User accounts, roles, departments
+- `projects` — R&D projects with full metadata, assignees
+- `tasks` — Project tasks (kanban)
+- `project_comments` — Status reports per project
+- `formulations` — Formulation records
+- `departments` — Custom department registry
+- `business_dev` — Business development opportunities
+- `chat_rooms` — Group and private chat rooms
+- `chat_room_members` — Room membership
+- `chat_messages` — Messages (text/image/voice_note)
+- `notifications`, `activity_logs` — Notifications and audit trail
 
 ## API Endpoints
 
 All routes prefixed with `/api/`:
-- `POST /auth/login` - JWT login
-- `GET /auth/me` - Current user
-- `GET/POST /users` - User management
-- `GET/POST /projects` - Project CRUD
-- `GET/POST /tasks` - Task management
-- `GET/POST /formulations` - Formulation records
-- `GET /analytics/dashboard` - Dashboard KPIs
-- `GET /analytics/trends` - Analytics data
-- `POST /analytics/cost-simulation` - Cost impact simulation
-- `POST /analytics/ai-suggestions` - AI formulation suggestions
-- `GET /notifications` - User notifications
-- `GET /activity` - Activity logs
-- `GET /search` - Global search
+- `POST /auth/login`, `POST /auth/register`, `GET /auth/me`
+- `GET/POST/PUT/DELETE /users`
+- `GET/POST/PUT/DELETE /projects`
+- `GET/POST /projects/:id/comments`
+- `GET/POST /tasks`, `PUT /tasks/:id`
+- `GET /analytics/dashboard`, `GET /analytics/trends`
+- `GET/POST/PUT/DELETE /business-dev`
+- `GET/POST /departments`
+- `GET/POST /chat/rooms`
+- `GET/POST /chat/rooms/:id/messages`
+- `POST /chat/rooms/:id/upload`
+- `GET /chat/uploads/:filename` (serve files)
+- `GET /chat/users`
+- `POST /ai-chat/message` (SSE streaming)
+- `GET /notifications`, `GET /activity`, `GET /search`
+
+## Theme
+
+- Default: dark mode
+- Toggle: sun/moon button in sidebar header
+- Light mode: `.light` class on `<html>`
 
 ## Development Commands
 
@@ -118,7 +141,3 @@ All routes prefixed with `/api/`:
 - `pnpm --filter @workspace/db run push` — Push DB schema
 - `pnpm --filter @workspace/scripts run seed` — Seed demo data
 - `pnpm --filter @workspace/api-spec run codegen` — Regenerate API client
-
-## TypeScript & Composite Projects
-
-Every package extends `tsconfig.base.json`. The root `tsconfig.json` lists all lib packages as project references.

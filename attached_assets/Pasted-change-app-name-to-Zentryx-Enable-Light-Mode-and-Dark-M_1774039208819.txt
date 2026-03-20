@@ -1,0 +1,68 @@
+change app name to Zentryx
+-Enable Light Mode and Dark Mode
+-Allow me to sign up or login using other emails (gmail, private work and organization email).
+
+-Enable the function to be able to add new team member, remove member, edit their roles(roles include Manager, NPD Technologist, Head of Product Development, Key Account Manager, Senior Key Account Manager, Project Manager)
+-When adding a new member, the metadata will include "Name", "Email address" "Role" "Department" "Status"
+
+-under team section(Team Directory), enable department selection (Department includes "NPD", "Marketing & Sales", "Account Management"), add the function of creating a new department.
+-Inside projects section, create a tab where I would be able to export all projects data in excel or CSV format for data analysis purpose.
+-Ensure all project data can be exported in a structured, analysis-ready format.
+The export must include:
+
+Product metadata
+Full formulation breakdown (ingredient-level data)
+Microbiological results
+Sensory evaluation scores
+Shelf-life and stability data
+Processing parameters
+Cost and financial metrics
+Market performance data
+Experimental design variables (DOE)
+The system must automatically generate:
+
+Correlation matrix
+Regression analysis outputs
+Cost vs quality optimization insights
+Predictive success score
+Profitability metrics
+Visual dashboards (charts, graphs, pie charts)
+Ensure exported data is clean, normalized, and ready for advanced analytics tools.
+
+-Under the PROJECTS, I want a filter that classifies the projects into Approved, Awaiting Feedback, on Hold, In progress, New Project Inventory, Cancelled, Pushed to Live.
+
+-Give the function to be able to permanently delete a project from the Project list
+
+-when creating a new project, add Metadata such as Customer name, email, phone number, date (start date, due date), Cost Target, Product Type ("Seasoning", "Snack Dusting", "Bread & Dough Premix", "Dairy Premix" "Functional Blend", "Pasta Sauce", "Sweet Flavour", "Savoury Flavour").. the product type should be selected from the options in the bracket
+-When a new project is created, insert the option of selecting the Assignee (s) from the team that will be in charge of the project.
+-Enable comments to made on each Project (Status Report)
+-Make all project title edittable
+-The Project Stage should edittable (selection type).. List of the Project Stage are "Testing" "Reformulation", "Innovation", "Cost Optimization", "Modification"
+
+Under Analytics -
+Replace:
+-Plant Based Proteins with "Seasoning"
+-Functional snacks with "Snacks Dusting"
+-Gluten Free with "Bread and Dough Premix"
+-Dairy & Fermented with "Dairy Premix"
+-Breakfast Creals with "Functional Blend"
+-Plant Based Dairy with "Pasta Sauce"
+-Beverages with "Sweet Flavours"
+-Savoury with "Savoury Flavours"
+
+Enable AI suggestions by making chatgpt an agent in there for a live chat. Make it readily available
+
+Just belw "Activity Feed", create another Section title "Business Development" and structure it just like Projects Section, it must include Metadata such as, Project title, Customer name, email, phone number, date (start date, due date), Cost Target, Product Type ("Seasoning", "Snack Dusting", "Bread & Dough Premix", "Dairy Premix" "Functional Blend", "Pasta Sauce", "Sweet Flavour", "Savoury Flavour").. the product type should be selected from the options in the bracket
+
+In the pipeline Distribution, give me the option to select from Pie Chart, Donut Chart, Bar Charts, Histograms, Charts, Graphs
+
+In the Dashboard, There should be a section that shows the Team (Option of List, Pie Chart, Donut Chart, Charts or Graphs) such that when an Assignee or Team Member is selected, it should the list of projects assigned to that specific Team member. And a Click on either project selected should link me straight to the actual project in the "Project Portfolio"
+
+In the Dashboard, remove "Avg Time to Market" Box, remove "Success Rate" Box, remove "Revenue Impact" Box, remove "Approved Formulations" box,
+-Make all the metrics in the dashboard functioning
+
+Enable Log in and Log out Feature
+
+Delete Formulations Section from the side panel
+
+Add a "Chat Room" on the side Panel that allows all assignees / Team member to chat with each other in a group chat method, also a private chat, allow picture sharing in the group chat, allow voice notes in the group chat, allow video meeting in the group
