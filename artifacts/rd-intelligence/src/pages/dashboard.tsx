@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useGetDashboardStats, useListProjects, useListUsers } from "@workspace/api-client-react";
 import { PageLoader } from "@/components/ui/spinner";
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, AreaChart, Area, Legend
+  PieChart, Pie, Cell, AreaChart, Area, Legend
 } from "recharts";
-import { FlaskConical, Users, Award, CheckCircle2, FolderOpen, TrendingUp } from "lucide-react";
+import { FlaskConical, Users, Award, FolderOpen, GripHorizontal } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -34,6 +34,50 @@ function TooltipStyle() {
   };
 }
 
+function useResize(defaultH: number, minH: number, maxH: number) {
+  const [height, setHeight] = useState(defaultH);
+  const dragging = useRef(false);
+  const startY = useRef(0);
+  const startH = useRef(defaultH);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    dragging.current = true;
+    startY.current = e.clientY;
+    startH.current = height;
+    document.body.style.userSelect = "none";
+    document.body.style.cursor = "ns-resize";
+  }, [height]);
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const delta = e.clientY - startY.current;
+      setHeight(Math.min(maxH, Math.max(minH, startH.current + delta)));
+    };
+    const onUp = () => {
+      dragging.current = false;
+      document.body.style.userSelect = "";
+      document.body.style.cursor = "";
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+  }, [minH, maxH]);
+
+  return { height, onMouseDown };
+}
+
+function ResizeHandle({ onMouseDown }: { onMouseDown: (e: React.MouseEvent) => void }) {
+  return (
+    <div
+      onMouseDown={onMouseDown}
+      className="flex items-center justify-center py-2 cursor-ns-resize hover:bg-white/5 transition-colors group mt-2 rounded-b-xl -mx-6 -mb-6"
+      title="Drag to resize">
+      <GripHorizontal className="w-4 h-4 text-white/20 group-hover:text-white/40 transition-colors" />
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const { data: stats, isLoading, error } = useGetDashboardStats();
   const { data: projects } = useListProjects({});
@@ -42,14 +86,19 @@ export default function Dashboard() {
   const [teamView, setTeamView] = useState<TeamView>("list");
   const [selectedMember, setSelectedMember] = useState<number | null>(null);
 
+  const velocityResize = useResize(280, 160, 600);
+  const pipelineResize = useResize(220, 140, 600);
+
   if (isLoading) return <PageLoader />;
   if (error || !stats) return <div className="p-8 text-destructive">Failed to load dashboard data.</div>;
+
+  const teamSize = Math.min(500, stats.teamSize || 0);
 
   const kpis = [
     { label: "Total Projects", value: formatNumber(stats.totalProjects || 0), icon: FolderOpen, color: "text-primary", bg: "bg-primary/10" },
     { label: "Active Projects", value: formatNumber(stats.activeProjects || 0), icon: FlaskConical, color: "text-secondary", bg: "bg-secondary/10" },
     { label: "Completed Projects", value: formatNumber(stats.completedProjects || 0), icon: Award, color: "text-green-400", bg: "bg-green-400/10" },
-    { label: "Team Size", value: formatNumber(stats.teamSize || 0), icon: Users, color: "text-accent", bg: "bg-accent/10" },
+    { label: "Team Size", value: formatNumber(teamSize), icon: Users, color: "text-accent", bg: "bg-accent/10" },
   ];
 
   const memberProjects = selectedMember
@@ -81,6 +130,9 @@ export default function Dashboard() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">{kpi.label}</p>
               <h3 className="text-3xl font-bold font-display text-foreground mt-2">{kpi.value}</h3>
+              {kpi.label === "Team Size" && (stats.teamSize || 0) > 500 && (
+                <p className="text-xs text-muted-foreground mt-1">(capped at 500)</p>
+              )}
             </div>
             <div className={`p-3 rounded-xl ${kpi.bg}`}>
               <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
@@ -90,9 +142,12 @@ export default function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass-card p-6 rounded-2xl">
-          <h3 className="text-lg font-semibold mb-6 font-display">Innovation Velocity</h3>
-          <div className="h-[280px]">
+        <div className="lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold font-display">Innovation Velocity</h3>
+            <span className="text-xs text-muted-foreground">Drag handle to resize</span>
+          </div>
+          <div style={{ height: velocityResize.height }} className="transition-none">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={stats.monthlyProjects || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -109,13 +164,15 @@ export default function Dashboard() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+          <ResizeHandle onMouseDown={velocityResize.onMouseDown} />
         </div>
 
-        <div className="glass-card p-6 rounded-2xl">
-          <div className="flex items-center justify-between mb-4">
+        <div className="glass-card p-6 rounded-2xl flex flex-col">
+          <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold font-display">Pipeline Distribution</h3>
+            <span className="text-xs text-muted-foreground">Drag ↕ to resize</span>
           </div>
-          <div className="flex flex-wrap gap-1 mb-4">
+          <div className="flex flex-wrap gap-1 mb-3">
             {(["pie", "donut", "bar", "histogram", "line"] as ChartType[]).map(t => (
               <button key={t} onClick={() => setPipelineChartType(t)}
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-all capitalize ${pipelineChartType === t ? "bg-primary text-white" : "bg-white/5 text-muted-foreground hover:bg-white/10"}`}>
@@ -123,18 +180,18 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
-          <div className="h-[220px]">
+          <div style={{ height: pipelineResize.height }} className="transition-none">
             <ResponsiveContainer width="100%" height="100%">
               {pipelineChartType === "pie" ? (
                 <PieChart>
-                  <Pie data={pipelineData} cx="50%" cy="50%" outerRadius={85} dataKey="count" nameKey="stage" stroke="none">
+                  <Pie data={pipelineData} cx="50%" cy="50%" outerRadius="70%" dataKey="count" nameKey="stage" stroke="none">
                     {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <RechartsTooltip {...TooltipStyle()} />
                 </PieChart>
               ) : pipelineChartType === "donut" ? (
                 <PieChart>
-                  <Pie data={pipelineData} cx="50%" cy="50%" innerRadius={50} outerRadius={85} paddingAngle={4} dataKey="count" nameKey="stage" stroke="none">
+                  <Pie data={pipelineData} cx="50%" cy="50%" innerRadius="40%" outerRadius="70%" paddingAngle={4} dataKey="count" nameKey="stage" stroke="none">
                     {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <RechartsTooltip {...TooltipStyle()} />
@@ -152,7 +209,7 @@ export default function Dashboard() {
               )}
             </ResponsiveContainer>
           </div>
-          <div className="flex flex-wrap gap-2 mt-2">
+          <div className="flex flex-wrap gap-2 mt-2 mb-1">
             {pipelineData.slice(0, 5).map((s: any, i: number) => (
               <div key={s.stage} className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
@@ -160,6 +217,7 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+          <ResizeHandle onMouseDown={pipelineResize.onMouseDown} />
         </div>
       </div>
 
@@ -178,7 +236,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {teamView === "list" ? (
-            <div className="space-y-2">
+            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
               {(users || []).map(u => {
                 const projectCount = (projects || []).filter(p => Array.isArray(p.assignees) && p.assignees.some((a: any) => a.id === u.id)).length;
                 return (

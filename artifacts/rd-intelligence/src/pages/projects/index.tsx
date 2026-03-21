@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useListProjects, useCreateProject, useDeleteProject, useListUsers } from "@workspace/api-client-react";
+import { useListProjects, useCreateProject, useDeleteProject, useListUsers, useUpdateProject } from "@workspace/api-client-react";
 import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Calendar, CheckSquare, Trash2, Download, Filter, X } from "lucide-react";
+import { Plus, Search, Calendar, CheckSquare, Trash2, Download } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
@@ -41,7 +41,14 @@ export default function ProjectsList() {
   const { data: users } = useListUsers();
   const queryClient = useQueryClient();
   const deleteMutation = useDeleteProject();
+  const updateMutation = useUpdateProject();
   const { toast } = useToast();
+
+  const handleDateChange = (id: number, date: string) => {
+    updateMutation.mutate({ id, data: { targetDate: date || null } as any }, {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/projects"] }),
+    });
+  };
 
   const filteredProjects = (projects || []).filter(p => {
     const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,12 +180,17 @@ export default function ProjectsList() {
                       </div>
                     </div>
 
-                    {project.targetDate && (
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-3 pt-3 border-t border-white/5">
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span>Due: {format(new Date(project.targetDate), "MMM d, yyyy")}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-3 pt-3 border-t border-white/5">
+                      <Calendar className="w-3.5 h-3.5 shrink-0" />
+                      <input
+                        type="date"
+                        value={project.targetDate ? format(new Date(project.targetDate), "yyyy-MM-dd") : ""}
+                        onChange={e => { e.stopPropagation(); handleDateChange(project.id, e.target.value); }}
+                        onClick={e => e.stopPropagation()}
+                        className="bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/50 rounded cursor-pointer text-muted-foreground text-xs hover:text-foreground transition-colors w-full"
+                        title="Set due date"
+                      />
+                    </div>
                   </div>
                 </Link>
                 <button

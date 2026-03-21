@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { businessDevTable, usersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
 import { logActivity } from "../lib/activity";
 
@@ -12,7 +12,7 @@ async function enrichBD(bd: typeof businessDevTable.$inferSelect) {
     ? (await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role }).from(usersTable).where(eq(usersTable.id, bd.leadId)).limit(1))[0] || null
     : null;
   const assignees = bd.assigneeIds.length > 0
-    ? await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, department: usersTable.department }).from(usersTable).where(require("drizzle-orm").inArray(usersTable.id, bd.assigneeIds))
+    ? await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, department: usersTable.department }).from(usersTable).where(inArray(usersTable.id, bd.assigneeIds))
     : [];
   return { ...bd, lead, assignees };
 }
