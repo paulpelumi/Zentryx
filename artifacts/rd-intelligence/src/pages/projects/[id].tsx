@@ -1,12 +1,12 @@
 import { useRoute } from "wouter";
-import { useGetProject, useListTasks, useCreateTask, useUpdateTask, useUpdateProject, useListUsers } from "@workspace/api-client-react";
+import { useGetProject, useListTasks, useCreateTask, useUpdateTask, useDeleteTask, useUpdateProject, useListUsers } from "@workspace/api-client-react";
 import { PageLoader } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Clock, MessageSquare, Send, Edit3, Check, X, Calendar, User, Phone, Mail, DollarSign, Package } from "lucide-react";
+import { ArrowLeft, Plus, Clock, MessageSquare, Send, Edit3, Check, X, Calendar, User, Phone, Mail, DollarSign, Package, Trash2, GripVertical, AtSign } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
@@ -14,10 +14,26 @@ import { useToast } from "@/hooks/use-toast";
 
 const BASE = import.meta.env.BASE_URL;
 const TASK_STATUSES = ['todo', 'in_progress', 'review', 'done', 'blocked'] as const;
+type TaskStatus = typeof TASK_STATUSES[number];
 const STAGES = ["testing", "reformulation", "innovation", "cost_optimization", "modification"];
 const STATUSES = ["approved", "awaiting_feedback", "on_hold", "in_progress", "new_inventory", "cancelled", "pushed_to_live"];
 const PRIORITIES = ["low", "medium", "high", "critical"];
 const PRODUCT_TYPES = ["Seasoning", "Snack Dusting", "Bread & Dough Premix", "Dairy Premix", "Functional Blend", "Pasta Sauce", "Sweet Flavour", "Savoury Flavour"];
+
+const COLUMN_COLORS: Record<string, string> = {
+  todo: "border-white/10",
+  in_progress: "border-blue-500/20",
+  review: "border-yellow-500/20",
+  done: "border-green-500/20",
+  blocked: "border-red-500/20",
+};
+const COLUMN_HEADER_COLORS: Record<string, string> = {
+  todo: "text-muted-foreground",
+  in_progress: "text-blue-400",
+  review: "text-yellow-400",
+  done: "text-green-400",
+  blocked: "text-red-400",
+};
 
 function InlineEdit({ value, onSave, type = "text", options, placeholder, icon, label }: {
   value: string; onSave: (v: string) => void; type?: string; options?: string[];
@@ -74,6 +90,9 @@ export default function ProjectDetail() {
   const [titleValue, setTitleValue] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
   const [descValue, setDescValue] = useState("");
+  const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
+  const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
+  const [editingTask, setEditingTask] = useState<any | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -81,6 +100,7 @@ export default function ProjectDetail() {
   const { data: tasks, isLoading: loadingTasks } = useListTasks({ projectId });
   const { data: users } = useListUsers();
   const updateTaskMut = useUpdateTask();
+  const deleteTaskMut = useDeleteTask();
   const updateProjectMut = useUpdateProject();
 
   useEffect(() => {
@@ -90,15 +110,40 @@ export default function ProjectDetail() {
   if (loadingProj || loadingTasks) return <PageLoader />;
   if (!project) return <div className="glass-card p-12 text-center rounded-2xl text-muted-foreground">Project not found</div>;
 
-  const moveTask = (taskId: number, newStatus: any) => {
+  const moveTask = (taskId: number, newStatus: TaskStatus) => {
     updateTaskMut.mutate({ id: taskId, data: { status: newStatus } }, {
       onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks"] })
     });
   };
 
+  const handleDragStart = (e: React.DragEvent, taskId: number) => {
+    e.dataTransfer.setData("taskId", String(taskId));
+    e.dataTransfer.effectAllowed = "move";
+    setDraggingTaskId(taskId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingTaskId(null);
+    setDragOverCol(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, col: TaskStatus) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverCol(col);
+  };
+
+  const handleDrop = (e: React.DragEvent, col: TaskStatus) => {
+    e.preventDefault();
+    const taskId = parseInt(e.dataTransfer.getData("taskId"));
+    if (taskId) moveTask(taskId, col);
+    setDragOverCol(null);
+    setDraggingTaskId(null);
+  };
+
   const saveField = (field: string, value: any) => {
     updateProjectMut.mutate({ id: projectId, data: { [field]: value || null } as any }, {
-      onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/projects"] }); toast({ title: "Saved", description: `${field.replace(/([A-Z])/g,' $1')} updated.` }); },
+      onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/projects"] }); toast({ title: "Saved" }); },
     });
   };
 
@@ -141,7 +186,6 @@ export default function ProjectDetail() {
                 </button>
               </div>
             )}
-
             <div className="flex items-center gap-3 mt-2 flex-wrap">
               <select value={project.stage} onChange={e => saveField("stage", e.target.value)} className={selectCls}>
                 {STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g, ' ')}</option>)}
@@ -153,7 +197,6 @@ export default function ProjectDetail() {
                 {PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p} Priority</option>)}
               </select>
             </div>
-
             <div className="mt-3 max-w-2xl">
               {editingDesc ? (
                 <div className="space-y-2">
@@ -172,7 +215,6 @@ export default function ProjectDetail() {
               )}
             </div>
           </div>
-
           <div className="text-right text-sm shrink-0 space-y-1">
             {project.customerName && <div className="font-medium text-foreground">{project.customerName}</div>}
             {project.productType && <div className="text-muted-foreground">{project.productType}</div>}
@@ -196,48 +238,71 @@ export default function ProjectDetail() {
       </div>
 
       {activeTab === "tasks" && (
-        <div className="overflow-x-auto pb-4 custom-scrollbar">
-          <div className="flex gap-6 min-w-max">
-            {TASK_STATUSES.map(status => {
-              const columnTasks = (tasks || []).filter(t => t.status === status);
-              return (
-                <div key={status} className="w-72 flex flex-col max-h-[60vh]">
-                  <div className="flex items-center justify-between mb-3 shrink-0">
-                    <h3 className="font-semibold text-foreground capitalize flex items-center gap-2 text-sm">
-                      {status.replace(/_/g, ' ')}
-                      <span className="bg-white/10 text-xs px-2 py-0.5 rounded-full text-muted-foreground">{columnTasks.length}</span>
-                    </h3>
-                    {status === 'todo' && <CreateTaskModal projectId={projectId} />}
-                  </div>
-                  <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1">
-                    {columnTasks.map(task => (
-                      <div key={task.id} className="glass-card p-4 rounded-xl group">
-                        <div className="flex justify-between items-start mb-2">
-                          <Badge variant={task.priority === 'critical' ? 'destructive' : task.priority === 'high' ? 'warning' : 'outline'} className="text-[10px]">{task.priority}</Badge>
-                        </div>
-                        <h4 className="text-sm font-medium text-foreground mb-1">{task.title}</h4>
-                        {task.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{task.description}</p>}
-                        <div className="flex items-center justify-between mt-3">
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock className="w-3 h-3" />{format(new Date(task.createdAt), "MMM d")}
+        <>
+          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+            <GripVertical className="w-3.5 h-3.5" /> Drag tasks between columns · Click <Edit3 className="w-3 h-3 inline" /> to edit
+          </p>
+          <div className="overflow-x-auto pb-4 custom-scrollbar">
+            <div className="flex gap-5 min-w-max">
+              {TASK_STATUSES.map(status => {
+                const columnTasks = (tasks || []).filter(t => t.status === status);
+                const isOver = dragOverCol === status;
+                return (
+                  <div key={status}
+                    className={`w-72 flex flex-col rounded-2xl border transition-colors ${COLUMN_COLORS[status]} ${isOver ? "bg-white/5 scale-[1.01]" : ""}`}
+                    onDragOver={e => handleDragOver(e, status)}
+                    onDragLeave={() => setDragOverCol(null)}
+                    onDrop={e => handleDrop(e, status)}>
+                    <div className="flex items-center justify-between p-3 pb-2 shrink-0">
+                      <h3 className={`font-semibold capitalize flex items-center gap-2 text-sm ${COLUMN_HEADER_COLORS[status]}`}>
+                        {status.replace(/_/g, ' ')}
+                        <span className="bg-white/10 text-xs px-1.5 py-0.5 rounded-full text-muted-foreground">{columnTasks.length}</span>
+                      </h3>
+                      {status === 'todo' && <CreateTaskModal projectId={projectId} />}
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 p-2 pt-1 max-h-[62vh]">
+                      {columnTasks.map(task => (
+                        <div key={task.id}
+                          draggable
+                          onDragStart={e => handleDragStart(e, task.id)}
+                          onDragEnd={handleDragEnd}
+                          className={`glass-card p-3 rounded-xl group cursor-grab active:cursor-grabbing select-none transition-opacity ${draggingTaskId === task.id ? "opacity-40" : "opacity-100"}`}>
+                          <div className="flex justify-between items-start mb-1.5">
+                            <Badge variant={task.priority === 'critical' ? 'destructive' : task.priority === 'high' ? 'warning' : 'outline'} className="text-[10px]">{task.priority}</Badge>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={() => setEditingTask(task)} className="p-1 hover:bg-white/10 rounded text-muted-foreground hover:text-foreground" title="Edit task">
+                                <Edit3 className="w-3 h-3" />
+                              </button>
+                              <button onClick={() => { if (confirm("Delete this task?")) deleteTaskMut.mutate({ id: task.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }) }); }}
+                                className="p-1 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive" title="Delete task">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {status !== 'todo' && <button onClick={() => moveTask(task.id, TASK_STATUSES[TASK_STATUSES.indexOf(status) - 1])} className="p-1 hover:bg-white/10 rounded text-xs text-muted-foreground">←</button>}
-                            {status !== 'done' && <button onClick={() => moveTask(task.id, TASK_STATUSES[TASK_STATUSES.indexOf(status) + 1])} className="p-1 hover:bg-white/10 rounded text-xs text-muted-foreground">→</button>}
+                          <h4 className="text-sm font-medium text-foreground mb-1 leading-tight">{task.title}</h4>
+                          {task.description && <p className="text-xs text-muted-foreground line-clamp-2 mb-2">{task.description}</p>}
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-2">
+                            <GripVertical className="w-3 h-3 opacity-30" />
+                            <Clock className="w-3 h-3" />
+                            <span>{format(new Date(task.createdAt), "MMM d")}</span>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                    {columnTasks.length === 0 && <div className="border-2 border-dashed border-white/5 rounded-xl h-16 flex items-center justify-center text-muted-foreground text-xs">Empty</div>}
+                      ))}
+                      {columnTasks.length === 0 && (
+                        <div className={`border-2 border-dashed rounded-xl h-20 flex items-center justify-center text-muted-foreground text-xs transition-colors ${isOver ? "border-primary/40 bg-primary/5" : "border-white/5"}`}>
+                          {isOver ? "Drop here" : "Empty"}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </>
       )}
 
-      {activeTab === "comments" && <CommentsTab projectId={projectId} />}
+      {activeTab === "comments" && <CommentsTab projectId={projectId} users={users || []} />}
 
       {activeTab === "info" && (
         <div className="space-y-6">
@@ -254,7 +319,6 @@ export default function ProjectDetail() {
             <InlineEdit label="Start Date" value={project.startDate ? format(new Date(project.startDate), "yyyy-MM-dd") : ""} onSave={v => saveField("startDate", v)} type="date" icon={<Calendar className="w-3.5 h-3.5" />} />
             <InlineEdit label="Due Date" value={project.targetDate ? format(new Date(project.targetDate), "yyyy-MM-dd") : ""} onSave={v => saveField("targetDate", v)} type="date" icon={<Calendar className="w-3.5 h-3.5" />} />
           </div>
-
           {(project as any).assignees?.length > 0 && (
             <div className="glass-card rounded-xl p-4">
               <div className="text-xs text-muted-foreground uppercase tracking-wide mb-3 flex items-center gap-2"><User className="w-3.5 h-3.5" /> Assignees</div>
@@ -269,22 +333,77 @@ export default function ProjectDetail() {
               </div>
             </div>
           )}
-
-          <AssigneeEditor projectId={projectId} currentAssigneeIds={((project as any).assignees || []).map((a: any) => a.id)} users={users || []} onSave={(ids) => saveField("assigneeIds", ids)} />
+          <AssigneeEditor currentAssigneeIds={((project as any).assignees || []).map((a: any) => a.id)} users={users || []} onSave={(ids) => saveField("assigneeIds", ids)} />
         </div>
+      )}
+
+      {editingTask && (
+        <EditTaskModal task={editingTask} onClose={() => setEditingTask(null)}
+          onSave={(data) => {
+            updateTaskMut.mutate({ id: editingTask.id, data }, {
+              onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }); setEditingTask(null); toast({ title: "Task updated" }); }
+            });
+          }} />
       )}
     </div>
   );
 }
 
-function AssigneeEditor({ projectId, currentAssigneeIds, users, onSave }: { projectId: number; currentAssigneeIds: number[]; users: any[]; onSave: (ids: number[]) => void }) {
+function EditTaskModal({ task, onClose, onSave }: { task: any; onClose: () => void; onSave: (data: any) => void }) {
+  const [form, setForm] = useState({
+    title: task.title || "",
+    description: task.description || "",
+    priority: task.priority || "medium",
+    status: task.status || "todo",
+    dueDate: task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "",
+  });
+  const setF = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
+  const cls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[480px] glass-panel border-white/10 bg-card/95">
+        <DialogHeader><DialogTitle className="font-display">Edit Task</DialogTitle></DialogHeader>
+        <div className="space-y-4 mt-2">
+          <div className="space-y-1.5"><label className="text-sm font-medium">Title *</label>
+            <input value={form.title} onChange={e => setF("title", e.target.value)} className={cls} autoFocus />
+          </div>
+          <div className="space-y-1.5"><label className="text-sm font-medium">Description</label>
+            <textarea value={form.description} onChange={e => setF("description", e.target.value)}
+              className="flex min-h-[80px] w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground resize-none"
+              placeholder="Task details..." />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5"><label className="text-sm font-medium">Priority</label>
+              <select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>
+                {["low", "medium", "high", "critical"].map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Status</label>
+              <select value={form.status} onChange={e => setF("status", e.target.value)} className={cls}>
+                {TASK_STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5 col-span-2"><label className="text-sm font-medium">Due Date</label>
+              <input type="date" value={form.dueDate} onChange={e => setF("dueDate", e.target.value)} className={cls} />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button onClick={() => onSave({ ...form, dueDate: form.dueDate || null })} disabled={!form.title.trim()}>Save Task</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AssigneeEditor({ currentAssigneeIds, users, onSave }: { currentAssigneeIds: number[]; users: any[]; onSave: (ids: number[]) => void }) {
   const [editing, setEditing] = useState(false);
   const [selected, setSelected] = useState<number[]>(currentAssigneeIds);
   useEffect(() => { setSelected(currentAssigneeIds); }, [JSON.stringify(currentAssigneeIds)]);
   const toggle = (id: number) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-
   if (users.length === 0) return null;
-
   return (
     <div className="glass-card rounded-xl p-4">
       <div className="flex items-center justify-between mb-3">
@@ -314,12 +433,16 @@ function AssigneeEditor({ projectId, currentAssigneeIds, users, onSave }: { proj
   );
 }
 
-function CommentsTab({ projectId }: { projectId: number }) {
+function CommentsTab({ projectId, users }: { projectId: number; users: any[] }) {
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStart, setMentionStart] = useState<number>(-1);
+  const [pendingMentions, setPendingMentions] = useState<Map<string, number>>(new Map());
   const bottomRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     fetch(`${BASE}api/projects/${projectId}/comments`, {
@@ -327,27 +450,76 @@ function CommentsTab({ projectId }: { projectId: number }) {
     }).then(r => r.json()).then(d => setComments(Array.isArray(d) ? d : [])).finally(() => setLoading(false));
   }, [projectId]);
 
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setNewComment(val);
+    const cursor = e.target.selectionStart;
+    const textBefore = val.slice(0, cursor);
+    const atIdx = textBefore.lastIndexOf("@");
+    if (atIdx !== -1) {
+      const query = textBefore.slice(atIdx + 1);
+      if (!query.includes(" ") && !query.includes("\n")) {
+        setMentionQuery(query);
+        setMentionStart(atIdx);
+        return;
+      }
+    }
+    setMentionQuery(null);
+  };
+
+  const insertMention = (user: any) => {
+    const before = newComment.slice(0, mentionStart);
+    const after = newComment.slice(mentionStart + 1 + (mentionQuery?.length || 0));
+    const inserted = `@${user.name} `;
+    setNewComment(before + inserted + after);
+    setPendingMentions(m => new Map(m).set(user.name, user.id));
+    setMentionQuery(null);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  const filteredUsers = mentionQuery !== null
+    ? users.filter(u => u.name.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 8)
+    : [];
+
   const post = async () => {
     if (!newComment.trim()) return;
     setPosting(true);
+    const mentionedUserIds = Array.from(pendingMentions.entries())
+      .filter(([name]) => newComment.includes(`@${name}`))
+      .map(([, id]) => id);
     try {
       const res = await fetch(`${BASE}api/projects/${projectId}/comments`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("rd_token")}` },
-        body: JSON.stringify({ content: newComment }),
+        body: JSON.stringify({ content: newComment, mentionedUserIds }),
       });
       const data = await res.json();
       setComments(c => [...c, data]);
       setNewComment("");
+      setPendingMentions(new Map());
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
     } finally { setPosting(false); }
+  };
+
+  const renderContent = (content: string) => {
+    const parts = content.split(/(@\w[\w\s]*?)(?=\s|$|@)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("@")) {
+        const name = part.slice(1).trim();
+        const user = users.find(u => u.name === name || content.includes(`@${u.name}`));
+        if (user) return <span key={i} className="text-primary font-medium bg-primary/10 px-1 rounded">{part}</span>;
+      }
+      return <span key={i}>{part}</span>;
+    });
   };
 
   if (loading) return <PageLoader />;
 
   return (
     <div className="glass-card rounded-2xl p-6 space-y-4">
-      <h3 className="text-lg font-semibold font-display flex items-center gap-2"><MessageSquare className="w-5 h-5 text-primary" /> Status Reports & Comments</h3>
+      <h3 className="text-lg font-semibold font-display flex items-center gap-2">
+        <MessageSquare className="w-5 h-5 text-primary" /> Status Reports & Comments
+      </h3>
       <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
         {comments.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
@@ -364,20 +536,63 @@ function CommentsTab({ projectId }: { projectId: number }) {
                 <span className="font-medium text-sm text-foreground">{c.authorName}</span>
                 <span className="text-xs text-muted-foreground">{format(new Date(c.createdAt), "MMM d, yyyy · h:mm a")}</span>
               </div>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{c.content}</p>
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap">{renderContent(c.content)}</p>
             </div>
           </div>
         ))}
         <div ref={bottomRef} />
       </div>
-      <div className="flex gap-2 pt-2 border-t border-white/5">
-        <textarea value={newComment} onChange={e => setNewComment(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); post(); } }}
-          placeholder="Add a status report or comment... (Enter to send)"
-          className="flex-1 min-h-[60px] rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground resize-none" />
-        <Button onClick={post} disabled={posting || !newComment.trim()} className="self-end gap-2">
-          <Send className="w-4 h-4" /> {posting ? "Sending..." : "Send"}
-        </Button>
+
+      <div className="pt-2 border-t border-white/5">
+        <div className="relative">
+          {mentionQuery !== null && filteredUsers.length > 0 && (
+            <div className="absolute bottom-full mb-2 left-0 w-72 glass-panel rounded-xl border border-white/10 shadow-2xl z-50 overflow-hidden">
+              <div className="px-3 py-2 border-b border-white/5 flex items-center gap-2 text-xs text-muted-foreground">
+                <AtSign className="w-3.5 h-3.5 text-primary" /> Mention a team member
+                {mentionQuery && <span className="font-mono text-primary">"{mentionQuery}"</span>}
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {filteredUsers.map(u => (
+                  <button key={u.id} onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-white/5 text-left transition-colors">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {u.name.charAt(0)}
+                    </div>
+                    <div>
+                      <div className="text-sm font-medium text-foreground">{u.name}</div>
+                      <div className="text-xs text-muted-foreground capitalize">{u.role.replace(/_/g, ' ')}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={newComment}
+            onChange={handleTextareaChange}
+            onKeyDown={e => {
+              if (mentionQuery !== null && e.key === "Escape") { setMentionQuery(null); return; }
+              if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) { e.preventDefault(); post(); }
+            }}
+            placeholder="Write a status report... Type @ to mention a team member (Enter to send)"
+            className="w-full min-h-[72px] rounded-xl border border-white/10 bg-black/20 px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground resize-none"
+          />
+          <AtSign className="absolute right-3 top-3 w-4 h-4 text-muted-foreground pointer-events-none opacity-50" />
+        </div>
+        {pendingMentions.size > 0 && (
+          <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <span className="text-xs text-muted-foreground">Mentions:</span>
+            {Array.from(pendingMentions.entries()).filter(([name]) => newComment.includes(`@${name}`)).map(([name, id]) => (
+              <span key={id} className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">@{name}</span>
+            ))}
+          </div>
+        )}
+        <div className="flex justify-end mt-2">
+          <Button onClick={post} disabled={posting || !newComment.trim()} className="gap-2">
+            <Send className="w-4 h-4" /> {posting ? "Sending..." : "Post Report"}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -388,29 +603,49 @@ function CreateTaskModal({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient();
   const createMutation = useCreateTask();
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<any>("medium");
-  const cls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none text-foreground";
+  const [dueDate, setDueDate] = useState("");
+  const cls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none text-foreground placeholder:text-muted-foreground";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    createMutation.mutate({ data: { projectId, title, status: "todo" as any, priority } }, {
-      onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }); setOpen(false); setTitle(""); }
+    createMutation.mutate({ data: { projectId, title, description: description || undefined, status: "todo" as any, priority, dueDate: dueDate || undefined } as any }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+        setOpen(false); setTitle(""); setDescription(""); setDueDate(""); setPriority("medium");
+      }
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button className="p-1 hover:bg-white/10 rounded-md text-muted-foreground hover:text-foreground transition-colors"><Plus className="w-4 h-4" /></button>
+        <button className="p-1 hover:bg-white/10 rounded-md text-muted-foreground hover:text-foreground transition-colors" title="Add task"><Plus className="w-4 h-4" /></button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[400px] glass-panel">
-        <DialogHeader><DialogTitle>Add Task</DialogTitle></DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
-          <Input required value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title..." autoFocus />
-          <select value={priority} onChange={e => setPriority(e.target.value)} className={cls}>
-            {["low", "medium", "high", "critical"].map(p => <option key={p} value={p} className="bg-card capitalize">{p} Priority</option>)}
-          </select>
-          <div className="pt-2 flex justify-end"><Button type="submit" disabled={createMutation.isPending}>Add Task</Button></div>
+      <DialogContent className="sm:max-w-[440px] glass-panel border-white/10 bg-card/95">
+        <DialogHeader><DialogTitle className="font-display">Add Task</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <div className="space-y-1.5"><label className="text-sm font-medium">Title *</label>
+            <input required value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title..." className={cls} autoFocus />
+          </div>
+          <div className="space-y-1.5"><label className="text-sm font-medium">Description</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Details..." className="flex min-h-[60px] w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none text-foreground placeholder:text-muted-foreground resize-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5"><label className="text-sm font-medium">Priority</label>
+              <select value={priority} onChange={e => setPriority(e.target.value)} className={cls}>
+                {["low", "medium", "high", "critical"].map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}
+              </select>
+            </div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Due Date</label>
+              <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} className={cls} />
+            </div>
+          </div>
+          <div className="pt-1 flex justify-end gap-3">
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={createMutation.isPending}>Add Task</Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
