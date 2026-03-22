@@ -1,11 +1,16 @@
-import { useState, useEffect, useRef } from "react";
-import { Send, Plus, ImageIcon, Mic, MicOff, Users, Lock, Video, Hash, MoreVertical, Paperclip, StopCircle } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Send, Plus, ImageIcon, Mic, MicOff, Users, Lock, Video, Hash,
+  MoreVertical, StopCircle, Trash2, Pin, PinOff, LogOut, X,
+  MessageSquare, AtSign, ChevronRight
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageLoader } from "@/components/ui/spinner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { AnimatePresence, motion } from "framer-motion";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -16,7 +21,143 @@ function useApi() {
     method: "POST", headers: { ...headers(), "Content-Type": "application/json" }, body: JSON.stringify(body),
   }).then(r => r.json());
   const postForm = (path: string, data: FormData) => fetch(`${BASE}api${path}`, { method: "POST", headers: headers(), body: data }).then(r => r.json());
-  return { get, post, postForm };
+  const del = (path: string) => fetch(`${BASE}api${path}`, { method: "DELETE", headers: headers() }).then(r => r.json());
+  return { get, post, postForm, del };
+}
+
+function usePinnedRooms() {
+  const key = "rd_pinned_rooms";
+  const [pins, setPins] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; }
+  });
+  const toggle = useCallback((id: number) => {
+    setPins(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      localStorage.setItem(key, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+  const isPinned = (id: number) => pins.includes(id);
+  return { isPinned, toggle };
+}
+
+function usePinnedMessages(roomId: number) {
+  const key = `rd_pinned_msgs_${roomId}`;
+  const [pins, setPins] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch { return []; }
+  });
+  useEffect(() => {
+    try { setPins(JSON.parse(localStorage.getItem(key) || "[]")); } catch { setPins([]); }
+  }, [roomId]);
+  const toggle = useCallback((id: number) => {
+    setPins(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      localStorage.setItem(`rd_pinned_msgs_${roomId}`, JSON.stringify(next));
+      return next;
+    });
+  }, [roomId]);
+  const isPinned = (id: number) => pins.includes(id);
+  return { isPinned, toggle };
+}
+
+function RoomContextMenu({ room, isPinned, onPin, onDelete, onLeave, isCreator }: {
+  room: any; isPinned: boolean; onPin: () => void;
+  onDelete: () => void; onLeave: () => void; isCreator: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref} onClick={e => e.stopPropagation()}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="p-1 rounded hover:bg-white/10 text-muted-foreground hover:text-foreground opacity-0 group-hover/room:opacity-100 transition-all"
+      >
+        <MoreVertical className="w-3.5 h-3.5" />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.12 }}
+            className="absolute left-full top-0 ml-1 w-44 glass-panel border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+          >
+            <button onClick={() => { onPin(); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
+              {isPinned ? <PinOff className="w-4 h-4 text-amber-400" /> : <Pin className="w-4 h-4 text-amber-400" />}
+              {isPinned ? "Unpin" : "Pin to Top"}
+            </button>
+            <div className="border-t border-white/5" />
+            {isCreator ? (
+              <button onClick={() => { onDelete(); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left text-destructive hover:bg-destructive/10 transition-colors">
+                <Trash2 className="w-4 h-4" /> Delete Channel
+              </button>
+            ) : (
+              <button onClick={() => { onLeave(); setOpen(false); }}
+                className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left text-destructive hover:bg-destructive/10 transition-colors">
+                <LogOut className="w-4 h-4" /> Leave Channel
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function MessageContextMenu({ msg, isOwn, isPinned, onDelete, onPin }: {
+  msg: any; isOwn: boolean; isPinned: boolean; onDelete: () => void; onPin: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button onClick={() => setOpen(o => !o)}
+        className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground hover:text-foreground opacity-0 group-hover/msg:opacity-100 transition-all">
+        <MoreVertical className="w-3.5 h-3.5" />
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: -4 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.12 }}
+            className={`absolute ${isOwn ? "right-0" : "left-0"} bottom-full mb-1 w-44 glass-panel border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden`}
+          >
+            <button onClick={() => { onPin(); setOpen(false); }}
+              className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
+              {isPinned ? <PinOff className="w-4 h-4 text-amber-400" /> : <Pin className="w-4 h-4 text-amber-400" />}
+              {isPinned ? "Unpin Message" : "Pin Message"}
+            </button>
+            {isOwn && (
+              <>
+                <div className="border-t border-white/5" />
+                <button onClick={() => { onDelete(); setOpen(false); }}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 text-sm text-left text-destructive hover:bg-destructive/10 transition-colors">
+                  <Trash2 className="w-4 h-4" /> Delete Message
+                </button>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default function ChatRoom() {
@@ -31,37 +172,60 @@ export default function ChatRoom() {
   const [loading, setLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
+  const [showPinnedMsgs, setShowPinnedMsgs] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStart, setMentionStart] = useState<number>(-1);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const textareaRef = useRef<HTMLInputElement>(null);
+
+  const { isPinned: isRoomPinned, toggle: toggleRoomPin } = usePinnedRooms();
+  const { isPinned: isMsgPinned, toggle: toggleMsgPin } = usePinnedMessages(activeRoom?.id || 0);
+
   const currentUserId = (() => {
     try { return JSON.parse(atob(localStorage.getItem("rd_token")?.split(".")[1] || "")).userId; } catch { return null; }
   })();
 
   useEffect(() => {
+    localStorage.removeItem("rd_chat_unread");
     Promise.all([api.get("/chat/rooms"), api.get("/chat/users")]).then(([r, u]) => {
-      setRooms(r);
-      setUsers(u);
-      if (r.length > 0) selectRoom(r[0]);
+      setRooms(Array.isArray(r) ? r : []);
+      setUsers(Array.isArray(u) ? u : []);
+      const allRooms = Array.isArray(r) ? r : [];
+      if (allRooms.length > 0) selectRoom(allRooms[0]);
       else setLoading(false);
     });
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 
+  const loadMessages = useCallback((roomId: number) => {
+    api.get(`/chat/rooms/${roomId}/messages?limit=100`).then((msgs: any[]) => {
+      const msgList = Array.isArray(msgs) ? msgs : [];
+      setMessages(prev => {
+        const prevLatest = prev.length > 0 ? prev[prev.length - 1]?.createdAt : null;
+        const newLatest = msgList.length > 0 ? msgList[msgList.length - 1]?.createdAt : null;
+        if (prevLatest && newLatest && newLatest > prevLatest) {
+          const latest = msgList[msgList.length - 1];
+          if (latest.senderId !== currentUserId) {
+            localStorage.setItem("rd_chat_unread", "1");
+          }
+        }
+        return msgList;
+      });
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    });
+  }, [currentUserId]);
+
   const selectRoom = (room: any) => {
     setActiveRoom(room);
     setMessages([]);
+    setShowPinnedMsgs(false);
     if (pollRef.current) clearInterval(pollRef.current);
     loadMessages(room.id);
     pollRef.current = setInterval(() => loadMessages(room.id), 3000);
     setLoading(false);
-  };
-
-  const loadMessages = (roomId: number) => {
-    api.get(`/chat/rooms/${roomId}/messages?limit=100`).then(msgs => {
-      setMessages(msgs);
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    });
   };
 
   const sendMessage = async () => {
@@ -69,10 +233,28 @@ export default function ChatRoom() {
     setSending(true);
     try {
       const msg = await api.post(`/chat/rooms/${activeRoom.id}/messages`, { content: newMsg, messageType: "text" });
-      setMessages(prev => [...prev.filter(m => m.id !== msg.id), msg]);
+      setMessages(prev => [...prev.filter((m: any) => m.id !== msg.id), msg]);
       setNewMsg("");
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } finally { setSending(false); }
+  };
+
+  const deleteMessage = async (msgId: number) => {
+    await api.del(`/chat/rooms/${activeRoom.id}/messages/${msgId}`);
+    setMessages(prev => prev.filter((m: any) => m.id !== msgId));
+    toast({ title: "Message deleted" });
+  };
+
+  const deleteRoom = async (room: any) => {
+    if (!confirm(`Are you sure you want to ${room.createdById === currentUserId ? "delete" : "leave"} "${room.name}"?`)) return;
+    await api.del(`/chat/rooms/${room.id}`);
+    setRooms(prev => prev.filter((r: any) => r.id !== room.id));
+    if (activeRoom?.id === room.id) {
+      setActiveRoom(null);
+      setMessages([]);
+      if (pollRef.current) clearInterval(pollRef.current);
+    }
+    toast({ title: room.createdById === currentUserId ? "Channel deleted" : "Left channel" });
   };
 
   const uploadFile = async (file: File, messageType: string) => {
@@ -82,7 +264,7 @@ export default function ChatRoom() {
     formData.append("messageType", messageType);
     try {
       const msg = await api.postForm(`/chat/rooms/${activeRoom.id}/upload`, formData);
-      setMessages(prev => [...prev.filter(m => m.id !== msg.id), msg]);
+      setMessages(prev => [...prev.filter((m: any) => m.id !== msg.id), msg]);
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch { toast({ title: "Upload failed", variant: "destructive" }); }
   };
@@ -119,7 +301,7 @@ export default function ChatRoom() {
   const startVideoMeeting = () => {
     const roomName = `zentryx-${activeRoom?.name?.replace(/\s+/g, '-').toLowerCase() || 'meeting'}-${Date.now()}`;
     window.open(`https://meet.jit.si/${roomName}`, "_blank");
-    toast({ title: "Video meeting started", description: "Jitsi Meet opened in a new tab. Share the link with team members." });
+    toast({ title: "Video meeting started", description: "Jitsi Meet opened in a new tab." });
   };
 
   const createGroupRoom = async (name: string, memberIds: number[]) => {
@@ -129,10 +311,44 @@ export default function ChatRoom() {
   };
 
   const createPrivateRoom = async (userId: number, userName: string) => {
-    const room = await api.post("/chat/rooms", { name: `${userName}`, isGroup: false, memberIds: [userId] });
-    setRooms(prev => { const exists = prev.find(r => r.id === room.id); return exists ? prev : [...prev, room]; });
+    const room = await api.post("/chat/rooms", { name: userName, isGroup: false, memberIds: [userId] });
+    setRooms(prev => { const exists = prev.find((r: any) => r.id === room.id); return exists ? prev : [...prev, room]; });
     selectRoom(room);
   };
+
+  const insertMention = (user: any) => {
+    const before = newMsg.slice(0, mentionStart);
+    const after = newMsg.slice(mentionStart + 1 + (mentionQuery?.length || 0));
+    setNewMsg(before + `@${user.name} ` + after);
+    setMentionQuery(null);
+    setTimeout(() => textareaRef.current?.focus(), 0);
+  };
+
+  const handleMsgChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setNewMsg(val);
+    const cursor = e.target.selectionStart || 0;
+    const textBefore = val.slice(0, cursor);
+    const atIdx = textBefore.lastIndexOf("@");
+    if (atIdx !== -1) {
+      const query = textBefore.slice(atIdx + 1);
+      if (!query.includes(" ") && !query.includes("\n")) { setMentionQuery(query); setMentionStart(atIdx); return; }
+    }
+    setMentionQuery(null);
+  };
+
+  const filteredMentionUsers = mentionQuery !== null
+    ? users.filter(u => u.id !== currentUserId && u.name.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6)
+    : [];
+
+  const sortRooms = (list: any[]) => {
+    const pinned = list.filter(r => isRoomPinned(r.id));
+    const rest = list.filter(r => !isRoomPinned(r.id));
+    return [...pinned, ...rest];
+  };
+
+  const channels = sortRooms(rooms.filter((r: any) => r.isGroup));
+  const pinnedMessages = messages.filter((m: any) => isMsgPinned(m.id));
 
   if (loading && rooms.length === 0) return <PageLoader />;
 
@@ -142,45 +358,50 @@ export default function ChatRoom() {
       <div className="w-64 shrink-0 border-r border-white/5 flex flex-col bg-white/[0.02]">
         <div className="p-4 border-b border-white/5 flex items-center justify-between">
           <h2 className="font-display font-bold text-foreground">Chat</h2>
-          <div className="flex gap-1">
-            <CreateGroupModal users={users} onCreate={createGroupRoom} />
-          </div>
+          <CreateGroupModal users={users} onCreate={createGroupRoom} />
         </div>
 
         <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
+          {/* Channels */}
           <div className="px-3 mb-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Channels</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Channels</p>
           </div>
-          {rooms.filter(r => r.isGroup).map(room => (
-            <button key={room.id} onClick={() => selectRoom(room)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors ${activeRoom?.id === room.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
-              <Hash className="w-4 h-4 shrink-0" />
-              <span className="truncate">{room.name}</span>
-            </button>
+          {channels.length === 0 && (
+            <p className="px-4 text-xs text-muted-foreground italic py-1">No channels yet</p>
+          )}
+          {channels.map((room: any) => (
+            <div key={room.id} className={`group/room flex items-center gap-0.5 mx-1 rounded-xl transition-colors ${activeRoom?.id === room.id ? "bg-primary/10" : "hover:bg-white/5"}`}>
+              <button onClick={() => selectRoom(room)}
+                className={`flex-1 flex items-center gap-2 px-2.5 py-2 text-sm text-left transition-colors ${activeRoom?.id === room.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <div className="relative shrink-0">
+                  <Hash className="w-4 h-4" />
+                  {isRoomPinned(room.id) && <Pin className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1" />}
+                </div>
+                <span className="truncate flex-1">{room.name}</span>
+              </button>
+              <RoomContextMenu
+                room={room}
+                isPinned={isRoomPinned(room.id)}
+                onPin={() => toggleRoomPin(room.id)}
+                onDelete={() => deleteRoom(room)}
+                onLeave={() => deleteRoom(room)}
+                isCreator={room.createdById === currentUserId}
+              />
+            </div>
           ))}
 
+          {/* Team Members — only source for DMs */}
           <div className="px-3 mt-4 mb-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Direct Messages</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Team Members</p>
           </div>
-          {rooms.filter(r => !r.isGroup).map(room => (
-            <button key={room.id} onClick={() => selectRoom(room)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left transition-colors ${activeRoom?.id === room.id ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
-              <Lock className="w-4 h-4 shrink-0" />
-              <span className="truncate">{room.name}</span>
-            </button>
-          ))}
-
-          <div className="px-3 mt-4 mb-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Team Members</p>
-          </div>
-          {users.filter(u => u.id !== currentUserId).map(user => (
+          {users.filter((u: any) => u.id !== currentUserId).map((user: any) => (
             <button key={user.id} onClick={() => createPrivateRoom(user.id, user.name)}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
               <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
                 {user.name.charAt(0)}
               </div>
-              <span className="truncate">{user.name}</span>
-              <div className={`w-1.5 h-1.5 rounded-full ml-auto shrink-0 ${user.isActive ? "bg-green-400" : "bg-muted"}`} />
+              <span className="truncate flex-1">{user.name}</span>
+              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${user.isActive ? "bg-green-400" : "bg-muted"}`} />
             </button>
           ))}
         </div>
@@ -194,29 +415,68 @@ export default function ChatRoom() {
               <div className="flex items-center gap-2">
                 {activeRoom.isGroup ? <Hash className="w-5 h-5 text-primary" /> : <Lock className="w-5 h-5 text-primary" />}
                 <h3 className="font-semibold text-foreground">{activeRoom.name}</h3>
-                {activeRoom.isGroup && <span className="text-xs text-muted-foreground ml-1">Group Channel</span>}
+                {isRoomPinned(activeRoom.id) && <span className="flex items-center gap-1 text-[10px] text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full"><Pin className="w-2.5 h-2.5" />Pinned</span>}
               </div>
-              <button onClick={startVideoMeeting} className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors">
-                <Video className="w-4 h-4" /> Start Meeting
-              </button>
+              <div className="flex items-center gap-2">
+                {pinnedMessages.length > 0 && (
+                  <button
+                    onClick={() => setShowPinnedMsgs(v => !v)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${showPinnedMsgs ? "bg-amber-400/20 text-amber-400" : "bg-white/5 text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <Pin className="w-3.5 h-3.5" /> {pinnedMessages.length} Pinned
+                  </button>
+                )}
+                <button onClick={startVideoMeeting}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors">
+                  <Video className="w-4 h-4" /> Meeting
+                </button>
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
-              {messages.map((msg, i) => {
+            {/* Pinned messages panel */}
+            <AnimatePresence>
+              {showPinnedMsgs && pinnedMessages.length > 0 && (
+                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                  className="border-b border-amber-400/10 bg-amber-400/5 overflow-hidden shrink-0">
+                  <div className="p-3 max-h-32 overflow-y-auto custom-scrollbar space-y-1">
+                    <p className="text-[10px] font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center gap-1">
+                      <Pin className="w-3 h-3" /> Pinned Messages
+                    </p>
+                    {pinnedMessages.map((m: any) => (
+                      <div key={m.id} className="flex items-start gap-2 text-xs bg-amber-400/5 rounded-lg p-2">
+                        <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[8px] font-bold shrink-0">{m.senderName?.charAt(0)}</div>
+                        <div>
+                          <span className="font-medium text-amber-300 mr-1">{m.senderName}:</span>
+                          <span className="text-muted-foreground">{m.content?.slice(0, 100)}{m.content?.length > 100 ? "..." : ""}</span>
+                        </div>
+                        <button onClick={() => toggleMsgPin(m.id)} className="ml-auto shrink-0 text-muted-foreground hover:text-amber-400">
+                          <PinOff className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-1">
+              {messages.map((msg: any, i: number) => {
                 const isOwn = msg.senderId === currentUserId;
                 const showName = !isOwn && (i === 0 || messages[i - 1].senderId !== msg.senderId);
+                const pinned = isMsgPinned(msg.id);
                 return (
-                  <div key={msg.id} className={`flex gap-3 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
+                  <div key={msg.id} className={`flex gap-3 group/msg py-0.5 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
                     {!isOwn && (
                       <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-1">
                         {msg.senderName?.charAt(0) || "?"}
                       </div>
                     )}
-                    <div className={`max-w-[65%] ${isOwn ? "items-end" : "items-start"} flex flex-col gap-1`}>
+                    <div className={`max-w-[65%] ${isOwn ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
                       {showName && !isOwn && (
                         <span className="text-xs text-muted-foreground font-medium">{msg.senderName}</span>
                       )}
-                      <div className={`rounded-2xl px-4 py-2.5 ${isOwn ? "bg-primary text-white rounded-tr-sm" : "bg-white/8 text-foreground rounded-tl-sm"}`}>
+                      <div className={`relative group/bubble rounded-2xl px-4 py-2.5 ${isOwn ? "bg-primary text-white rounded-tr-sm" : "bg-white/8 text-foreground rounded-tl-sm"} ${pinned ? "ring-1 ring-amber-400/30" : ""}`}>
+                        {pinned && <Pin className="w-3 h-3 text-amber-400 absolute -top-1 -right-1" />}
                         {msg.messageType === "text" && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
                         {msg.messageType === "image" && (
                           <a href={`${BASE}api${msg.fileUrl?.replace('/api', '')}`} target="_blank" rel="noopener noreferrer">
@@ -230,7 +490,16 @@ export default function ChatRoom() {
                           </div>
                         )}
                       </div>
-                      <span className="text-[10px] text-muted-foreground px-1">{format(new Date(msg.createdAt), "h:mm a")}</span>
+                      <div className={`flex items-center gap-1 px-1 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
+                        <span className="text-[10px] text-muted-foreground">{format(new Date(msg.createdAt), "h:mm a")}</span>
+                        <MessageContextMenu
+                          msg={msg}
+                          isOwn={isOwn}
+                          isPinned={isMsgPinned(msg.id)}
+                          onDelete={() => deleteMessage(msg.id)}
+                          onPin={() => toggleMsgPin(msg.id)}
+                        />
+                      </div>
                     </div>
                   </div>
                 );
@@ -245,36 +514,58 @@ export default function ChatRoom() {
             </div>
 
             <div className="p-4 border-t border-white/5 shrink-0">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1">
-                  <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,audio/*" className="hidden" />
-                  <button onClick={() => fileInputRef.current?.click()}
-                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors" title="Attach image">
-                    <ImageIcon className="w-5 h-5" />
-                  </button>
+              <div className="relative">
+                {mentionQuery !== null && filteredMentionUsers.length > 0 && (
+                  <div className="absolute bottom-full mb-2 left-0 w-64 glass-panel border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden">
+                    <div className="px-3 py-2 border-b border-white/5 text-xs text-muted-foreground flex items-center gap-2">
+                      <AtSign className="w-3.5 h-3.5 text-primary" /> Mention
+                      {mentionQuery && <span className="text-primary font-mono">"{mentionQuery}"</span>}
+                    </div>
+                    {filteredMentionUsers.map((u: any) => (
+                      <button key={u.id} onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 hover:bg-white/5 transition-colors text-left">
+                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[10px] font-bold shrink-0">{u.name.charAt(0)}</div>
+                        <span className="text-sm text-foreground">{u.name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto capitalize">{u.role?.replace(/_/g, ' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1">
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,audio/*" className="hidden" />
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors" title="Attach image">
+                      <ImageIcon className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={isRecording ? stopRecording : startRecording}
+                      className={`p-2 rounded-lg transition-colors ${isRecording ? "text-destructive bg-destructive/10 hover:bg-destructive/20" : "text-muted-foreground hover:text-foreground hover:bg-white/10"}`}
+                      title={isRecording ? "Stop recording" : "Record voice note"}
+                    >
+                      {isRecording ? <StopCircle className="w-5 h-5 animate-pulse" /> : <Mic className="w-5 h-5" />}
+                    </button>
+                  </div>
+                  <input
+                    ref={textareaRef}
+                    value={newMsg}
+                    onChange={handleMsgChange}
+                    onKeyDown={e => {
+                      if (mentionQuery !== null && e.key === "Escape") { setMentionQuery(null); return; }
+                      if (e.key === "Enter" && !e.shiftKey && mentionQuery === null) { e.preventDefault(); sendMessage(); }
+                    }}
+                    placeholder={isRecording ? "Recording voice note..." : `Message ${activeRoom.name}... (@ to mention)`}
+                    disabled={isRecording}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground disabled:opacity-50"
+                  />
                   <button
-                    onClick={isRecording ? stopRecording : startRecording}
-                    className={`p-2 rounded-lg transition-colors ${isRecording ? "text-destructive bg-destructive/10 hover:bg-destructive/20" : "text-muted-foreground hover:text-foreground hover:bg-white/10"}`}
-                    title={isRecording ? "Stop recording" : "Record voice note"}
+                    onClick={sendMessage}
+                    disabled={!newMsg.trim() || sending}
+                    className="p-2.5 bg-primary hover:bg-primary/80 text-white rounded-xl transition-colors disabled:opacity-50"
                   >
-                    {isRecording ? <StopCircle className="w-5 h-5 animate-pulse" /> : <Mic className="w-5 h-5" />}
+                    <Send className="w-4 h-4" />
                   </button>
                 </div>
-                <input
-                  value={newMsg}
-                  onChange={e => setNewMsg(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder={isRecording ? "Recording voice note... click stop when done" : `Message ${activeRoom.name}...`}
-                  disabled={isRecording}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground disabled:opacity-50"
-                />
-                <button
-                  onClick={sendMessage}
-                  disabled={!newMsg.trim() || sending}
-                  className="p-2.5 bg-primary hover:bg-primary/80 text-white rounded-xl transition-colors disabled:opacity-50"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
               </div>
               {isRecording && (
                 <p className="text-xs text-destructive mt-2 flex items-center gap-1.5">
@@ -286,8 +577,8 @@ export default function ChatRoom() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <Users className="w-16 h-16 text-muted-foreground opacity-20 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground">Select a channel or teammate</h3>
+              <MessageSquare className="w-16 h-16 text-muted-foreground opacity-20 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-foreground">Select a channel or team member</h3>
               <p className="text-muted-foreground text-sm mt-1">Choose from the sidebar to start chatting</p>
             </div>
           </div>
@@ -320,12 +611,12 @@ function CreateGroupModal({ users, onCreate }: { users: any[]; onCreate: (name: 
           <div className="space-y-2">
             <label className="text-sm font-medium">Add Members</label>
             <div className="space-y-1 max-h-48 overflow-y-auto custom-scrollbar">
-              {users.map(u => (
+              {users.map((u: any) => (
                 <button key={u.id} type="button" onClick={() => toggle(u.id)}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${selected.includes(u.id) ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}>
                   <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[10px] font-bold shrink-0">{u.name.charAt(0)}</div>
                   {u.name}
-                  <span className="ml-auto text-xs opacity-60">{u.role.replace(/_/g, ' ')}</span>
+                  <span className="ml-auto text-xs opacity-60">{u.role?.replace(/_/g, ' ')}</span>
                 </button>
               ))}
             </div>

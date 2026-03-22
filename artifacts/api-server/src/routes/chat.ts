@@ -10,20 +10,11 @@ import fs from "fs";
 const router = Router();
 const upload = multer({ dest: "uploads/chat/", limits: { fileSize: 50 * 1024 * 1024 } });
 
-// Ensure upload dir exists
 if (!fs.existsSync("uploads/chat")) fs.mkdirSync("uploads/chat", { recursive: true });
 
 // Get all rooms for current user
 router.get("/rooms", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.userId;
-    const memberships = await db.select({ roomId: chatRoomMembersTable.roomId })
-      .from(chatRoomMembersTable).where(eq(chatRoomMembersTable.userId, userId));
-    const roomIds = memberships.map(m => m.roomId);
-    if (roomIds.length === 0) {
-      const allRooms = await db.select().from(chatRoomsTable).orderBy(chatRoomsTable.createdAt);
-      return res.json(allRooms);
-    }
     const rooms = await db.select().from(chatRoomsTable).orderBy(chatRoomsTable.createdAt);
     res.json(rooms);
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
@@ -41,6 +32,25 @@ router.post("/rooms", requireAuth, async (req: AuthRequest, res) => {
       await db.insert(chatRoomMembersTable).values({ roomId: room.id, userId: uid }).catch(() => {});
     }
     res.status(201).json(room);
+  } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
+});
+
+// Delete a room (creator only) or leave it
+router.delete("/rooms/:roomId", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const roomId = parseInt(req.params.roomId);
+    const userId = req.user!.userId;
+    const [room] = await db.select().from(chatRoomsTable).where(eq(chatRoomsTable.id, roomId)).limit(1);
+    if (!room) { res.status(404).json({ error: "NotFound" }); return; }
+    if (room.createdById === userId) {
+      await db.delete(chatRoomsTable).where(eq(chatRoomsTable.id, roomId));
+      res.json({ deleted: true });
+    } else {
+      await db.delete(chatRoomMembersTable).where(
+        and(eq(chatRoomMembersTable.roomId, roomId), eq(chatRoomMembersTable.userId, userId))
+      );
+      res.json({ left: true });
+    }
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
@@ -91,6 +101,19 @@ router.post("/rooms/:roomId/messages", requireAuth, async (req: AuthRequest, res
     .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
     .where(eq(chatMessagesTable.id, msg.id));
     res.status(201).json(withSender);
+  } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
+});
+
+// Delete a message (sender or admin)
+router.delete("/rooms/:roomId/messages/:messageId", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const messageId = parseInt(req.params.messageId);
+    const userId = req.user!.userId;
+    const [msg] = await db.select().from(chatMessagesTable).where(eq(chatMessagesTable.id, messageId)).limit(1);
+    if (!msg) { res.status(404).json({ error: "NotFound" }); return; }
+    if (msg.senderId !== userId) { res.status(403).json({ error: "Forbidden" }); return; }
+    await db.delete(chatMessagesTable).where(eq(chatMessagesTable.id, messageId));
+    res.json({ deleted: true });
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 

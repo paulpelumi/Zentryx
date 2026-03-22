@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { 
+import {
   LayoutDashboard, FlaskConical, LineChart, Users, Bell, Activity,
-  Search, LogOut, Menu, X, MessageSquare, Briefcase, Sun, Moon, Zap
+  Search, LogOut, Menu, X, MessageSquare, Briefcase, Sun, Moon, Zap,
+  ChevronDown, Settings, User
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -20,22 +21,127 @@ const navItems = [
   { href: "/chat", label: "Chat Room", icon: MessageSquare },
 ];
 
+function useAvatarColor(name: string) {
+  const colors = [
+    "from-violet-500 to-purple-600", "from-blue-500 to-cyan-600",
+    "from-emerald-500 to-teal-600", "from-rose-500 to-pink-600",
+    "from-amber-500 to-orange-600", "from-indigo-500 to-blue-600",
+  ];
+  const idx = name ? name.charCodeAt(0) % colors.length : 0;
+  return colors[idx];
+}
+
+function UserMenu({ user, logout, isLight }: { user: any; logout: () => void; isLight: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const gradient = useAvatarColor(user?.name || "");
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const initials = user?.name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase() || "?";
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={cn(
+          "flex items-center gap-2 rounded-full pl-1 pr-3 py-1 border transition-all hover:shadow-lg",
+          isLight
+            ? "border-slate-200 bg-white hover:border-slate-300 hover:shadow-slate-200/50"
+            : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/8",
+        )}
+      >
+        <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-xs shadow-md ring-2 ring-white/10`}>
+          {initials}
+        </div>
+        <div className="hidden sm:block text-left leading-tight">
+          <p className="text-xs font-semibold text-foreground leading-tight">{user?.name?.split(" ")[0] || "User"}</p>
+          <p className={cn("text-[10px] capitalize leading-tight", isLight ? "text-slate-500" : "text-muted-foreground")}>
+            {user?.role?.replace(/_/g, " ") || "Member"}
+          </p>
+        </div>
+        <ChevronDown className={cn("w-3 h-3 transition-transform", isLight ? "text-slate-400" : "text-muted-foreground", open && "rotate-180")} />
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className={cn(
+              "absolute right-0 top-full mt-2 w-64 rounded-2xl border shadow-2xl z-50 overflow-hidden",
+              isLight ? "bg-white border-slate-200 shadow-slate-200/60" : "glass-panel border-white/10"
+            )}
+          >
+            <div className={cn("p-4 border-b", isLight ? "border-slate-100" : "border-white/5")}>
+              <div className="flex items-center gap-3">
+                <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white font-bold text-xl shadow-lg`}>
+                  {initials}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-foreground text-sm leading-tight">{user?.name}</p>
+                  <p className={cn("text-xs capitalize mt-0.5", isLight ? "text-slate-500" : "text-muted-foreground")}>{user?.role?.replace(/_/g, " ")}</p>
+                  <p className={cn("text-[11px] mt-1 truncate", isLight ? "text-slate-400" : "text-muted-foreground/60")}>{user?.email}</p>
+                </div>
+              </div>
+              <div className={cn("mt-3 flex items-center gap-1.5 text-xs px-2 py-1 rounded-lg w-fit", isLight ? "bg-emerald-50 text-emerald-600" : "bg-green-500/10 text-green-400")}>
+                <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
+                Active
+              </div>
+            </div>
+
+            <div className="p-2">
+              <Link href="/team" onClick={() => setOpen(false)}
+                className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors", isLight ? "text-slate-600 hover:bg-slate-50" : "text-muted-foreground hover:bg-white/5 hover:text-foreground")}>
+                <User className="w-4 h-4" /> View Profile
+              </Link>
+              <button
+                onClick={() => { logout(); setOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors text-destructive hover:bg-destructive/10 mt-1"
+              >
+                <LogOut className="w-4 h-4" /> Sign Out
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const [location, setLocation] = useLocation();
+  const [location] = useLocation();
   const { logout } = useAuthStore();
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [chatUnread, setChatUnread] = useState(false);
 
   const { data: user } = useGetCurrentUser();
   const { data: notifications } = useListNotifications();
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-  };
-
   const isLight = theme === "light";
+
+  useEffect(() => {
+    const check = () => setChatUnread(!!localStorage.getItem("rd_chat_unread"));
+    check();
+    const interval = setInterval(check, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (location === "/chat") {
+      localStorage.removeItem("rd_chat_unread");
+      setChatUnread(false);
+    }
+  }, [location]);
 
   return (
     <div className={cn("min-h-screen flex flex-col md:flex-row overflow-hidden", isLight ? "bg-slate-100" : "bg-background")}>
@@ -61,39 +167,33 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <div className="space-y-1">
             {navItems.map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              const isChatWithUnread = item.href === "/chat" && chatUnread && !isActive;
               return (
-                <Link 
+                <Link
                   key={item.href} href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group font-medium",
-                    isActive 
-                      ? "bg-primary/10 text-primary border border-primary/20 shadow-inner" 
-                      : isLight 
+                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group font-medium relative",
+                    isActive
+                      ? "bg-primary/10 text-primary border border-primary/20 shadow-inner"
+                      : isLight
                         ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                         : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                   )}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-primary")} />
+                  <div className="relative">
+                    <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-primary")} />
+                    {isChatWithUnread && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+                    )}
+                  </div>
                   {item.label}
+                  {isChatWithUnread && (
+                    <span className="ml-auto text-[9px] font-bold text-red-400 uppercase tracking-wider">New</span>
+                  )}
                 </Link>
               );
             })}
-          </div>
-        </div>
-
-        <div className={cn("p-4 border-t", isLight ? "border-slate-100" : "border-white/5")}>
-          <div className={cn("rounded-xl p-3 flex items-center gap-3", isLight ? "bg-slate-50 border border-slate-100" : "glass-card")}>
-            <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-secondary to-primary flex items-center justify-center text-white font-bold shadow-md text-sm">
-              {user?.name?.charAt(0) || 'U'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{user?.name}</p>
-              <p className="text-xs text-muted-foreground truncate capitalize">{user?.role?.replace(/_/g, ' ')}</p>
-            </div>
-            <button onClick={logout} className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-muted-foreground hover:text-destructive" title="Logout">
-              <LogOut className="w-4 h-4" />
-            </button>
           </div>
         </div>
       </aside>
@@ -108,11 +208,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             <button className="md:hidden p-2 text-muted-foreground hover:text-foreground" onClick={() => setIsMobileMenuOpen(true)}>
               <Menu className="w-6 h-6" />
             </button>
-            <form onSubmit={handleSearch} className="max-w-md w-full relative hidden sm:block">
+            <form onSubmit={e => e.preventDefault()} className="max-w-md w-full relative hidden sm:block">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <input 
-                type="text" 
-                placeholder="Search Zentryx..." 
+              <input
+                type="text"
+                placeholder="Search Zentryx..."
                 className={cn(
                   "w-full border rounded-full pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 transition-all text-foreground placeholder:text-muted-foreground",
                   isLight ? "bg-slate-100 border-slate-200 focus:bg-white" : "bg-black/20 border-white/10 focus:bg-black/40"
@@ -134,6 +234,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
             >
               {isLight ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </button>
+
             <Link href="/notifications" className={cn(
               "relative p-2 rounded-full transition-colors",
               isLight ? "hover:bg-slate-100 text-slate-600" : "hover:bg-white/10 text-muted-foreground hover:text-foreground"
@@ -143,6 +244,8 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_rgba(255,0,0,0.8)] animate-pulse" />
               )}
             </Link>
+
+            <UserMenu user={user} logout={logout} isLight={isLight} />
           </div>
         </header>
 
