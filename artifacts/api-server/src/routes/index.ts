@@ -14,6 +14,7 @@ import businessDevRouter from "./business_dev";
 import projectCommentsRouter from "./project_comments";
 import chatRouter from "./chat";
 import aiChatRouter from "./ai_chat";
+import eventsRouter from "./events";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use("/departments", departmentsRouter);
 router.use("/business-dev", businessDevRouter);
 router.use("/chat", chatRouter);
 router.use("/ai-chat", aiChatRouter);
+router.use("/events", eventsRouter);
 
 export default router;
