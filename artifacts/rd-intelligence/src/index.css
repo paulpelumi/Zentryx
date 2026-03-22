@@ -137,3 +137,8 @@
     @apply border-black/15 bg-white;
   }
 }
+
+@keyframes ticker {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

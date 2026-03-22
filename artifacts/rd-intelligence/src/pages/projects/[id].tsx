@@ -82,6 +82,107 @@ function InlineEdit({ value, onSave, type = "text", options, placeholder, icon, 
   );
 }
 
+const CURRENCY_OPTIONS = [
+  { code: "NGN", label: "Nigerian Naira", flag: "🇳🇬" },
+  { code: "ZAR", label: "South African Rand", flag: "🇿🇦" },
+  { code: "GBP", label: "British Pound", flag: "🇬🇧" },
+  { code: "EUR", label: "Euro", flag: "🇪🇺" },
+  { code: "KES", label: "Kenyan Shilling", flag: "🇰🇪" },
+  { code: "GHS", label: "Ghanaian Cedi", flag: "🇬🇭" },
+  { code: "CAD", label: "Canadian Dollar", flag: "🇨🇦" },
+  { code: "AUD", label: "Australian Dollar", flag: "🇦🇺" },
+  { code: "JPY", label: "Japanese Yen", flag: "🇯🇵" },
+];
+
+function CostTargetField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+  const [targetCurrency, setTargetCurrency] = useState(() => localStorage.getItem("rd_cost_currency") || "NGN");
+  const [rates, setRates] = useState<Record<string, number>>({});
+  const [ratesLoading, setRatesLoading] = useState(false);
+
+  useEffect(() => { setVal(value); }, [value]);
+
+  useEffect(() => {
+    setRatesLoading(true);
+    fetch("https://open.er-api.com/v6/latest/USD")
+      .then(r => r.json())
+      .then(d => { if (d?.rates) setRates(d.rates); })
+      .catch(() => {})
+      .finally(() => setRatesLoading(false));
+  }, []);
+
+  const save = () => { if (val !== value) onSave(val); setEditing(false); };
+  const cancel = () => { setVal(value); setEditing(false); };
+
+  const numericValue = parseFloat(value) || 0;
+  const rate = rates[targetCurrency] || null;
+  const converted = rate ? (numericValue * rate).toLocaleString(undefined, { maximumFractionDigits: 2 }) : null;
+  const currencyMeta = CURRENCY_OPTIONS.find(c => c.code === targetCurrency);
+
+  const cls = "flex h-9 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+
+  const changeCurrency = (code: string) => { setTargetCurrency(code); localStorage.setItem("rd_cost_currency", code); };
+
+  return (
+    <div className="glass-card rounded-xl p-4 group/field relative">
+      <div className="flex items-center gap-2 mb-1.5 text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        <DollarSign className="w-3.5 h-3.5" /> Cost Target (USD $)
+      </div>
+      {editing ? (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">$</span>
+              <input type="number" value={val} onChange={e => setVal(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+                className={cls + " pl-7"} placeholder="0.00" autoFocus step="0.01" min="0" />
+            </div>
+            <button onClick={save} className="p-1.5 text-green-400 hover:text-green-300 shrink-0"><Check className="w-4 h-4" /></button>
+            <button onClick={cancel} className="p-1.5 text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 group/val">
+            <span className={`text-sm font-bold ${!value ? "text-muted-foreground italic" : "text-green-400"}`}>
+              {value ? `$${parseFloat(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Not set"}
+            </span>
+            <button onClick={() => setEditing(true)}
+              className="opacity-0 group-hover/field:opacity-100 p-1 text-muted-foreground hover:text-foreground transition-opacity shrink-0">
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {numericValue > 0 && (
+            <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
+              {ratesLoading ? (
+                <span className="text-xs text-muted-foreground animate-pulse">Loading rates...</span>
+              ) : converted ? (
+                <span className="text-xs font-semibold text-amber-400">
+                  {currencyMeta?.flag} {converted} {targetCurrency}
+                </span>
+              ) : (
+                <span className="text-xs text-muted-foreground">Rate unavailable</span>
+              )}
+              <select
+                value={targetCurrency}
+                onChange={e => changeCurrency(e.target.value)}
+                className="ml-auto text-[11px] bg-transparent border border-white/10 rounded-md px-1.5 py-0.5 text-muted-foreground focus:outline-none hover:border-white/20 cursor-pointer"
+                onClick={e => e.stopPropagation()}
+              >
+                {CURRENCY_OPTIONS.map(c => (
+                  <option key={c.code} value={c.code} className="bg-card">{c.flag} {c.code} — {c.label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ProjectDetail() {
   const [, params] = useRoute("/projects/:id");
   const projectId = Number(params?.id);
@@ -223,7 +324,7 @@ export default function ProjectDetail() {
                 <Calendar className="w-3.5 h-3.5" /> Due: {format(new Date(project.targetDate), "MMM d, yyyy")}
               </div>
             )}
-            {project.costTarget && <div className="text-green-400 font-medium">R{parseFloat(String(project.costTarget)).toLocaleString()}</div>}
+            {project.costTarget && <div className="text-green-400 font-medium">${parseFloat(String(project.costTarget)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
           </div>
         </div>
       </div>
@@ -312,7 +413,7 @@ export default function ProjectDetail() {
             <InlineEdit label="Customer Email" value={project.customerEmail || ""} onSave={v => saveField("customerEmail", v)} type="email" icon={<Mail className="w-3.5 h-3.5" />} placeholder="email@example.com" />
             <InlineEdit label="Customer Phone" value={project.customerPhone || ""} onSave={v => saveField("customerPhone", v)} icon={<Phone className="w-3.5 h-3.5" />} placeholder="+27 xx xxx xxxx" />
             <InlineEdit label="Product Type" value={project.productType || ""} onSave={v => saveField("productType", v)} options={PRODUCT_TYPES} icon={<Package className="w-3.5 h-3.5" />} />
-            <InlineEdit label="Cost Target (R)" value={project.costTarget ? String(parseFloat(String(project.costTarget))) : ""} onSave={v => saveField("costTarget", v)} type="number" icon={<DollarSign className="w-3.5 h-3.5" />} placeholder="0.00" />
+            <CostTargetField value={project.costTarget ? String(parseFloat(String(project.costTarget))) : ""} onSave={v => saveField("costTarget", v)} />
             <InlineEdit label="Priority" value={project.priority || "medium"} onSave={v => saveField("priority", v)} options={PRIORITIES} icon={<Edit3 className="w-3.5 h-3.5" />} />
             <InlineEdit label="Stage" value={project.stage || ""} onSave={v => saveField("stage", v)} options={STAGES} icon={<Edit3 className="w-3.5 h-3.5" />} />
             <InlineEdit label="Status" value={project.status || ""} onSave={v => saveField("status", v)} options={STATUSES} icon={<Edit3 className="w-3.5 h-3.5" />} />
