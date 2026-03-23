@@ -15,6 +15,7 @@ import Notifications from "@/pages/notifications";
 import ActivityFeed from "@/pages/activity";
 import BusinessDev from "@/pages/business-dev";
 import ChatRoom from "@/pages/chat";
+import Events from "@/pages/events";
 import NotFound from "@/pages/not-found";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/activity" component={() => <ProtectedRoute component={ActivityFeed} />} />
       <Route path="/business-dev" component={() => <ProtectedRoute component={BusinessDev} />} />
       <Route path="/chat" component={() => <ProtectedRoute component={ChatRoom} />} />
+      <Route path="/events" component={() => <ProtectedRoute component={Events} />} />
       <Route component={NotFound} />
     </Switch>
   );

@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FlaskConical, LineChart, Users, Bell, Activity,
   Search, LogOut, Menu, X, MessageSquare, Briefcase, Sun, Moon, Zap,
   ChevronDown, User, FlaskConical as Flask, CheckSquare, Building2,
-  ArrowRight, Loader2
+  ArrowRight, Loader2, CalendarDays
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -19,6 +19,7 @@ const navItems = [
   { href: "/projects", label: "Project Portfolio", icon: FlaskConical },
   { href: "/analytics", label: "Analytics", icon: LineChart },
   { href: "/team", label: "Team Directory", icon: Users },
+  { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/activity", label: "Activity Feed", icon: Activity },
   { href: "/business-dev", label: "Business Development", icon: Briefcase },
   { href: "/chat", label: "Chat Room", icon: MessageSquare },
