@@ -3,7 +3,7 @@ import { useListProjects, useCreateProject, useDeleteProject, useListUsers, useU
 import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Download } from "lucide-react";
+import { Plus, Search, Download, Layers } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -13,6 +13,7 @@ import { ViewSwitcher, type ViewType } from "./views/ViewSwitcher";
 import { PortfolioView } from "./views/PortfolioView";
 import { MatrixView } from "./views/MatrixView";
 import { ListView } from "./views/ListView";
+import * as XLSX from "xlsx";
 
 const STAGES = ["testing", "reformulation", "innovation", "cost_optimization", "modification"] as const;
 const STATUSES = ["approved", "awaiting_feedback", "on_hold", "in_progress", "new_inventory", "cancelled", "pushed_to_live"] as const;
@@ -23,6 +24,8 @@ export default function ProjectsList() {
   const [activeTab, setActiveTab] = useState<"projects" | "export">("projects");
   const [view, setView] = useState<ViewType>("portfolio");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [productTypeFilter, setProductTypeFilter] = useState<string>("all");
+  const [groupByType, setGroupByType] = useState(false);
 
   const { data: projects, isLoading } = useListProjects({});
   const { data: users } = useListUsers();
@@ -41,12 +44,13 @@ export default function ProjectsList() {
     return (projects || []).filter(p => {
       const matchSearch =
         p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (p.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-        (p.productType?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+        ((p as any).customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+        ((p as any).productType?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
       const matchStatus = statusFilter === "all" || p.status === statusFilter;
-      return matchSearch && matchStatus;
+      const matchType = productTypeFilter === "all" || (p as any).productType === productTypeFilter;
+      return matchSearch && matchStatus && matchType;
     });
-  }, [projects, searchTerm, statusFilter]);
+  }, [projects, searchTerm, statusFilter, productTypeFilter]);
 
   const handleDelete = (id: number, name: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -60,23 +64,61 @@ export default function ProjectsList() {
     });
   };
 
-  const handleExport = (fmt: "csv" | "excel") => {
+  const buildExportRows = (projs: any[]) => {
+    const headers = ["ID", "Name", "Stage", "Status", "Product Type", "Customer Name", "Customer Email", "Customer Phone", "Cost Target ($)", "Selling Price ($)", "Volume (kg/Month)", "Revenue/Month ($)", "Start Date", "Due Date", "Lead", "Assignees", "Tasks", "Progress %", "Tags", "Created At"];
+    const rows = projs.map(p => {
+      const sp = p.sellingPrice ? parseFloat(p.sellingPrice) : null;
+      const vol = p.volumeKgPerMonth ? parseFloat(p.volumeKgPerMonth) : null;
+      const revenue = sp && vol ? sp * vol : "";
+      return [
+        p.id, p.name, p.stage, p.status,
+        (p as any).productType || "",
+        (p as any).customerName || "", (p as any).customerEmail || "", (p as any).customerPhone || "",
+        (p as any).costTarget || "", sp || "", vol || "", revenue,
+        p.startDate ? format(new Date(p.startDate), "yyyy-MM-dd") : "",
+        p.targetDate ? format(new Date(p.targetDate), "yyyy-MM-dd") : "",
+        (p as any).lead?.name || "",
+        ((p as any).assignees || []).map((a: any) => a.name).join("; "),
+        p.taskCount,
+        p.taskCount > 0 ? Math.round((p.completedTaskCount / p.taskCount) * 100) : 0,
+        (p.tags || []).join("; "),
+        format(new Date(p.createdAt), "yyyy-MM-dd"),
+      ];
+    });
+    return { headers, rows };
+  };
+
+  const handleExportCSV = () => {
     if (!projects || projects.length === 0) return;
-    const headers = ["ID", "Name", "Stage", "Status", "Product Type", "Customer Name", "Customer Email", "Customer Phone", "Cost Target", "Start Date", "Due Date", "Lead", "Assignees", "Tasks", "Progress %", "Tags", "Created At"];
-    const rows = projects.map(p => [
-      p.id, p.name, p.stage, p.status, p.productType || "", p.customerName || "", p.customerEmail || "", p.customerPhone || "",
-      p.costTarget || "", p.startDate ? format(new Date(p.startDate), "yyyy-MM-dd") : "", p.targetDate ? format(new Date(p.targetDate), "yyyy-MM-dd") : "",
-      (p as any).lead?.name || "", ((p as any).assignees || []).map((a: any) => a.name).join("; "),
-      p.taskCount, p.taskCount > 0 ? Math.round((p.completedTaskCount / p.taskCount) * 100) : 0,
-      (p.tags || []).join("; "), format(new Date(p.createdAt), "yyyy-MM-dd"),
-    ]);
+    const { headers, rows } = buildExportRows(projects);
     const csv = [headers, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    a.href = url; a.download = `zentryx-projects-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click(); URL.revokeObjectURL(url);
-    toast({ title: "Export complete", description: `${projects.length} projects exported.` });
+    a.href = url;
+    a.download = `project_export_${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "CSV exported", description: `${projects.length} projects exported.` });
+  };
+
+  const handleExportXLSX = () => {
+    if (!projects || projects.length === 0) return;
+    const { headers, rows } = buildExportRows(projects);
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws["!cols"] = headers.map(() => ({ wch: 20 }));
+    const range = XLSX.utils.decode_range(ws["!ref"]!);
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = ws[XLSX.utils.encode_cell({ r: 0, c })];
+      if (cell) {
+        cell.s = { font: { bold: true }, fill: { fgColor: { rgb: "7C3AED" } }, alignment: { horizontal: "center" } };
+      }
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Projects");
+    XLSX.writeFile(wb, `projects_export_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+    toast({ title: "Excel exported", description: `${projects.length} projects exported as XLSX.` });
   };
 
   if (isLoading) return <PageLoader />;
@@ -115,32 +157,59 @@ export default function ProjectsList() {
       </div>
 
       {activeTab === "export" ? (
-        <ExportTab projects={projects || []} onExport={handleExport} />
+        <ExportTab projects={projects || []} onExportCSV={handleExportCSV} onExportXLSX={handleExportXLSX} />
       ) : (
         <>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Search projects..." className="pl-9" value={searchTerm} onChange={e => setSearchQuery(e.target.value)} />
             </div>
-            {view !== "analytics" && (
-              <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setStatusFilter("all")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${statusFilter === "all" ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+              >
+                All
+              </button>
+              {STATUSES.map(s => (
                 <button
-                  onClick={() => setStatusFilter("all")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${statusFilter === "all" ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+                  key={s}
+                  onClick={() => setStatusFilter(s === statusFilter ? "all" : s)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border capitalize ${statusFilter === s ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
                 >
-                  All
+                  {s.replace(/_/g, " ")}
                 </button>
-                {STATUSES.map(s => (
-                  <button
-                    key={s}
-                    onClick={() => setStatusFilter(s === statusFilter ? "all" : s)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border capitalize ${statusFilter === s ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
-                  >
-                    {s.replace(/_/g, " ")}
-                  </button>
-                ))}
-              </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Layers className="w-3.5 h-3.5" /> Product Type:
+            </div>
+            <button
+              onClick={() => setProductTypeFilter("all")}
+              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all border ${productTypeFilter === "all" ? "bg-violet-600 text-white border-violet-500" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+            >
+              All Types
+            </button>
+            {PRODUCT_TYPES.map(t => (
+              <button
+                key={t}
+                onClick={() => setProductTypeFilter(t === productTypeFilter ? "all" : t)}
+                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all border ${productTypeFilter === t ? "bg-violet-600 text-white border-violet-500" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+              >
+                {t}
+              </button>
+            ))}
+            {view === "portfolio" && (
+              <button
+                onClick={() => setGroupByType(g => !g)}
+                className={`ml-auto px-3 py-1 rounded-lg text-xs font-medium transition-all border flex items-center gap-1.5 ${groupByType ? "bg-primary/20 text-primary border-primary/40" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+              >
+                <Layers className="w-3 h-3" /> {groupByType ? "Ungroup" : "Group by Type"}
+              </button>
             )}
           </div>
 
@@ -157,6 +226,7 @@ export default function ProjectsList() {
                   projects={filteredProjects}
                   onDelete={handleDelete}
                   onDateChange={handleDateChange}
+                  groupByType={groupByType}
                 />
               )}
               {view === "matrix" && <MatrixView projects={filteredProjects} />}
@@ -169,16 +239,22 @@ export default function ProjectsList() {
   );
 }
 
-function ExportTab({ projects, onExport }: { projects: any[]; onExport: (fmt: "csv" | "excel") => void }) {
+function ExportTab({ projects, onExportCSV, onExportXLSX }: { projects: any[]; onExportCSV: () => void; onExportXLSX: () => void }) {
+  const totalRevenue = projects.reduce((acc, p) => {
+    const sp = p.sellingPrice ? parseFloat(p.sellingPrice) : 0;
+    const vol = p.volumeKgPerMonth ? parseFloat(p.volumeKgPerMonth) : 0;
+    return acc + (sp * vol);
+  }, 0);
+
   return (
     <div className="glass-card rounded-2xl p-8">
       <h2 className="text-xl font-display font-bold mb-2">Export Project Data</h2>
-      <p className="text-muted-foreground text-sm mb-6">Export all structured project data for analysis. The export includes all project metadata, customer details, stages, statuses, assignees, and progress metrics.</p>
+      <p className="text-muted-foreground text-sm mb-6">Export all structured project data for reporting and analysis. Includes all project metadata, financial data, and progress metrics.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <div className="border border-white/10 rounded-xl p-5">
           <h3 className="font-semibold mb-3">What's Included</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            {["Product metadata & type", "Customer name, email, phone", "Project stage & status", "Start date & due date", "Cost targets & financial data", "Assignee information", "Task progress metrics", "Tags & categories"].map(item => (
+            {["Product metadata & type", "Customer name, email, phone", "Project stage & status", "Start date & due date", "Cost targets & selling prices", "Volume & monthly revenue", "Assignee information", "Task progress metrics", "Tags & categories"].map(item => (
               <li key={item} className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-primary" />{item}</li>
             ))}
           </ul>
@@ -187,14 +263,24 @@ function ExportTab({ projects, onExport }: { projects: any[]; onExport: (fmt: "c
           <h3 className="font-semibold mb-3">Export Summary</h3>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between"><span className="text-muted-foreground">Total Projects:</span><span className="font-medium">{projects.length}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Format:</span><span className="font-medium">CSV (Excel-compatible)</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Columns:</span><span className="font-medium">17</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Columns:</span><span className="font-medium">20</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Monthly Revenue:</span><span className="font-medium text-green-400">${totalRevenue.toLocaleString()}</span></div>
+          </div>
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">CSV format:</span>
+              <code className="text-primary">project_export_[date].csv</code>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-muted-foreground">Excel format:</span>
+              <code className="text-primary">projects_export_[date].xlsx</code>
+            </div>
           </div>
         </div>
       </div>
       <div className="flex flex-wrap gap-3">
-        <Button onClick={() => onExport("csv")} className="gap-2"><Download className="w-4 h-4" /> Export as CSV</Button>
-        <Button onClick={() => onExport("excel")} variant="outline" className="gap-2"><Download className="w-4 h-4" /> Export as Excel (CSV)</Button>
+        <Button onClick={onExportCSV} className="gap-2"><Download className="w-4 h-4" /> Export as CSV</Button>
+        <Button onClick={onExportXLSX} variant="outline" className="gap-2 border-green-500/30 text-green-400 hover:bg-green-500/10"><Download className="w-4 h-4" /> Export as Excel (.xlsx)</Button>
       </div>
     </div>
   );
@@ -210,7 +296,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
     name: "", description: "", stage: "innovation" as any, status: "in_progress" as any,
     priority: "medium" as any, productType: "" as any,
     customerName: "", customerEmail: "", customerPhone: "",
-    startDate: "", targetDate: "", costTarget: "",
+    startDate: "", targetDate: "", costTarget: "", sellingPrice: "", volumeKgPerMonth: "",
     assigneeIds: [] as number[],
   });
 
@@ -233,6 +319,8 @@ function CreateProjectModal({ users }: { users: any[] }) {
         customerName: form.customerName || undefined, customerEmail: form.customerEmail || undefined,
         customerPhone: form.customerPhone || undefined,
         costTarget: form.costTarget || undefined,
+        sellingPrice: form.sellingPrice || undefined,
+        volumeKgPerMonth: form.volumeKgPerMonth || undefined,
         startDate: form.startDate || undefined, targetDate: form.targetDate || undefined,
         assigneeIds: form.assigneeIds,
       } as any,
@@ -241,7 +329,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
         queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
         setOpen(false);
         toast({ title: "Project created!", description: form.name });
-        setForm({ name: "", description: "", stage: "innovation", status: "in_progress", priority: "medium", productType: "", customerName: "", customerEmail: "", customerPhone: "", startDate: "", targetDate: "", costTarget: "", assigneeIds: [] });
+        setForm({ name: "", description: "", stage: "innovation", status: "in_progress", priority: "medium", productType: "", customerName: "", customerEmail: "", customerPhone: "", startDate: "", targetDate: "", costTarget: "", sellingPrice: "", volumeKgPerMonth: "", assigneeIds: [] });
       },
       onError: () => toast({ title: "Error", description: "Failed to create project", variant: "destructive" }),
     });
@@ -309,9 +397,20 @@ function CreateProjectModal({ users }: { users: any[] }) {
               <label className="text-sm font-medium">Customer Phone</label>
               <input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} placeholder="+1 234 567 8900" className={inputCls} />
             </div>
+            <div className="sm:col-span-2 border-t border-white/10 pt-3">
+              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Financial Details</p>
+            </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Cost Target (R)</label>
+              <label className="text-sm font-medium">Cost Target ($)</label>
               <input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} placeholder="0.00" className={inputCls} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Selling Price (USD $)</label>
+              <input type="number" value={form.sellingPrice} onChange={e => setF("sellingPrice", e.target.value)} placeholder="0.00" className={inputCls} />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Volume (kg/Month)</label>
+              <input type="number" value={form.volumeKgPerMonth} onChange={e => setF("volumeKgPerMonth", e.target.value)} placeholder="0" className={inputCls} />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Start Date</label>

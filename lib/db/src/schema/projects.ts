@@ -37,6 +37,8 @@ export const projectsTable = pgTable("projects", {
   customerEmail: text("customer_email"),
   customerPhone: text("customer_phone"),
   costTarget: numeric("cost_target", { precision: 15, scale: 2 }),
+  sellingPrice: numeric("selling_price", { precision: 15, scale: 2 }),
+  volumeKgPerMonth: numeric("volume_kg_per_month", { precision: 15, scale: 2 }),
   productType: productTypeEnum("product_type"),
   successRate: numeric("success_rate", { precision: 5, scale: 2 }),
   revenueImpact: numeric("revenue_impact", { precision: 15, scale: 2 }),

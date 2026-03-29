@@ -1,0 +1,32 @@
+PROJECT PORTFOLIO 
+“Export Data” Button
+Function:
+* Export all data concerning every project 
+* CSV format, file name: project_export_[date].csv
+* Excel Format, file name: projects_export_[date].xlsx
+* unlimited export
+
+-I want a filter that can sorts the all projects based on product type and group them based on the product type
+-show a circular (percentage) progress bar / cycle for each project 
+-For Each projects, on the far right section in the same line with(“Tasks”, “Status report” “Project Info”).. create a well designed Digital screen (Titled “Revenue”) that automatically calculates multiplication of the value from “Selling Price($)” and “Volume(kg/Month)” as long as the value have been inputed. 
+-Do not show error when value has not been typed in, instead show “set Selling price($) and Volume(kg/month)”
+-In “Project Portfolio” When adding “New Project, include “Volume(kg/Month)” to part of the information of the Metadata been filled., also the Volume should be editable at any time.
+-For each “Projects Info”, immediately after “Cost Target”, create another metadata title “Selling Price (USD $)”….Also shows its equivalent in Naira, immediately after typing typing the amount, this price should also be editable anytime…. Also the Selling Price should be visible as a main information for each project.
+
+Whenever a new project is created, in the tasks section, create a “Star” emoji button. If this button is clicked it should create a to-do tasks in the following order 
+“Fill Brief Sheet”
+“Descriptive analysis of Sample(s)”
+“Create recipe(s)”
+“Sensory evaluation of sample(s)”
+“In-house approval”
+“Send samples to customer”
+“Send follow-up mail for samples sent”
+“TDS, MSDS and COA from QC”
+“Customer approval”
+“Align with Procurement Department”
+“Push to live”
+“Pre-Commercialization Meeting”
+“First Bulk Production”
+Note: 
+-these set of tasks is just a template and should be editable (or deletable) by user
+-if the “star button” is clicked again(a second time) you must remove the templates added (treat as undo action)

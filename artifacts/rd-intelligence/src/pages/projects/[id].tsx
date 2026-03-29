@@ -3,7 +3,7 @@ import { useGetProject, useListTasks, useCreateTask, useUpdateTask, useDeleteTas
 import { PageLoader } from "@/components/ui/spinner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Plus, Clock, MessageSquare, Send, Edit3, Check, X, Calendar, User, Phone, Mail, DollarSign, Package, Trash2, GripVertical, AtSign } from "lucide-react";
+import { ArrowLeft, Plus, Clock, MessageSquare, Send, Edit3, Check, X, Calendar, User, Phone, Mail, DollarSign, Package, Trash2, GripVertical, AtSign, Star, TrendingUp, Zap } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { useState, useEffect, useRef, useCallback } from "react";
@@ -183,10 +183,82 @@ function CostTargetField({ value, onSave }: { value: string; onSave: (v: string)
   );
 }
 
+function SellingPriceField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [val, setVal] = useState(value);
+  const [rates, setRates] = useState<Record<string, number>>({});
+
+  useEffect(() => { setVal(value); }, [value]);
+  useEffect(() => {
+    fetch("https://open.er-api.com/v6/latest/USD")
+      .then(r => r.json()).then(d => { if (d?.rates) setRates(d.rates); }).catch(() => {});
+  }, []);
+
+  const save = () => { if (val !== value) onSave(val); setEditing(false); };
+  const cancel = () => { setVal(value); setEditing(false); };
+  const numericValue = parseFloat(value) || 0;
+  const ngnRate = rates["NGN"] || null;
+  const ngnEquiv = ngnRate ? (numericValue * ngnRate).toLocaleString(undefined, { maximumFractionDigits: 0 }) : null;
+  const cls = "flex h-9 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+
+  return (
+    <div className="glass-card rounded-xl p-4 group/field relative">
+      <div className="flex items-center gap-2 mb-1.5 text-xs text-muted-foreground uppercase tracking-wide font-medium">
+        <TrendingUp className="w-3.5 h-3.5" /> Selling Price (USD $)
+      </div>
+      {editing ? (
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">$</span>
+            <input type="number" value={val} onChange={e => setVal(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+              className={cls + " pl-7"} placeholder="0.00" autoFocus step="0.01" min="0" />
+          </div>
+          <button onClick={save} className="p-1.5 text-green-400 hover:text-green-300 shrink-0"><Check className="w-4 h-4" /></button>
+          <button onClick={cancel} className="p-1.5 text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2 group/val">
+            <span className={`text-sm font-bold ${!value ? "text-muted-foreground italic" : "text-violet-400"}`}>
+              {value ? `$${parseFloat(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Not set"}
+            </span>
+            <button onClick={() => setEditing(true)} className="opacity-0 group-hover/field:opacity-100 p-1 text-muted-foreground hover:text-foreground transition-opacity shrink-0">
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          {numericValue > 0 && ngnEquiv && (
+            <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
+              <span className="text-xs font-semibold text-amber-400">🇳🇬 ₦{ngnEquiv} NGN</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const TEMPLATE_TASKS = [
+  "Fill Brief Sheet",
+  "Descriptive analysis of Sample(s)",
+  "Create recipe(s)",
+  "Sensory evaluation of sample(s)",
+  "In-house approval",
+  "Send samples to customer",
+  "Send follow-up mail for samples sent",
+  "TDS, MSDS and COA from QC",
+  "Customer approval",
+  "Align with Procurement Department",
+  "Push to live",
+  "Pre-Commercialization Meeting",
+  "First Bulk Production",
+];
+
 export default function ProjectDetail() {
   const [, params] = useRoute("/projects/:id");
   const projectId = Number(params?.id);
-  const [activeTab, setActiveTab] = useState<"tasks" | "comments" | "info">("tasks");
+  const [activeTab, setActiveTab] = useState<"tasks" | "comments" | "info" | "revenue">("tasks");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [editingDesc, setEditingDesc] = useState(false);
@@ -194,6 +266,8 @@ export default function ProjectDetail() {
   const [dragOverCol, setDragOverCol] = useState<TaskStatus | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<number | null>(null);
   const [editingTask, setEditingTask] = useState<any | null>(null);
+  const [starActive, setStarActive] = useState(false);
+  const [templateTaskIds, setTemplateTaskIds] = useState<number[]>([]);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -202,6 +276,7 @@ export default function ProjectDetail() {
   const { data: users } = useListUsers();
   const updateTaskMut = useUpdateTask();
   const deleteTaskMut = useDeleteTask();
+  const createTaskMut = useCreateTask();
   const updateProjectMut = useUpdateProject();
 
   useEffect(() => {
@@ -261,6 +336,32 @@ export default function ProjectDetail() {
     });
   };
 
+  const handleStarClick = async () => {
+    if (starActive && templateTaskIds.length > 0) {
+      await Promise.all(templateTaskIds.map(id =>
+        new Promise<void>(resolve => deleteTaskMut.mutate({ id }, { onSuccess: () => resolve(), onError: () => resolve() }))
+      ));
+      setTemplateTaskIds([]);
+      setStarActive(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Template tasks removed" });
+    } else {
+      const createdIds: number[] = [];
+      for (const title of TEMPLATE_TASKS) {
+        await new Promise<void>(resolve => {
+          createTaskMut.mutate({ data: { projectId, title, status: "todo", priority: "medium" } as any }, {
+            onSuccess: (task: any) => { createdIds.push(task.id); resolve(); },
+            onError: () => resolve(),
+          });
+        });
+      }
+      setTemplateTaskIds(createdIds);
+      setStarActive(true);
+      queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
+      toast({ title: "Template tasks created", description: `${createdIds.length} tasks added.` });
+    }
+  };
+
   const selectCls = "h-8 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground";
 
   return (
@@ -317,22 +418,45 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div className="text-right text-sm shrink-0 space-y-1">
-            {project.customerName && <div className="font-medium text-foreground">{project.customerName}</div>}
-            {project.productType && <div className="text-muted-foreground">{project.productType}</div>}
+            {(project as any).customerName && <div className="font-medium text-foreground">{(project as any).customerName}</div>}
+            {(project as any).productType && <div className="text-muted-foreground">📦 {(project as any).productType}</div>}
             {project.targetDate && (
               <div className="text-muted-foreground flex items-center justify-end gap-1">
                 <Calendar className="w-3.5 h-3.5" /> Due: {format(new Date(project.targetDate), "MMM d, yyyy")}
               </div>
             )}
-            {project.costTarget && <div className="text-green-400 font-medium">${parseFloat(String(project.costTarget)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>}
+            {(project as any).costTarget && (
+              <div className="text-green-400 font-medium text-xs">Cost: ${parseFloat(String((project as any).costTarget)).toLocaleString()}</div>
+            )}
+            {(project as any).sellingPrice && (
+              <div className="text-violet-400 font-bold">
+                <TrendingUp className="w-3 h-3 inline mr-0.5" />${parseFloat(String((project as any).sellingPrice)).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            )}
+            {(project as any).sellingPrice && (project as any).volumeKgPerMonth && (
+              <div className="text-xs text-emerald-400 font-semibold">
+                <Zap className="w-3 h-3 inline mr-0.5" />
+                ${(parseFloat(String((project as any).sellingPrice)) * parseFloat(String((project as any).volumeKgPerMonth))).toLocaleString()}/mo
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-white/5 rounded-xl w-fit">
-        {[{ id: "tasks", label: "Tasks" }, { id: "comments", label: "Status Reports" }, { id: "info", label: "Project Info" }].map(t => (
+      <div className="flex gap-2 p-1 bg-white/5 rounded-xl w-fit flex-wrap border border-white/10">
+        {[
+          { id: "tasks", label: "Tasks" },
+          { id: "comments", label: "Status Reports" },
+          { id: "info", label: "Project Info" },
+          { id: "revenue", label: "Revenue" },
+        ].map(t => (
           <button key={t.id} onClick={() => setActiveTab(t.id as any)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === t.id ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"}`}>
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === t.id
+                ? t.id === "revenue" ? "bg-emerald-600 text-white" : "bg-primary text-white"
+                : "text-muted-foreground hover:text-foreground"
+            }`}>
+            {t.id === "revenue" && <TrendingUp className="w-3.5 h-3.5 inline mr-1.5" />}
             {t.label}
           </button>
         ))}
@@ -340,9 +464,23 @@ export default function ProjectDetail() {
 
       {activeTab === "tasks" && (
         <>
-          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-            <GripVertical className="w-3.5 h-3.5" /> Drag tasks between columns · Click <Edit3 className="w-3 h-3 inline" /> to edit
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+              <GripVertical className="w-3.5 h-3.5" /> Drag tasks between columns · Click <Edit3 className="w-3 h-3 inline" /> to edit
+            </p>
+            <button
+              onClick={handleStarClick}
+              title={starActive ? "Remove template tasks" : "Add template workflow tasks"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                starActive
+                  ? "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/30"
+                  : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              <Star className={`w-3.5 h-3.5 ${starActive ? "fill-yellow-400" : ""}`} />
+              {starActive ? "Remove Template Tasks" : "Template Tasks"}
+            </button>
+          </div>
           <div className="overflow-x-auto pb-4 custom-scrollbar">
             <div className="flex gap-5 min-w-max">
               {TASK_STATUSES.map(status => {
@@ -405,6 +543,15 @@ export default function ProjectDetail() {
 
       {activeTab === "comments" && <CommentsTab projectId={projectId} users={users || []} />}
 
+      {activeTab === "revenue" && (
+        <RevenueScreen
+          sellingPrice={(project as any).sellingPrice ? parseFloat(String((project as any).sellingPrice)) : null}
+          volume={(project as any).volumeKgPerMonth ? parseFloat(String((project as any).volumeKgPerMonth)) : null}
+          projectName={project.name}
+          onGoToInfo={() => setActiveTab("info")}
+        />
+      )}
+
       {activeTab === "info" && (
         <div className="space-y-6">
           <p className="text-xs text-muted-foreground">Click any field to edit it directly.</p>
@@ -412,8 +559,10 @@ export default function ProjectDetail() {
             <InlineEdit label="Customer Name" value={project.customerName || ""} onSave={v => saveField("customerName", v)} icon={<User className="w-3.5 h-3.5" />} placeholder="Customer / client name" />
             <InlineEdit label="Customer Email" value={project.customerEmail || ""} onSave={v => saveField("customerEmail", v)} type="email" icon={<Mail className="w-3.5 h-3.5" />} placeholder="email@example.com" />
             <InlineEdit label="Customer Phone" value={project.customerPhone || ""} onSave={v => saveField("customerPhone", v)} icon={<Phone className="w-3.5 h-3.5" />} placeholder="+27 xx xxx xxxx" />
-            <InlineEdit label="Product Type" value={project.productType || ""} onSave={v => saveField("productType", v)} options={PRODUCT_TYPES} icon={<Package className="w-3.5 h-3.5" />} />
-            <CostTargetField value={project.costTarget ? String(parseFloat(String(project.costTarget))) : ""} onSave={v => saveField("costTarget", v)} />
+            <InlineEdit label="Product Type" value={(project as any).productType || ""} onSave={v => saveField("productType", v)} options={PRODUCT_TYPES} icon={<Package className="w-3.5 h-3.5" />} />
+            <CostTargetField value={(project as any).costTarget ? String(parseFloat(String((project as any).costTarget))) : ""} onSave={v => saveField("costTarget", v)} />
+            <SellingPriceField value={(project as any).sellingPrice ? String(parseFloat(String((project as any).sellingPrice))) : ""} onSave={v => saveField("sellingPrice", v)} />
+            <InlineEdit label="Volume (kg/Month)" value={(project as any).volumeKgPerMonth ? String(parseFloat(String((project as any).volumeKgPerMonth))) : ""} onSave={v => saveField("volumeKgPerMonth", v)} type="number" icon={<Package className="w-3.5 h-3.5" />} placeholder="e.g. 500" />
             <InlineEdit label="Priority" value={project.priority || "medium"} onSave={v => saveField("priority", v)} options={PRIORITIES} icon={<Edit3 className="w-3.5 h-3.5" />} />
             <InlineEdit label="Stage" value={project.stage || ""} onSave={v => saveField("stage", v)} options={STAGES} icon={<Edit3 className="w-3.5 h-3.5" />} />
             <InlineEdit label="Status" value={project.status || ""} onSave={v => saveField("status", v)} options={STATUSES} icon={<Edit3 className="w-3.5 h-3.5" />} />
@@ -446,6 +595,77 @@ export default function ProjectDetail() {
             });
           }} />
       )}
+    </div>
+  );
+}
+
+function RevenueScreen({ sellingPrice, volume, projectName, onGoToInfo }: {
+  sellingPrice: number | null; volume: number | null; projectName: string; onGoToInfo: () => void;
+}) {
+  const revenue = sellingPrice && volume ? sellingPrice * volume : null;
+  const hasData = sellingPrice !== null && volume !== null;
+
+  return (
+    <div className="space-y-6">
+      <div className="relative rounded-2xl overflow-hidden border border-emerald-500/20 bg-gradient-to-br from-black via-emerald-950/20 to-black p-8">
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "repeating-linear-gradient(0deg, rgba(16,185,129,0.3) 0px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, rgba(16,185,129,0.3) 0px, transparent 1px, transparent 20px)" }} />
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-xs font-mono text-emerald-400 uppercase tracking-[0.3em]">Revenue Calculator</span>
+            <div className="h-px flex-1 bg-emerald-500/20" />
+            <span className="text-xs font-mono text-muted-foreground">{projectName}</span>
+          </div>
+
+          {!hasData ? (
+            <div className="text-center py-10">
+              <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto mb-4">
+                <TrendingUp className="w-7 h-7 text-emerald-400" />
+              </div>
+              <p className="text-muted-foreground text-sm mb-2">No financial data set yet</p>
+              <p className="text-xs text-muted-foreground/60 mb-4">Set <strong className="text-emerald-400">Selling Price ($)</strong> and <strong className="text-emerald-400">Volume (kg/Month)</strong> in Project Info to calculate revenue.</p>
+              <button onClick={onGoToInfo} className="px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs hover:bg-emerald-500/20 transition-all">
+                Go to Project Info →
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <div className="rounded-xl bg-black/40 border border-white/10 p-4">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2 font-mono">Selling Price</p>
+                  <p className="font-mono text-2xl font-bold text-violet-400">${sellingPrice!.toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 font-mono">USD per kg</p>
+                </div>
+                <div className="rounded-xl bg-black/40 border border-white/10 p-4">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2 font-mono">Volume</p>
+                  <p className="font-mono text-2xl font-bold text-blue-400">{volume!.toLocaleString()}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 font-mono">kg / month</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl bg-black/60 border border-emerald-500/30 p-6 text-center">
+                <p className="text-[10px] text-emerald-400/60 uppercase tracking-[0.4em] font-mono mb-3">Monthly Revenue</p>
+                <div className="text-5xl font-mono font-black text-emerald-400 mb-2 tabular-nums" style={{ textShadow: "0 0 30px rgba(16,185,129,0.5), 0 0 60px rgba(16,185,129,0.2)" }}>
+                  ${revenue!.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs text-muted-foreground font-mono">
+                  ${sellingPrice!.toLocaleString()} × {volume!.toLocaleString()} kg
+                </p>
+                <div className="mt-4 pt-4 border-t border-emerald-500/10 grid grid-cols-2 gap-4 text-left">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Annual Revenue</p>
+                    <p className="text-lg font-mono font-bold text-emerald-300 mt-0.5">${(revenue! * 12).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Daily Avg</p>
+                    <p className="text-lg font-mono font-bold text-emerald-300 mt-0.5">${(revenue! / 30).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

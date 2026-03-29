@@ -57,15 +57,22 @@ artifacts-monorepo/
 
 ### 2. Project Portfolio
 - Full CRUD with delete confirmation
+- **3 views**: Portfolio (card grid), Matrix (comparison table), List (sortable)
+- **Portfolio cards**: circular SVG progress indicator, selling price, monthly revenue display
 - Stages: Testing, Reformulation, Innovation, Cost Optimization, Modification
 - Status filters: Approved, Awaiting Feedback, On Hold, In Progress, New Inventory, Cancelled, Pushed to Live
+- **Product Type filter**: filter by product type + "Group by Type" toggle for grouped layout
 - Product types: Seasoning, Snack Dusting, Bread & Dough Premix, Dairy Premix, Functional Blend, Pasta Sauce, Sweet Flavour, Savoury Flavour
 - Customer metadata: name, email, phone, cost target, start/due dates
+- **Financial fields**: `sellingPrice` (USD $) + `volumeKgPerMonth` — revenue auto-calculated as sellingPrice × volume
 - Assignee multi-select from team
 - Inline stage/status editing on project detail
-- Kanban task board with drag-left/right
-- Status reports/comments tab
-- Export tab: CSV download with 17-column structured export
+- **4 tabs on project detail**: Tasks (kanban), Status Reports, Project Info, Revenue
+- **Revenue tab**: digital-screen display showing selling price × volume = monthly/annual revenue
+- **Project Info**: Cost Target (USD with currency converter), Selling Price (USD with Naira equivalent), Volume (kg/Month)
+- **Template Tasks star button**: creates 13 standard R&D workflow tasks; second click undoes them
+- **Matrix view**: clickable rows → project detail, interactive sensory score bars, $ currency
+- **Export tab**: CSV (`project_export_[date].csv`) + real Excel XLSX (`projects_export_[date].xlsx`) with 20 columns including financial data
 
 ### 3. Analytics & AI
 - Overview charts: product category bar, stage donut, status horizontal bar, radar chart

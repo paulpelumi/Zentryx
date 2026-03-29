@@ -25,6 +25,8 @@ async function enrichProject(project: typeof projectsTable.$inferSelect) {
     successRate: project.successRate ? parseFloat(project.successRate) : null,
     revenueImpact: project.revenueImpact ? parseFloat(project.revenueImpact) : null,
     costTarget: project.costTarget ? parseFloat(project.costTarget) : null,
+    sellingPrice: project.sellingPrice ? parseFloat(project.sellingPrice) : null,
+    volumeKgPerMonth: project.volumeKgPerMonth ? parseFloat(project.volumeKgPerMonth) : null,
     lead,
     assignees,
     taskCount,
@@ -103,7 +105,7 @@ router.get("/:id", requireAuth, async (req, res) => {
 
 router.post("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const { name, description, stage, status, priority, leadId, assigneeIds, startDate, targetDate, revenueImpact, productCategory, productType, customerName, customerEmail, customerPhone, costTarget, tags } = req.body;
+    const { name, description, stage, status, priority, leadId, assigneeIds, startDate, targetDate, revenueImpact, productCategory, productType, customerName, customerEmail, customerPhone, costTarget, sellingPrice, volumeKgPerMonth, tags } = req.body;
     const [project] = await db.insert(projectsTable).values({
       name, description,
       stage: stage || "innovation",
@@ -118,6 +120,8 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       productType,
       customerName, customerEmail, customerPhone,
       costTarget,
+      sellingPrice,
+      volumeKgPerMonth,
       tags: tags || [],
     }).returning();
     await logActivity(req.user!.userId, "created", "project", project.id, `Created project: ${name}`);
@@ -131,7 +135,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
 router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, description, stage, status, priority, leadId, assigneeIds, startDate, targetDate, successRate, revenueImpact, productCategory, productType, customerName, customerEmail, customerPhone, costTarget, tags } = req.body;
+    const { name, description, stage, status, priority, leadId, assigneeIds, startDate, targetDate, successRate, revenueImpact, productCategory, productType, customerName, customerEmail, customerPhone, costTarget, sellingPrice, volumeKgPerMonth, tags } = req.body;
     const [project] = await db.update(projectsTable).set({
       ...(name !== undefined && { name }),
       ...(description !== undefined && { description }),
@@ -150,6 +154,8 @@ router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
       ...(customerEmail !== undefined && { customerEmail }),
       ...(customerPhone !== undefined && { customerPhone }),
       ...(costTarget !== undefined && { costTarget }),
+      ...(sellingPrice !== undefined && { sellingPrice }),
+      ...(volumeKgPerMonth !== undefined && { volumeKgPerMonth }),
       ...(tags !== undefined && { tags }),
       updatedAt: new Date(),
     }).where(eq(projectsTable.id, id)).returning();
