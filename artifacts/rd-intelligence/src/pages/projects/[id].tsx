@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Input } from "@/components/ui/input";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useExchangeRate, fmtNGN } from "@/hooks/useExchangeRate";
 
 const BASE = import.meta.env.BASE_URL;
 const TASK_STATUSES = ['todo', 'in_progress', 'review', 'done', 'blocked'] as const;
@@ -94,35 +95,115 @@ const CURRENCY_OPTIONS = [
   { code: "JPY", label: "Japanese Yen", flag: "🇯🇵" },
 ];
 
+interface ConversionBarProps {
+  converted: number | null;
+  currency: string;
+  currencyMeta?: { code: string; label: string; flag: string };
+  isLoading: boolean;
+  lastUpdated: string;
+  isManualOverride: boolean;
+  showOverride: boolean;
+  setShowOverride: (v: boolean) => void;
+  overrideInput: string;
+  setOverrideInput: (v: string) => void;
+  applyOverride: () => void;
+  clearOverride: () => void;
+  refresh: () => void;
+  onChangeCurrency?: (code: string) => void;
+}
+
+function ConversionBar({ converted, currency, currencyMeta, isLoading, lastUpdated, isManualOverride, showOverride, setShowOverride, overrideInput, setOverrideInput, applyOverride, clearOverride, refresh, onChangeCurrency }: ConversionBarProps) {
+  const fmtConverted = converted != null
+    ? fmtNGN(converted)
+    : null;
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
+        {isLoading ? (
+          <span className="text-xs text-muted-foreground animate-pulse">Fetching rate…</span>
+        ) : fmtConverted != null ? (
+          <span className="text-xs font-semibold text-amber-400">
+            {currencyMeta?.flag ?? "🇳🇬"} {currency === "NGN" ? "₦" : ""}{fmtConverted} {currency}
+          </span>
+        ) : (
+          <span className="text-xs text-muted-foreground italic">Rate not available</span>
+        )}
+        {onChangeCurrency ? (
+          <select value={currency} onChange={e => onChangeCurrency(e.target.value)}
+            className="ml-auto text-[11px] bg-transparent border border-white/10 rounded-md px-1.5 py-0.5 text-muted-foreground focus:outline-none hover:border-white/20 cursor-pointer"
+            onClick={e => e.stopPropagation()}>
+            {CURRENCY_OPTIONS.map(c => <option key={c.code} value={c.code} className="bg-card">{c.flag} {c.code} — {c.label}</option>)}
+          </select>
+        ) : (
+          <button onClick={refresh} className="ml-auto text-[11px] text-muted-foreground hover:text-foreground px-1 rounded" title="Refresh rate">↻</button>
+        )}
+      </div>
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-1.5">
+          {lastUpdated && <span className="text-[10px] text-muted-foreground">Updated {lastUpdated}</span>}
+          {isManualOverride && <span className="text-[10px] text-amber-500/80 font-medium">(manual rate)</span>}
+        </div>
+        <div className="flex items-center gap-1.5">
+          {isManualOverride && (
+            <button onClick={clearOverride} className="text-[10px] text-red-400/70 hover:text-red-400 underline">Clear override</button>
+          )}
+          {currency === "NGN" && (
+            <button onClick={() => setShowOverride(!showOverride)} className="text-[10px] text-primary/70 hover:text-primary underline">
+              {showOverride ? "Cancel" : "Set rate"}
+            </button>
+          )}
+        </div>
+      </div>
+      {showOverride && (
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground shrink-0">$1 USD =</span>
+          <input type="number" value={overrideInput} onChange={e => setOverrideInput(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") applyOverride(); if (e.key === "Escape") setShowOverride(false); }}
+            placeholder="e.g. 1650" className="flex-1 h-7 rounded-md border border-white/10 bg-black/30 px-2 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground" autoFocus />
+          <button onClick={applyOverride} className="px-2 py-1 text-[11px] bg-primary/20 text-primary rounded-md hover:bg-primary/30 shrink-0">Apply</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CostTargetField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
-  const [targetCurrency, setTargetCurrency] = useState(() => localStorage.getItem("rd_cost_currency") || "NGN");
-  const [rates, setRates] = useState<Record<string, number>>({});
-  const [ratesLoading, setRatesLoading] = useState(false);
+  const [displayVal, setDisplayVal] = useState(value);
+  const [targetCurrency, setTargetCurrency] = useState(() => {
+    try { return localStorage.getItem("rd_cost_currency") || "NGN"; } catch { return "NGN"; }
+  });
+  const [showOverride, setShowOverride] = useState(false);
+  const [overrideInput, setOverrideInput] = useState("");
+  const { convert, isLoading, isManualOverride, getLastUpdated, setManualNGN, refresh } = useExchangeRate();
 
-  useEffect(() => { setVal(value); }, [value]);
+  useEffect(() => { setVal(value); setDisplayVal(value); }, [value]);
 
-  useEffect(() => {
-    setRatesLoading(true);
-    fetch("https://open.er-api.com/v6/latest/USD")
-      .then(r => r.json())
-      .then(d => { if (d?.rates) setRates(d.rates); })
-      .catch(() => {})
-      .finally(() => setRatesLoading(false));
-  }, []);
+  const save = () => {
+    const trimmed = val.trim();
+    if (trimmed !== displayVal) { onSave(trimmed); setDisplayVal(trimmed); }
+    setEditing(false);
+  };
+  const cancel = () => { setVal(displayVal); setEditing(false); };
 
-  const save = () => { if (val !== value) onSave(val); setEditing(false); };
-  const cancel = () => { setVal(value); setEditing(false); };
-
-  const numericValue = parseFloat(value) || 0;
-  const rate = rates[targetCurrency] || null;
-  const converted = rate ? (numericValue * rate).toLocaleString(undefined, { maximumFractionDigits: 2 }) : null;
+  const activeAmount = parseFloat(editing ? val : displayVal) || 0;
+  const converted = activeAmount > 0 ? convert(activeAmount, targetCurrency) : null;
   const currencyMeta = CURRENCY_OPTIONS.find(c => c.code === targetCurrency);
+  const lastUpdated = getLastUpdated();
+  const changeCurrency = (code: string) => {
+    setTargetCurrency(code);
+    try { localStorage.setItem("rd_cost_currency", code); } catch {}
+  };
+  const applyOverride = () => {
+    const v = parseFloat(overrideInput);
+    if (!isNaN(v) && v > 0) { setManualNGN(v); setShowOverride(false); setOverrideInput(""); }
+  };
+  const clearOverride = () => { setManualNGN(null); setShowOverride(false); };
 
   const cls = "flex h-9 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
-
-  const changeCurrency = (code: string) => { setTargetCurrency(code); localStorage.setItem("rd_cost_currency", code); };
 
   return (
     <div className="glass-card rounded-xl p-4 group/field relative">
@@ -141,41 +222,22 @@ function CostTargetField({ value, onSave }: { value: string; onSave: (v: string)
             <button onClick={save} className="p-1.5 text-green-400 hover:text-green-300 shrink-0"><Check className="w-4 h-4" /></button>
             <button onClick={cancel} className="p-1.5 text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
           </div>
+          {activeAmount > 0 && (
+            <ConversionBar converted={converted} currency={targetCurrency} currencyMeta={currencyMeta} isLoading={isLoading} lastUpdated={lastUpdated} isManualOverride={isManualOverride} showOverride={showOverride} setShowOverride={setShowOverride} overrideInput={overrideInput} setOverrideInput={setOverrideInput} applyOverride={applyOverride} clearOverride={clearOverride} refresh={refresh} onChangeCurrency={changeCurrency} />
+          )}
         </div>
       ) : (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 group/val">
-            <span className={`text-sm font-bold ${!value ? "text-muted-foreground italic" : "text-green-400"}`}>
-              {value ? `$${parseFloat(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Not set"}
+            <span className={`text-sm font-bold ${!displayVal ? "text-muted-foreground italic" : "text-green-400"}`}>
+              {displayVal ? `$${parseFloat(displayVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Not set"}
             </span>
-            <button onClick={() => setEditing(true)}
-              className="opacity-0 group-hover/field:opacity-100 p-1 text-muted-foreground hover:text-foreground transition-opacity shrink-0">
+            <button onClick={() => setEditing(true)} className="opacity-0 group-hover/field:opacity-100 p-1 text-muted-foreground hover:text-foreground transition-opacity shrink-0">
               <Edit3 className="w-3.5 h-3.5" />
             </button>
           </div>
-          {numericValue > 0 && (
-            <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
-              {ratesLoading ? (
-                <span className="text-xs text-muted-foreground animate-pulse">Loading rates...</span>
-              ) : converted ? (
-                <span className="text-xs font-semibold text-amber-400">
-                  {currencyMeta?.flag} {converted} {targetCurrency}
-                </span>
-              ) : (
-                <span className="text-xs text-muted-foreground">Rate unavailable</span>
-              )}
-              <select
-                value={targetCurrency}
-                onChange={e => changeCurrency(e.target.value)}
-                className="ml-auto text-[11px] bg-transparent border border-white/10 rounded-md px-1.5 py-0.5 text-muted-foreground focus:outline-none hover:border-white/20 cursor-pointer"
-                onClick={e => e.stopPropagation()}
-              >
-                {CURRENCY_OPTIONS.map(c => (
-                  <option key={c.code} value={c.code} className="bg-card">{c.flag} {c.code} — {c.label}</option>
-                ))}
-              </select>
-            </div>
+          {activeAmount > 0 && (
+            <ConversionBar converted={converted} currency={targetCurrency} currencyMeta={currencyMeta} isLoading={isLoading} lastUpdated={lastUpdated} isManualOverride={isManualOverride} showOverride={showOverride} setShowOverride={setShowOverride} overrideInput={overrideInput} setOverrideInput={setOverrideInput} applyOverride={applyOverride} clearOverride={clearOverride} refresh={refresh} onChangeCurrency={changeCurrency} />
           )}
         </div>
       )}
@@ -187,13 +249,11 @@ function SellingPriceField({ value, onSave }: { value: string; onSave: (v: strin
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
   const [displayVal, setDisplayVal] = useState(value);
-  const [rates, setRates] = useState<Record<string, number>>({});
+  const [showOverride, setShowOverride] = useState(false);
+  const [overrideInput, setOverrideInput] = useState("");
+  const { convert, isLoading, isManualOverride, getLastUpdated, setManualNGN, refresh } = useExchangeRate();
 
   useEffect(() => { setVal(value); setDisplayVal(value); }, [value]);
-  useEffect(() => {
-    fetch("https://open.er-api.com/v6/latest/USD")
-      .then(r => r.json()).then(d => { if (d?.rates) setRates(d.rates); }).catch(() => {});
-  }, []);
 
   const save = () => {
     const trimmed = val.trim();
@@ -202,11 +262,15 @@ function SellingPriceField({ value, onSave }: { value: string; onSave: (v: strin
   };
   const cancel = () => { setVal(displayVal); setEditing(false); };
 
-  const numericDisplay = parseFloat(editing ? val : displayVal) || 0;
-  const ngnRate = rates["NGN"] || null;
-  const ngnEquiv = ngnRate && numericDisplay > 0
-    ? (numericDisplay * ngnRate).toLocaleString(undefined, { maximumFractionDigits: 0 })
-    : null;
+  const activeAmount = parseFloat(editing ? val : displayVal) || 0;
+  const converted = activeAmount > 0 ? convert(activeAmount, "NGN") : null;
+  const lastUpdated = getLastUpdated();
+  const applyOverride = () => {
+    const v = parseFloat(overrideInput);
+    if (!isNaN(v) && v > 0) { setManualNGN(v); setShowOverride(false); setOverrideInput(""); }
+  };
+  const clearOverride = () => { setManualNGN(null); setShowOverride(false); };
+
   const cls = "flex h-9 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
 
   return (
@@ -226,11 +290,8 @@ function SellingPriceField({ value, onSave }: { value: string; onSave: (v: strin
             <button onClick={save} className="p-1.5 text-green-400 hover:text-green-300 shrink-0"><Check className="w-4 h-4" /></button>
             <button onClick={cancel} className="p-1.5 text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
           </div>
-          {ngnEquiv && (
-            <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
-              <span className="text-xs font-semibold text-amber-400">🇳🇬 ₦{ngnEquiv} NGN</span>
-            </div>
+          {activeAmount > 0 && (
+            <ConversionBar converted={converted} currency="NGN" currencyMeta={{ code: "NGN", label: "Nigerian Naira", flag: "🇳🇬" }} isLoading={isLoading} lastUpdated={lastUpdated} isManualOverride={isManualOverride} showOverride={showOverride} setShowOverride={setShowOverride} overrideInput={overrideInput} setOverrideInput={setOverrideInput} applyOverride={applyOverride} clearOverride={clearOverride} refresh={refresh} />
           )}
         </div>
       ) : (
@@ -243,11 +304,8 @@ function SellingPriceField({ value, onSave }: { value: string; onSave: (v: strin
               <Edit3 className="w-3.5 h-3.5" />
             </button>
           </div>
-          {ngnEquiv && (
-            <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
-              <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
-              <span className="text-xs font-semibold text-amber-400">🇳🇬 ₦{ngnEquiv} NGN</span>
-            </div>
+          {activeAmount > 0 && (
+            <ConversionBar converted={converted} currency="NGN" currencyMeta={{ code: "NGN", label: "Nigerian Naira", flag: "🇳🇬" }} isLoading={isLoading} lastUpdated={lastUpdated} isManualOverride={isManualOverride} showOverride={showOverride} setShowOverride={setShowOverride} overrideInput={overrideInput} setOverrideInput={setOverrideInput} applyOverride={applyOverride} clearOverride={clearOverride} refresh={refresh} />
           )}
         </div>
       )}
