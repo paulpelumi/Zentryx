@@ -186,19 +186,27 @@ function CostTargetField({ value, onSave }: { value: string; onSave: (v: string)
 function SellingPriceField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState(value);
+  const [displayVal, setDisplayVal] = useState(value);
   const [rates, setRates] = useState<Record<string, number>>({});
 
-  useEffect(() => { setVal(value); }, [value]);
+  useEffect(() => { setVal(value); setDisplayVal(value); }, [value]);
   useEffect(() => {
     fetch("https://open.er-api.com/v6/latest/USD")
       .then(r => r.json()).then(d => { if (d?.rates) setRates(d.rates); }).catch(() => {});
   }, []);
 
-  const save = () => { if (val !== value) onSave(val); setEditing(false); };
-  const cancel = () => { setVal(value); setEditing(false); };
-  const numericValue = parseFloat(value) || 0;
+  const save = () => {
+    const trimmed = val.trim();
+    if (trimmed !== displayVal) { onSave(trimmed); setDisplayVal(trimmed); }
+    setEditing(false);
+  };
+  const cancel = () => { setVal(displayVal); setEditing(false); };
+
+  const numericDisplay = parseFloat(editing ? val : displayVal) || 0;
   const ngnRate = rates["NGN"] || null;
-  const ngnEquiv = ngnRate ? (numericValue * ngnRate).toLocaleString(undefined, { maximumFractionDigits: 0 }) : null;
+  const ngnEquiv = ngnRate && numericDisplay > 0
+    ? (numericDisplay * ngnRate).toLocaleString(undefined, { maximumFractionDigits: 0 })
+    : null;
   const cls = "flex h-9 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
 
   return (
@@ -207,27 +215,35 @@ function SellingPriceField({ value, onSave }: { value: string; onSave: (v: strin
         <TrendingUp className="w-3.5 h-3.5" /> Selling Price (USD $)
       </div>
       {editing ? (
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">$</span>
-            <input type="number" value={val} onChange={e => setVal(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
-              className={cls + " pl-7"} placeholder="0.00" autoFocus step="0.01" min="0" />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">$</span>
+              <input type="number" value={val} onChange={e => setVal(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") save(); if (e.key === "Escape") cancel(); }}
+                className={cls + " pl-7"} placeholder="0.00" autoFocus step="0.01" min="0" />
+            </div>
+            <button onClick={save} className="p-1.5 text-green-400 hover:text-green-300 shrink-0"><Check className="w-4 h-4" /></button>
+            <button onClick={cancel} className="p-1.5 text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
           </div>
-          <button onClick={save} className="p-1.5 text-green-400 hover:text-green-300 shrink-0"><Check className="w-4 h-4" /></button>
-          <button onClick={cancel} className="p-1.5 text-muted-foreground hover:text-foreground shrink-0"><X className="w-4 h-4" /></button>
+          {ngnEquiv && (
+            <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
+              <span className="text-xs font-semibold text-amber-400">🇳🇬 ₦{ngnEquiv} NGN</span>
+            </div>
+          )}
         </div>
       ) : (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 group/val">
-            <span className={`text-sm font-bold ${!value ? "text-muted-foreground italic" : "text-violet-400"}`}>
-              {value ? `$${parseFloat(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Not set"}
+            <span className={`text-sm font-bold ${!displayVal ? "text-muted-foreground italic" : "text-violet-400"}`}>
+              {displayVal ? `$${parseFloat(displayVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "Not set"}
             </span>
             <button onClick={() => setEditing(true)} className="opacity-0 group-hover/field:opacity-100 p-1 text-muted-foreground hover:text-foreground transition-opacity shrink-0">
               <Edit3 className="w-3.5 h-3.5" />
             </button>
           </div>
-          {numericValue > 0 && ngnEquiv && (
+          {ngnEquiv && (
             <div className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-2 border border-white/5">
               <span className="text-[10px] text-muted-foreground uppercase tracking-wide shrink-0">≈</span>
               <span className="text-xs font-semibold text-amber-400">🇳🇬 ₦{ngnEquiv} NGN</span>
