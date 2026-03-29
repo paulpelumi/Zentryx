@@ -5,7 +5,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, UserCheck, Filter } from "lucide-react";
+import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, UserCheck, Filter, Phone, Globe, Briefcase } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 
@@ -168,14 +168,28 @@ export default function Team() {
                     <>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white font-bold border border-white/10">
-                            {user.name.charAt(0)}
+                          <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white font-bold border border-white/10 shrink-0">
+                            {(user as any).avatar ? (
+                              <img src={(user as any).avatar} alt={user.name} className="w-full h-full object-cover" />
+                            ) : (
+                              user.name.charAt(0)
+                            )}
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <div className="font-medium text-foreground">{user.name}</div>
+                            {(user as any).jobPosition && (
+                              <div className="text-xs text-primary/80 flex items-center gap-1 mt-0.5">
+                                <Briefcase className="w-3 h-3 shrink-0" /> {(user as any).jobPosition}
+                              </div>
+                            )}
                             <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Mail className="w-3 h-3" /> {user.email}
+                              <Mail className="w-3 h-3 shrink-0" /> {user.email}
                             </div>
+                            {(user as any).phone && (
+                              <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Phone className="w-3 h-3 shrink-0" /> {(user as any).phone}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -186,8 +200,13 @@ export default function Team() {
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
                         <div className="flex items-center gap-1.5">
-                          <Building className="w-4 h-4" /> {user.department || 'Unassigned'}
+                          <Building className="w-4 h-4 shrink-0" /> {user.department || 'Unassigned'}
                         </div>
+                        {(user as any).country && (
+                          <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground/70">
+                            <Globe className="w-3 h-3 shrink-0" /> {(user as any).country}
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">

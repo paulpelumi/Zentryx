@@ -13,6 +13,9 @@ const formatUser = (user: typeof usersTable.$inferSelect) => ({
   name: user.name,
   role: user.role,
   department: user.department,
+  jobPosition: user.jobPosition,
+  phone: user.phone,
+  country: user.country,
   avatar: user.avatar,
   isActive: user.isActive,
   createdAt: user.createdAt,
@@ -22,6 +25,46 @@ router.get("/", requireAuth, async (_req, res) => {
   try {
     const users = await db.select().from(usersTable).orderBy(usersTable.name);
     res.json(users.map(formatUser));
+  } catch {
+    res.status(500).json({ error: "InternalServerError" });
+  }
+});
+
+router.get("/me", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId)).limit(1);
+    if (!user) { res.status(404).json({ error: "NotFound" }); return; }
+    res.json(formatUser(user));
+  } catch {
+    res.status(500).json({ error: "InternalServerError" });
+  }
+});
+
+router.put("/me", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const { name, department, jobPosition, phone, country, avatar, currentPassword, newPassword } = req.body;
+    const [existing] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.userId)).limit(1);
+    if (!existing) { res.status(404).json({ error: "NotFound" }); return; }
+
+    const updateData: Partial<typeof usersTable.$inferInsert> = {
+      updatedAt: new Date(),
+    };
+    if (name !== undefined) updateData.name = name;
+    if (department !== undefined) updateData.department = department || null;
+    if (jobPosition !== undefined) updateData.jobPosition = jobPosition || null;
+    if (phone !== undefined) updateData.phone = phone || null;
+    if (country !== undefined) updateData.country = country || null;
+    if (avatar !== undefined) updateData.avatar = avatar || null;
+
+    if (newPassword) {
+      if (!currentPassword) { res.status(400).json({ error: "BadRequest", message: "Current password required" }); return; }
+      const valid = await bcrypt.compare(currentPassword, existing.passwordHash);
+      if (!valid) { res.status(400).json({ error: "BadRequest", message: "Current password is incorrect" }); return; }
+      updateData.passwordHash = await bcrypt.hash(newPassword, 10);
+    }
+
+    const [user] = await db.update(usersTable).set(updateData).where(eq(usersTable.id, req.user!.userId)).returning();
+    res.json(formatUser(user));
   } catch {
     res.status(500).json({ error: "InternalServerError" });
   }
@@ -56,9 +99,9 @@ router.post("/", requireAuth, requireRole("admin"), async (req: AuthRequest, res
 router.put("/:id", requireAuth, requireRole("admin", "manager"), async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, role, department, isActive } = req.body;
+    const { name, role, department, jobPosition, phone, country, avatar, isActive } = req.body;
     const [user] = await db.update(usersTable)
-      .set({ name, role, department, isActive, updatedAt: new Date() })
+      .set({ name, role, department, jobPosition, phone, country, avatar, isActive, updatedAt: new Date() })
       .where(eq(usersTable.id, id)).returning();
     if (!user) { res.status(404).json({ error: "NotFound" }); return; }
     res.json(formatUser(user));

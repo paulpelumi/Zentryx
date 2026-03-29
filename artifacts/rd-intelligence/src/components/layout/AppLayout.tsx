@@ -4,7 +4,7 @@ import {
   LayoutDashboard, FlaskConical, LineChart, Users, Bell, Activity,
   Search, LogOut, Menu, X, MessageSquare, Briefcase, Sun, Moon, Zap,
   ChevronDown, User, FlaskConical as Flask, CheckSquare, Building2,
-  ArrowRight, Loader2, CalendarDays
+  ArrowRight, Loader2, CalendarDays, UserCircle
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -23,6 +23,7 @@ const navItems = [
   { href: "/activity", label: "Activity Feed", icon: Activity },
   { href: "/business-dev", label: "Business Development", icon: Briefcase },
   { href: "/chat", label: "Chat Room", icon: MessageSquare },
+  { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
 
 function useAvatarColor(name: string) {
@@ -96,9 +97,9 @@ function UserMenu({ user, logout, isLight }: { user: any; logout: () => void; is
               </div>
             </div>
             <div className="p-2">
-              <Link href="/team" onClick={() => setOpen(false)}
+              <Link href="/profile" onClick={() => setOpen(false)}
                 className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors", isLight ? "text-slate-600 hover:bg-slate-50" : "text-muted-foreground hover:bg-white/5 hover:text-foreground")}>
-                <User className="w-4 h-4" /> View Profile
+                <User className="w-4 h-4" /> Edit Profile
               </Link>
               <button onClick={() => { logout(); setOpen(false); }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors text-destructive hover:bg-destructive/10 mt-1">
