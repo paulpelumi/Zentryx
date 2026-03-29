@@ -268,6 +268,8 @@ export default function ProjectDetail() {
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const [starActive, setStarActive] = useState(false);
   const [templateTaskIds, setTemplateTaskIds] = useState<number[]>([]);
+  const [liveSellingPrice, setLiveSellingPrice] = useState<number | null>(null);
+  const [liveVolume, setLiveVolume] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -280,7 +282,14 @@ export default function ProjectDetail() {
   const updateProjectMut = useUpdateProject();
 
   useEffect(() => {
-    if (project) { setTitleValue(project.name); setDescValue(project.description || ""); }
+    if (project) {
+      setTitleValue(project.name);
+      setDescValue(project.description || "");
+      const sp = (project as any).sellingPrice;
+      const vol = (project as any).volumeKgPerMonth;
+      setLiveSellingPrice(sp ? parseFloat(String(sp)) : null);
+      setLiveVolume(vol ? parseFloat(String(vol)) : null);
+    }
   }, [project]);
 
   if (loadingProj || loadingTasks) return <PageLoader />;
@@ -318,6 +327,8 @@ export default function ProjectDetail() {
   };
 
   const saveField = (field: string, value: any) => {
+    if (field === "sellingPrice") setLiveSellingPrice(value ? parseFloat(value) : null);
+    if (field === "volumeKgPerMonth") setLiveVolume(value ? parseFloat(value) : null);
     updateProjectMut.mutate({ id: projectId, data: { [field]: value || null } as any }, {
       onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/projects"] }); toast({ title: "Saved" }); },
     });
@@ -543,8 +554,8 @@ export default function ProjectDetail() {
 
       {activeTab === "revenue" && (
         <RevenueScreen
-          sellingPrice={(project as any).sellingPrice ? parseFloat(String((project as any).sellingPrice)) : null}
-          volume={(project as any).volumeKgPerMonth ? parseFloat(String((project as any).volumeKgPerMonth)) : null}
+          sellingPrice={liveSellingPrice}
+          volume={liveVolume}
           projectName={project.name}
           onGoToInfo={() => setActiveTab("info")}
         />
