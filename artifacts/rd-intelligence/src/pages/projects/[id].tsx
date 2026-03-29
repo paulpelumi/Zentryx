@@ -338,9 +338,9 @@ export default function ProjectDetail() {
 
   const handleStarClick = async () => {
     if (starActive && templateTaskIds.length > 0) {
-      await Promise.all(templateTaskIds.map(id =>
-        new Promise<void>(resolve => deleteTaskMut.mutate({ id }, { onSuccess: () => resolve(), onError: () => resolve() }))
-      ));
+      for (const id of templateTaskIds) {
+        try { await deleteTaskMut.mutateAsync({ id }); } catch {}
+      }
       setTemplateTaskIds([]);
       setStarActive(false);
       queryClient.invalidateQueries({ queryKey: ["/api/tasks"] });
@@ -348,12 +348,10 @@ export default function ProjectDetail() {
     } else {
       const createdIds: number[] = [];
       for (const title of TEMPLATE_TASKS) {
-        await new Promise<void>(resolve => {
-          createTaskMut.mutate({ data: { projectId, title, status: "todo", priority: "medium" } as any }, {
-            onSuccess: (task: any) => { createdIds.push(task.id); resolve(); },
-            onError: () => resolve(),
-          });
-        });
+        try {
+          const task = await createTaskMut.mutateAsync({ data: { projectId, title, status: "todo", priority: "medium" } as any });
+          createdIds.push((task as any).id);
+        } catch {}
       }
       setTemplateTaskIds(createdIds);
       setStarActive(true);

@@ -1,8 +1,7 @@
-import { motion } from "framer-motion";
+import { memo, useMemo } from "react";
 import { Link } from "wouter";
 import { Calendar, Trash2, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
-import { useMemo } from "react";
 
 const STATUS_COLORS: Record<string, string> = {
   approved: "bg-green-500/10 text-green-400 border-green-500/20",
@@ -29,36 +28,33 @@ interface Props {
   groupByType?: boolean;
 }
 
-function CircularProgress({ pct }: { pct: number }) {
+const CircularProgress = memo(function CircularProgress({ pct }: { pct: number }) {
   const r = 20;
   const circ = 2 * Math.PI * r;
   const dash = Math.min((pct / 100) * circ, circ);
   const color = pct >= 80 ? "#10b981" : pct >= 50 ? "#7c3aed" : "#f59e0b";
   return (
-    <svg width="52" height="52" viewBox="0 0 52 52" style={{ transform: "rotate(-90deg)" }}>
+    <svg width="52" height="52" viewBox="0 0 52 52">
       <circle cx="26" cy="26" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="4" />
       <circle cx="26" cy="26" r={r} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
-        strokeDasharray={`${dash} ${circ}`} style={{ transition: "stroke-dasharray 0.6s ease" }} />
-      <text x="26" y="30" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold" style={{ transform: "rotate(90deg)", transformOrigin: "26px 26px" }}>
+        strokeDasharray={`${dash} ${circ}`} transform="rotate(-90 26 26)" />
+      <text x="26" y="30" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">
         {pct}%
       </text>
     </svg>
   );
-}
+});
 
-const container = { hidden: {}, show: { transition: { staggerChildren: 0.05 } } };
-const item = { hidden: { opacity: 0, y: 20 }, show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } } };
-
-function ProjectCard({ project, onDelete, onDateChange }: { project: any; onDelete: Props["onDelete"]; onDateChange: Props["onDateChange"] }) {
+const ProjectCard = memo(function ProjectCard({ project, onDelete, onDateChange }: { project: any; onDelete: Props["onDelete"]; onDateChange: Props["onDateChange"] }) {
   const progress = project.taskCount > 0 ? Math.round((project.completedTaskCount / project.taskCount) * 100) : 0;
   const sp = project.sellingPrice ? parseFloat(project.sellingPrice) : null;
   const vol = project.volumeKgPerMonth ? parseFloat(project.volumeKgPerMonth) : null;
   const revenue = sp && vol ? sp * vol : null;
 
   return (
-    <motion.div variants={item} className="relative group">
+    <div className="relative group">
       <Link href={`/projects/${project.id}`} className="block">
-        <div className="glass-card h-full rounded-2xl p-5 relative overflow-hidden flex flex-col hover:border-white/20 transition-all duration-300 hover:shadow-[0_0_30px_rgba(124,58,237,0.15)]">
+        <div className="glass-card h-full rounded-2xl p-5 relative overflow-hidden flex flex-col hover:border-white/20 transition-colors duration-200 hover:shadow-[0_0_24px_rgba(124,58,237,0.12)]">
           <div className={`absolute top-0 left-0 right-0 h-1 ${
             project.priority === "critical" ? "bg-destructive" :
             project.priority === "high" ? "bg-orange-500" : "bg-primary"
@@ -103,16 +99,16 @@ function ProjectCard({ project, onDelete, onDateChange }: { project: any; onDele
             </div>
           )}
 
-          {(project as any).assignees?.length > 0 && (
+          {project.assignees?.length > 0 && (
             <div className="flex items-center gap-1 mb-3">
-              {(project as any).assignees.slice(0, 3).map((a: any) => (
+              {project.assignees.slice(0, 3).map((a: any) => (
                 <div key={a.id} className="w-5 h-5 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 border border-white/20 flex items-center justify-center text-white text-[9px] font-bold" title={a.name}>
                   {a.name.charAt(0)}
                 </div>
               ))}
-              {(project as any).assignees.length > 3 && (
+              {project.assignees.length > 3 && (
                 <div className="w-5 h-5 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-[10px] text-muted-foreground">
-                  +{(project as any).assignees.length - 3}
+                  +{project.assignees.length - 3}
                 </div>
               )}
             </div>
@@ -136,9 +132,11 @@ function ProjectCard({ project, onDelete, onDateChange }: { project: any; onDele
       >
         <Trash2 className="w-3.5 h-3.5" />
       </button>
-    </motion.div>
+    </div>
   );
-}
+});
+
+const GRID = "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5";
 
 export function PortfolioView({ projects, onDelete, onDateChange, groupByType }: Props) {
   const grouped = useMemo(() => {
@@ -173,9 +171,9 @@ export function PortfolioView({ projects, onDelete, onDateChange, groupByType }:
               </span>
               <div className="h-px flex-1 bg-white/10" />
             </div>
-            <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className={GRID}>
               {projs.map(p => <ProjectCard key={p.id} project={p} onDelete={onDelete} onDateChange={onDateChange} />)}
-            </motion.div>
+            </div>
           </div>
         ))}
       </div>
@@ -183,8 +181,8 @@ export function PortfolioView({ projects, onDelete, onDateChange, groupByType }:
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+    <div className={GRID}>
       {projects.map(p => <ProjectCard key={p.id} project={p} onDelete={onDelete} onDateChange={onDateChange} />)}
-    </motion.div>
+    </div>
   );
 }
