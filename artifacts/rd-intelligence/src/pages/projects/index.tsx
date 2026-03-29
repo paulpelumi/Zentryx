@@ -11,8 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { AnimatePresence, motion } from "framer-motion";
 import { ViewSwitcher, type ViewType } from "./views/ViewSwitcher";
 import { PortfolioView } from "./views/PortfolioView";
-import { KanbanView } from "./views/KanbanView";
-import { AnalyticsView } from "./views/AnalyticsView";
 import { MatrixView } from "./views/MatrixView";
 import { ListView } from "./views/ListView";
 
@@ -161,8 +159,6 @@ export default function ProjectsList() {
                   onDateChange={handleDateChange}
                 />
               )}
-              {view === "kanban" && <KanbanView projects={filteredProjects} />}
-              {view === "analytics" && <AnalyticsView projects={projects || []} />}
               {view === "matrix" && <MatrixView projects={filteredProjects} />}
               {view === "list" && <ListView projects={filteredProjects} />}
             </motion.div>

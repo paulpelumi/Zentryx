@@ -1,12 +1,10 @@
 import { motion } from "framer-motion";
-import { LayoutGrid, Columns, BarChart2, Table2, List } from "lucide-react";
+import { LayoutGrid, Table2, List } from "lucide-react";
 
-export type ViewType = "portfolio" | "kanban" | "analytics" | "matrix" | "list";
+export type ViewType = "portfolio" | "matrix" | "list";
 
 const VIEWS: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: "portfolio", label: "Portfolio", icon: <LayoutGrid className="w-3.5 h-3.5" /> },
-  { id: "kanban", label: "Kanban", icon: <Columns className="w-3.5 h-3.5" /> },
-  { id: "analytics", label: "Analytics", icon: <BarChart2 className="w-3.5 h-3.5" /> },
   { id: "matrix", label: "Matrix", icon: <Table2 className="w-3.5 h-3.5" /> },
   { id: "list", label: "List", icon: <List className="w-3.5 h-3.5" /> },
 ];

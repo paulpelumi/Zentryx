@@ -1,13 +1,14 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ArrowUpDown, ArrowUp, ArrowDown, Star } from "lucide-react";
+import { useLocation } from "wouter";
 
 type SortKey = "name" | "productType" | "costTarget" | "sensory" | "progress" | "status";
 type SortDir = "asc" | "desc";
 
 interface Props { projects: any[] }
 
-function SensoryScore(project: any): number {
+function defaultSensory(project: any): number {
   const map: Record<string, number> = {
     in_progress: 60, approved: 95, pushed_to_live: 92, awaiting_feedback: 70,
     on_hold: 45, new_inventory: 55, cancelled: 30, testing: 75,
@@ -15,9 +16,81 @@ function SensoryScore(project: any): number {
   return map[project.status] ?? 60;
 }
 
+function SensoryBar({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const barRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+
+  const computeValue = useCallback((clientX: number) => {
+    if (!barRef.current) return;
+    const rect = barRef.current.getBoundingClientRect();
+    const pct = Math.min(Math.max((clientX - rect.left) / rect.width, 0), 1);
+    onChange(Math.round(pct * 100));
+  }, [onChange]);
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragging.current = true;
+    computeValue(e.clientX);
+
+    const onMove = (ev: MouseEvent) => { if (dragging.current) computeValue(ev.clientX); };
+    const onUp = () => { dragging.current = false; window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (dragging.current) computeValue(e.clientX);
+  };
+
+  const filledDots = Math.round((value / 100) * 5);
+
+  return (
+    <div className="flex items-center gap-2.5" onClick={e => e.stopPropagation()}>
+      <div
+        ref={barRef}
+        className="relative flex gap-0.5 cursor-pointer group/sensory"
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        title={`Sensory score: ${value} — click or drag to adjust`}
+      >
+        {[1, 2, 3, 4, 5].map(s => (
+          <div
+            key={s}
+            data-dot={s}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onChange(s * 20);
+            }}
+            className={`w-4 h-4 rounded-sm transition-all duration-150 cursor-pointer ${
+              s <= filledDots
+                ? "bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.6)]"
+                : "bg-white/10 hover:bg-amber-400/40"
+            }`}
+          />
+        ))}
+      </div>
+      <span className="text-xs text-muted-foreground tabular-nums w-7">{value}</span>
+    </div>
+  );
+}
+
 export function MatrixView({ projects }: Props) {
+  const [, navigate] = useLocation();
   const [sortKey, setSortKey] = useState<SortKey>("progress");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [sensoryScores, setSensoryScores] = useState<Record<number, number>>(() => {
+    const init: Record<number, number> = {};
+    projects.forEach(p => { init[p.id] = defaultSensory(p); });
+    return init;
+  });
+
+  const getSensory = (p: any) => sensoryScores[p.id] ?? defaultSensory(p);
+
+  const setSensory = (id: number, val: number) => {
+    setSensoryScores(prev => ({ ...prev, [id]: val }));
+  };
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
@@ -34,7 +107,7 @@ export function MatrixView({ projects }: Props) {
         av = parseFloat(a.costTarget || "0");
         bv = parseFloat(b.costTarget || "0");
       } else if (sortKey === "sensory") {
-        av = SensoryScore(a); bv = SensoryScore(b);
+        av = getSensory(a); bv = getSensory(b);
       } else {
         av = (a[sortKey] || "").toString().toLowerCase();
         bv = (b[sortKey] || "").toString().toLowerCase();
@@ -43,9 +116,8 @@ export function MatrixView({ projects }: Props) {
       if (av > bv) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
-  }, [projects, sortKey, sortDir]);
+  }, [projects, sortKey, sortDir, sensoryScores]);
 
-  const maxProgress = useMemo(() => Math.max(...projects.map(p => p.taskCount > 0 ? (p.completedTaskCount / p.taskCount) * 100 : 0), 1), [projects]);
   const maxCost = useMemo(() => Math.max(...projects.map(p => parseFloat(p.costTarget || "0")), 1), [projects]);
 
   const SortIcon = ({ k }: { k: SortKey }) => {
@@ -55,7 +127,7 @@ export function MatrixView({ projects }: Props) {
 
   const Th = ({ k, label }: { k: SortKey; label: string }) => (
     <th
-      className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground transition-colors"
+      className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-pointer hover:text-foreground transition-colors select-none"
       onClick={() => handleSort(k)}
     >
       <div className="flex items-center gap-1.5">
@@ -103,7 +175,7 @@ export function MatrixView({ projects }: Props) {
               {sorted.map((p, i) => {
                 const progress = p.taskCount > 0 ? Math.round((p.completedTaskCount / p.taskCount) * 100) : 0;
                 const cost = parseFloat(p.costTarget || "0");
-                const sensory = SensoryScore(p);
+                const sensory = getSensory(p);
                 const isBest = topProgress?.id === p.id;
 
                 return (
@@ -112,14 +184,15 @@ export function MatrixView({ projects }: Props) {
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.03 }}
-                    className={`border-b border-white/5 hover:bg-white/[0.03] transition-colors ${isBest ? "bg-violet-500/5" : ""}`}
+                    onClick={() => navigate(`/projects/${p.id}`)}
+                    className={`border-b border-white/5 hover:bg-white/[0.05] transition-colors cursor-pointer group ${isBest ? "bg-violet-500/5" : ""}`}
                   >
                     <td className="px-4 py-3.5 text-xs text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
                         {isBest && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
                         <div>
-                          <p className="text-sm font-semibold text-foreground line-clamp-1">{p.name}</p>
+                          <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">{p.name}</p>
                           {p.customerName && <p className="text-[11px] text-muted-foreground">{p.customerName}</p>}
                         </div>
                       </div>
@@ -133,7 +206,7 @@ export function MatrixView({ projects }: Props) {
                     <td className="px-4 py-3.5">
                       {cost > 0 ? (
                         <div>
-                          <p className="text-sm font-medium text-foreground">R{cost.toLocaleString()}</p>
+                          <p className="text-sm font-medium text-foreground">${cost.toLocaleString()}</p>
                           <div className="h-1 w-16 bg-black/30 rounded-full mt-1 overflow-hidden">
                             <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${(cost / maxCost) * 100}%` }} />
                           </div>
@@ -143,14 +216,7 @@ export function MatrixView({ projects }: Props) {
                       )}
                     </td>
                     <td className="px-4 py-3.5">
-                      <div className="flex items-center gap-2">
-                        <div className="flex">
-                          {[1, 2, 3, 4, 5].map(s => (
-                            <div key={s} className={`w-2.5 h-2.5 rounded-sm mr-0.5 ${s <= Math.round(sensory / 20) ? "bg-amber-400" : "bg-white/10"}`} />
-                          ))}
-                        </div>
-                        <span className="text-xs text-muted-foreground">{sensory}</span>
-                      </div>
+                      <SensoryBar value={sensory} onChange={val => setSensory(p.id, val)} />
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
@@ -179,6 +245,13 @@ export function MatrixView({ projects }: Props) {
             <div className="text-center py-12 text-muted-foreground text-sm">No projects to compare.</div>
           )}
         </div>
+
+        {sorted.length > 0 && (
+          <div className="px-4 py-2.5 border-t border-white/5 flex items-center justify-between" style={{ background: "rgba(255,255,255,0.02)" }}>
+            <p className="text-xs text-muted-foreground">{sorted.length} project{sorted.length !== 1 ? "s" : ""} — click any row to open</p>
+            <p className="text-xs text-muted-foreground">Drag sensory bars to adjust scores</p>
+          </div>
+        )}
       </div>
     </motion.div>
   );
