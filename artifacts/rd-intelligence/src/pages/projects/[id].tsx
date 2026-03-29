@@ -510,7 +510,7 @@ export default function ProjectDetail() {
                               <button onClick={() => setEditingTask(task)} className="p-1 hover:bg-white/10 rounded text-muted-foreground hover:text-foreground" title="Edit task">
                                 <Edit3 className="w-3 h-3" />
                               </button>
-                              <button onClick={() => { if (confirm("Delete this task?")) deleteTaskMut.mutate({ id: task.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }) }); }}
+                              <button onClick={() => { deleteTaskMut.mutate({ id: task.id }, { onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/tasks"] }) }); }}
                                 className="p-1 hover:bg-destructive/20 rounded text-muted-foreground hover:text-destructive" title="Delete task">
                                 <Trash2 className="w-3 h-3" />
                               </button>
