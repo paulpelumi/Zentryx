@@ -1,0 +1,187 @@
+You are a senior frontend engineer and product designer.
+
+Enhance the "Project Portfolio" page of Zentryx by implementing a full multi-view system with seamless switching between different project views.
+
+IMPORTANT:
+- Do NOT rebuild the entire page
+- Extend the existing project portfolio page
+- Maintain premium UI (glassmorphism, gradients, smooth animations)
+
+---
+
+🎯 CORE FEATURE: VIEW SWITCHER
+
+Create a top-level toggle system with the following views:
+
+[ Portfolio ] [ Kanban ] [ Analytics ] [ Matrix ] [ List ]
+
+---
+
+1. VIEW SWITCHER UI (VERY IMPORTANT)
+
+- Place at top of page (below title)
+- Style as pill-shaped segmented control
+- Glassmorphism design:
+  background: rgba(255,255,255,0.05)
+  backdrop-filter: blur(10px)
+- Active tab:
+  gradient glow (purple → blue)
+- Hover:
+  scale slightly + glow
+- Smooth animated indicator sliding between tabs
+
+---
+
+2. STATE MANAGEMENT
+
+Create a state:
+
+const [view, setView] = useState("portfolio")
+
+Views:
+- "portfolio"
+- "kanban"
+- "analytics"
+- "matrix"
+- "list"
+
+---
+
+3. CONDITIONAL RENDERING
+
+Render different components based on selected view:
+
+{view === "portfolio" && <PortfolioGrid />}
+{view === "kanban" && <KanbanBoard />}
+{view === "analytics" && <AnalyticsDashboard />}
+{view === "matrix" && <FormulationMatrix />}
+{view === "list" && <TableList />}
+
+---
+
+4. PORTFOLIO VIEW (DEFAULT)
+
+- Use existing grid layout
+- Enhanced cards with hover + glow
+- Executive overview style
+
+---
+
+5. KANBAN VIEW
+
+- Columns:
+  Ideation, In Progress, Testing, Commercialization
+- Drag-and-drop cards (use react-beautiful-dnd or similar)
+- Cards show:
+  - project name
+  - progress %
+  - assignee
+  - due date
+- Smooth drag animations
+
+---
+
+6. ANALYTICS VIEW (IMPORTANT)
+
+- Show charts:
+  - project success rate
+  - cost vs performance
+  - time-to-market
+- Use charts library (Recharts or Chart.js)
+- Glass panels + gradient lines
+- KPI summary cards at top
+
+---
+
+7. MATRIX VIEW (UNIQUE FEATURE)
+
+- Table/grid layout:
+  Rows = projects
+  Columns:
+    Ingredient profile
+    Cost
+    Sensory score
+    Performance
+- Allow sorting + comparison
+- Highlight best-performing projects
+
+---
+
+8. LIST VIEW
+
+- Clean table layout
+- Columns:
+  Name | Type | Assignee | Progress | Status | Date
+- Enable sorting + filtering
+- Inline editing (optional)
+
+---
+
+9. ANIMATIONS (CRITICAL)
+
+Use Framer Motion:
+
+- View switch:
+  fade + slide transition
+- Tabs:
+  animated highlight movement
+- Cards:
+  stagger animation
+
+---
+
+10. DATA SHARING
+
+Ensure all views use the SAME project dataset.
+
+Apply:
+- sorting
+- filtering
+- search
+
+globally across all views
+
+---
+
+11. PERFORMANCE
+
+- Use useMemo for derived data
+- Lazy load heavy views (analytics)
+
+---
+
+12. RESPONSIVENESS
+
+- Desktop: full layout
+- Tablet: adjusted columns
+- Mobile: stacked views
+
+---
+
+🎨 DESIGN CONSISTENCY
+
+- Maintain:
+  dark theme
+  glass panels
+  gradient accents
+  soft shadows
+- Ensure all views feel like ONE system
+
+---
+
+🎯 GOAL
+
+Create a powerful multi-view system that allows users to:
+- view projects from different perspectives
+- switch seamlessly between views
+- gain insights, not just see data
+
+The UI should feel like a next-generation SaaS platform, more advanced than ClickUp.
+
+---
+
+DELIVER:
+- ViewSwitcher component
+- All 5 view components
+- Smooth transitions
+- Clean modular structure

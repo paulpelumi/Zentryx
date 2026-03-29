@@ -1,42 +1,31 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useListProjects, useCreateProject, useDeleteProject, useListUsers, useUpdateProject } from "@workspace/api-client-react";
 import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Calendar, CheckSquare, Trash2, Download } from "lucide-react";
-import { Link } from "wouter";
+import { Plus, Search, Download } from "lucide-react";
 import { format } from "date-fns";
 import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { AnimatePresence, motion } from "framer-motion";
+import { ViewSwitcher, type ViewType } from "./views/ViewSwitcher";
+import { PortfolioView } from "./views/PortfolioView";
+import { KanbanView } from "./views/KanbanView";
+import { AnalyticsView } from "./views/AnalyticsView";
+import { MatrixView } from "./views/MatrixView";
+import { ListView } from "./views/ListView";
 
 const STAGES = ["testing", "reformulation", "innovation", "cost_optimization", "modification"] as const;
 const STATUSES = ["approved", "awaiting_feedback", "on_hold", "in_progress", "new_inventory", "cancelled", "pushed_to_live"] as const;
 const PRODUCT_TYPES = ["Seasoning", "Snack Dusting", "Bread & Dough Premix", "Dairy Premix", "Functional Blend", "Pasta Sauce", "Sweet Flavour", "Savoury Flavour"] as const;
 
-const STATUS_COLORS: Record<string, string> = {
-  approved: "bg-green-500/10 text-green-400 border-green-500/20",
-  in_progress: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-  awaiting_feedback: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-  on_hold: "bg-orange-500/10 text-orange-400 border-orange-500/20",
-  new_inventory: "bg-purple-500/10 text-purple-400 border-purple-500/20",
-  cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
-  pushed_to_live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-};
-
-const STAGE_COLORS: Record<string, string> = {
-  testing: "text-cyan-400 bg-cyan-500/10",
-  reformulation: "text-amber-400 bg-amber-500/10",
-  innovation: "text-violet-400 bg-violet-500/10",
-  cost_optimization: "text-green-400 bg-green-500/10",
-  modification: "text-rose-400 bg-rose-500/10",
-};
-
 export default function ProjectsList() {
   const [searchTerm, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"list" | "export">("list");
+  const [activeTab, setActiveTab] = useState<"projects" | "export">("projects");
+  const [view, setView] = useState<ViewType>("portfolio");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+
   const { data: projects, isLoading } = useListProjects({});
   const { data: users } = useListUsers();
   const queryClient = useQueryClient();
@@ -50,13 +39,16 @@ export default function ProjectsList() {
     });
   };
 
-  const filteredProjects = (projects || []).filter(p => {
-    const matchSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-      (p.productType?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
-    const matchStatus = statusFilter === "all" || p.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  const filteredProjects = useMemo(() => {
+    return (projects || []).filter(p => {
+      const matchSearch =
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
+        (p.productType?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      const matchStatus = statusFilter === "all" || p.status === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [projects, searchTerm, statusFilter]);
 
   const handleDelete = (id: number, name: string, e: React.MouseEvent) => {
     e.preventDefault();
@@ -70,7 +62,7 @@ export default function ProjectsList() {
     });
   };
 
-  const handleExport = (format: "csv" | "excel") => {
+  const handleExport = (fmt: "csv" | "excel") => {
     if (!projects || projects.length === 0) return;
     const headers = ["ID", "Name", "Stage", "Status", "Product Type", "Customer Name", "Customer Email", "Customer Phone", "Cost Target", "Start Date", "Due Date", "Lead", "Assignees", "Tasks", "Progress %", "Tags", "Created At"];
     const rows = projects.map(p => [
@@ -103,11 +95,25 @@ export default function ProjectsList() {
         </div>
       </div>
 
-      <div className="flex gap-2 p-1 bg-white/5 rounded-xl w-fit">
-        <button onClick={() => setActiveTab("list")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "list" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"}`}>Projects</button>
-        <button onClick={() => setActiveTab("export")} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === "export" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"}`}>
-          <Download className="w-4 h-4" /> Export Data
-        </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex gap-2 p-1 bg-white/5 rounded-xl w-fit border border-white/10">
+          <button
+            onClick={() => setActiveTab("projects")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "projects" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            Projects
+          </button>
+          <button
+            onClick={() => setActiveTab("export")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeTab === "export" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Download className="w-4 h-4" /> Export Data
+          </button>
+        </div>
+
+        {activeTab === "projects" && (
+          <ViewSwitcher active={view} onChange={setView} />
+        )}
       </div>
 
       {activeTab === "export" ? (
@@ -119,105 +125,55 @@ export default function ProjectsList() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Search projects..." className="pl-9" value={searchTerm} onChange={e => setSearchQuery(e.target.value)} />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => setStatusFilter("all")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${statusFilter === "all" ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
-                All
-              </button>
-              {STATUSES.map(s => (
-                <button key={s} onClick={() => setStatusFilter(s === statusFilter ? "all" : s)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border capitalize ${statusFilter === s ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
-                  {s.replace(/_/g, ' ')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredProjects.map(project => (
-              <div key={project.id} className="relative group">
-                <Link href={`/projects/${project.id}`} className="block">
-                  <div className="glass-card h-full rounded-2xl p-6 relative overflow-hidden flex flex-col">
-                    <div className={`absolute top-0 left-0 right-0 h-1 ${
-                      project.priority === 'critical' ? 'bg-destructive' :
-                      project.priority === 'high' ? 'bg-orange-500' : 'bg-primary'
-                    }`} />
-
-                    <div className="flex justify-between items-start mb-3">
-                      <span className={`px-2 py-0.5 rounded-md text-xs font-medium capitalize ${STAGE_COLORS[project.stage] || "text-muted-foreground bg-white/5"}`}>
-                        {project.stage.replace(/_/g, ' ')}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium border capitalize ${STATUS_COLORS[project.status] || "bg-white/5 text-muted-foreground border-white/10"}`}>
-                        {project.status.replace(/_/g, ' ')}
-                      </span>
-                    </div>
-
-                    <h3 className="text-lg font-bold font-display text-foreground group-hover:text-primary transition-colors line-clamp-1 mb-1">{project.name}</h3>
-                    {project.productType && <p className="text-xs text-muted-foreground mb-1">📦 {project.productType}</p>}
-                    {project.customerName && <p className="text-xs text-muted-foreground mb-2">👤 {project.customerName}</p>}
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-4 flex-1">{project.description || "No description."}</p>
-
-                    {(project as any).assignees?.length > 0 && (
-                      <div className="flex items-center gap-1 mb-3">
-                        {(project as any).assignees.slice(0, 3).map((a: any) => (
-                          <div key={a.id} className="w-6 h-6 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 border border-white/20 flex items-center justify-center text-white text-[10px] font-bold" title={a.name}>
-                            {a.name.charAt(0)}
-                          </div>
-                        ))}
-                        {(project as any).assignees.length > 3 && (
-                          <div className="w-6 h-6 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-xs text-muted-foreground">+{(project as any).assignees.length - 3}</div>
-                        )}
-                      </div>
-                    )}
-
-                    <div className="space-y-1.5 mt-auto">
-                      <div className="flex justify-between text-xs font-medium">
-                        <span className="text-muted-foreground flex items-center gap-1"><CheckSquare className="w-3 h-3"/> Tasks</span>
-                        <span className="text-foreground">{project.completedTaskCount}/{project.taskCount}</span>
-                      </div>
-                      <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${project.taskCount > 0 ? (project.completedTaskCount / project.taskCount) * 100 : 0}%` }} />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-3 pt-3 border-t border-white/5">
-                      <Calendar className="w-3.5 h-3.5 shrink-0" />
-                      <input
-                        type="date"
-                        value={project.targetDate ? format(new Date(project.targetDate), "yyyy-MM-dd") : ""}
-                        onChange={e => { e.stopPropagation(); handleDateChange(project.id, e.target.value); }}
-                        onClick={e => e.stopPropagation()}
-                        className="bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/50 rounded cursor-pointer text-muted-foreground text-xs hover:text-foreground transition-colors w-full"
-                        title="Set due date"
-                      />
-                    </div>
-                  </div>
-                </Link>
+            {view !== "analytics" && (
+              <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={(e) => handleDelete(project.id, project.name, e)}
-                  className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 p-1.5 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg transition-all z-10"
-                  title="Delete project"
+                  onClick={() => setStatusFilter("all")}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${statusFilter === "all" ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  All
                 </button>
+                {STATUSES.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => setStatusFilter(s === statusFilter ? "all" : s)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border capitalize ${statusFilter === s ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+                  >
+                    {s.replace(/_/g, " ")}
+                  </button>
+                ))}
               </div>
-            ))}
+            )}
           </div>
 
-          {filteredProjects.length === 0 && (
-            <div className="text-center py-20 glass-card rounded-2xl">
-              <Search className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-30" />
-              <h3 className="text-lg font-medium text-foreground">No projects found</h3>
-              <p className="text-muted-foreground">Adjust your filters or create a new project.</p>
-            </div>
-          )}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={view}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.22, ease: "easeInOut" }}
+            >
+              {view === "portfolio" && (
+                <PortfolioView
+                  projects={filteredProjects}
+                  onDelete={handleDelete}
+                  onDateChange={handleDateChange}
+                />
+              )}
+              {view === "kanban" && <KanbanView projects={filteredProjects} />}
+              {view === "analytics" && <AnalyticsView projects={projects || []} />}
+              {view === "matrix" && <MatrixView projects={filteredProjects} />}
+              {view === "list" && <ListView projects={filteredProjects} />}
+            </motion.div>
+          </AnimatePresence>
         </>
       )}
     </div>
   );
 }
 
-function ExportTab({ projects, onExport }: { projects: any[], onExport: (fmt: "csv" | "excel") => void }) {
+function ExportTab({ projects, onExport }: { projects: any[]; onExport: (fmt: "csv" | "excel") => void }) {
   return (
     <div className="glass-card rounded-2xl p-8">
       <h2 className="text-xl font-display font-bold mb-2">Export Project Data</h2>
@@ -283,7 +239,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
         costTarget: form.costTarget || undefined,
         startDate: form.startDate || undefined, targetDate: form.targetDate || undefined,
         assigneeIds: form.assigneeIds,
-      } as any
+      } as any,
     }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
@@ -317,17 +273,16 @@ function CreateProjectModal({ users }: { users: any[] }) {
               <label className="text-sm font-medium">Description</label>
               <textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="Project objectives..." className="flex min-h-[70px] w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground" />
             </div>
-
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Stage</label>
               <select value={form.stage} onChange={e => setF("stage", e.target.value)} className={selectCls}>
-                {STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g, ' ')}</option>)}
+                {STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g, " ")}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Status</label>
               <select value={form.status} onChange={e => setF("status", e.target.value)} className={selectCls}>
-                {STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g, ' ')}</option>)}
+                {STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g, " ")}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -343,7 +298,6 @@ function CreateProjectModal({ users }: { users: any[] }) {
                 {PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}
               </select>
             </div>
-
             <div className="sm:col-span-2 border-t border-white/10 pt-3">
               <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Customer Information</p>
             </div>
