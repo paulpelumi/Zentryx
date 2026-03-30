@@ -1,0 +1,179 @@
+Just below “Analytics” section of the sidebar, Create “Sales Force” section
+  
+Note that: 
+-The “Sales Force” should be structured in such way that I can export all details and metadata concerning all the “Accounts”, “Dashboards” “Forecasts” it should be created in a way the “export” can be used for data analysis purpose, In-app and Outsourced Apps.
+-Exporting data should have unlimited number of times to export files as .csv or as Excel file. Also, -whenever Export button is clicked, it should show me the list of all metadata that is been exported.
+
+This section Should be classified into three Main Pages (“Accounts” “Charts” “Forecast”) that can selected at the immediately below “top navigation bar (header)”
+
+🔥 Core Features to Integrate
+First Page under “Sales Force” is “Accounts”
+
+Treat Each “Account” like a project 
+
+For the Accounts Page, Create a top-level toggle system with the following views:
+-List
+-Portfolio
+-Matrix
+
+Create a filter to be able to sort each “Accounts” based on “priority score”, “Company”, “alphabetical order”, “date added”-(recent - old), “Account Manager”, “Volume”, “Product type”
+
+
+-Create a functioning button for “Add Account”
+The button should display a beautifully designed, pop up dialog box and organized  “Sales Request Form” that will be used for each Account, have “close button” at the top, “Cancel button” ”Save button” at the end of the form
+
+Fields to add and its format method and conditionsin brackets:
+* “Company” (text)
+* “Product name (text)”
+* “Account Manager” (Pick from the list of all “Staff” or “Assignee”, allow multiple selection, allow search from list)
+* “Contact Person(CP)” (text)
+* “CP’s Phone number” (text)
+* “CP’s email” (text)
+* “Customer type” (option to select between “New”, “Existing Customer”)
+* “Product type” (option to select between “Seasoning”, “Snacks Dusting”, “Dairy Premix”, “Bakery&Dough Premix”, “Sweet Flavours”, “Savoury Flavour”) 
+* “Application” (text) 
+* “Target price($/kg)”- (Value, should automatically give its Naira equivalent by its side)   
+* “Volume(kg/month)” (number)  (*Conditions* Very High: “10,000” to “50,000” ,   High: “1,000” to “10000” Medium: “500” to “1000” , Low: “25” to  “500” )
+* Urgency level (user should be able to select from this conditions: Red indicator, “Urgent”) (Yellow indicator, “Medium”) (Green indicator- “Normal”)
+* Competitor reference (Text)
+
+These above metadata should be editable at any time by the user, and these metadata must function as actionable intelligence in the application that can be exported for further analytical procedures
+
+
+For each Account, It must have Four (4) tabs 
+“Tasks” “Status Report”
+A. “Tasks”
+This would display the following informations only from the “Sales Request Form” response, but ensure each information is editable 
+On the Left Side
+- Company
+- Product Name
+- Product type
+- Contact Person(CP)
+- CP’s Phone number
+- CP’s email
+
+On the Right Side 
+- Account Manager
+- Customer type
+- Target price ($/kg)
+- Selling Price ($/kg) - Automatically give its Naira eqiuvalent by its side, this must be editable, as it important for final Revenue and Income calculation” for each “Account”
+- “Margin (%)” (Text).. must be editable
+
+
+(in order to track its progress like a project, it must have:
+- To do
+- In progress
+- Review
+- Done
+ 
+The tasks should allow the “drag and drop” feature, where each tasks can be dragged across “To do”, “in progress”, “Review” and “Done”. And can be returned anytime I want.
+
+Whenever a new ACCOUNT is created, in the tasks section, create a “Star” emoji button. If this button is clicked it should create a to-do tasks in the following order:
+
+-Request (Or sample) Received 
+-Sample in Development
+-Sample Sent (with COA & TDS)
+-Customer Trial Feedback
+-Commercial Approval
+-PFI raised
+-Align with Procurement
+-Commercial Production
+
+Conditions: 
+Ensure that user can edit, add/remove a “to do” task anytime 
+Each of these to-do should have the following options (“Description”, “Assignee”(select option”, “Start Date”(from calendar, “Due Date” from Calendar)
+
+Create an “Approval status” at the top section of the tasks section in this page with options to select  between “Approved(green indicator)” “Not yet approved(yellow indicator)” “Cancelled (red indicator)” you could also just use Traffic light with caption for each status
+ 
+In the “Tasks” Create a well designed digital screen for each Account titled “Revenue Generated”, in which on completion of all the tasks (all “To do” have been moved to “Done”), the “Revenue Generated shows value of multiplying the “Volume (tons/month)” and “Selling Price”..it must have the view option of “Monthly”, “Yearly”
+
+-display its Priority score in a top right corner of the project (in form of a mini score chart having numbers scores from 1-10)
+
+Conditions 
+Automatically calculate account value:
+Example logic:
+- Volume: +3 (Conditions: Very High(+4): Over 10000 kg/month  High(+3): 1000 to 10000 kg/month, Medium (+2): 500 to 1000 kg/month, Low(+1): Less than 500 kg/month)
+- Customer: +2 (Conditions: High Volume, Repeat business, Strong market influence, High revenue impact, High Priority)
+- Urgency: +1 (conditions: “Urgent”(+2), “Medium”(+1), “Low”(+1)
+- Customer type: +2 (conditions: New customer(+2), Existing customer (+3)
+*a mouse hover over the prior score should show points awarded for Volume, Customer, Urgency, 
+
+Output:
+Priority Score: 8/10 → HIGH PRIORITY
+
+
+B. “Status Report”
+Create the status Report similar to the “Status Report” used for “Project Portfolio”
+
+
+
+C: “Production Orders (PO)” 
+Divide this section into 2 equal halves, (but make this section adjustable to adjust size on the right side and left side)
+-On the left half: 
+Create a table that contains the following column titles:
+- Current Price of product($) 
+- Volume ordered (kg)
+- Date ordered 
+- Date delivered
+- Income
+
+Conditions for “Production Orders (PO)”: 
+-Price of product (format as number, no decimals allowed)
+-Volume ordered (format as numbers, allow decimals up to 2 decimal points)
+-Date Ordered (format as “dd/mm/yyyy”, should be selectable using calendar)
+-Date Delivered (format as “dd/mm/yyyy”, should be selectable using calendar)
+-Income: must automatically multiply “Price of Product” and “Volume” in that row 
+-total number of rows for this table should be unlimited, with a button to add a new row for the columns titles 
+
+*create an “Export” button at the top of the table and make it functioning to export the details of the table
+
+-On the right half 
+Conditions: using the table on the left half
+
+*Plot a graph showing “Order Count Over Time”
+Chart Type: Line Chart X-axis: Date Y-axis: Number of orders 
+-add a full screen button that zooms the chart on a full screen display and can close the full screen 
+ 
+*Plot a “Revenue Trend Over Time”
+Chart Type: Line Chart X-axis: Date ordered (or delivered) Y-axis: Income
+-add a full screen button that zooms the chart on a full screen display and can close the full screen 
+
+*Plot a “Average Delivery Lead Time”
+Chart Type: Bar Chart Metric: Date delivered – Date ordered
+-add a full screen button that zooms the chart on a full screen display and can close the full screen 
+
+*Plot a “Price vs Volume” Bubble Chart
+Chart Type: Bubble Chart (give option for other type of chart) X-axis: Price Y-axis: Volume Bubble size: Income
+-add a full screen button that zooms the chart on a full screen display and can close the full screen 
+
+*Plot a “Income by Month”
+Chart Type: Column Chart X-axis: Month Y-axis: Total incomes
+add a full screen button that zooms the chart on a full screen display and can close the full screen 
+
+*Plot a “Income by Month”
+Chart Type: Column Chart X-axis: Month Y-axis: Total incomes
+add a full screen button that zooms the chart on a full screen display and can close the full screen 
+
+
+
+D.  “Account Info”
+Using the Sales team structured request(form) response, make all those informations visible here, each having the ability to edited at any time. 
+
+
+CHARTS (Sales Force)
+
+
+-Create a Horizontal Bar Chart (Top 15 + Others) using informations on “Company” that shows total number and list of products the Company buys from the organization. On click of a specific company, it must show me a list of all “Account(s)” associated with the “company”. On click of the “Account”, it open that specific account in the “Sales Force”.
+*Give this chart a reasonable chart title
+*give the option of a “wider/larger view” and exit button.
+ 
+Create a Chart (View options: List, Bar chart, Pie Chart) using information on “Account Manager” that shows the total number of “Account(s)” managed by each “Account Manager”. On Click of the “Account”, it must open that specific account in the “Sales Force”
+*give the option of a “wider/larger view” and exit button.
+*Give this chart a reasonable chart title
+
+Create a Chart Title “Accounts by Product Category” 
+(View options: List, Bar chart, Pie Chart) using information on “Product type” category of Sales Force. It show should show the total number of each “Project type”(on hover) that are associated with “Accounts”
+*give the option of a “wider/larger view” and exit button.
+
+-Create a chart Titled “Accounts by Volume” (View options: List, Bar chart, Pie Chart) that categorizes Volume(kg/month) of all accounts based on “Very High” “High”, “Medium” “Low”,  in which whenever I click on any of the volume, shows me a list of all the “Accounts” under the volume selected, and once I click on that account, links me directly to the specific account
+*Conditions: data used for this chart should be from Sales Force “Accounts”

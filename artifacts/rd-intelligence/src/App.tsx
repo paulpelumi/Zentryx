@@ -17,6 +17,8 @@ import BusinessDev from "@/pages/business-dev";
 import ChatRoom from "@/pages/chat";
 import Events from "@/pages/events";
 import ProfilePage from "@/pages/profile";
+import SalesForce from "@/pages/sales-force";
+import AccountDetail from "@/pages/sales-force/[id]";
 import NotFound from "@/pages/not-found";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -47,6 +49,8 @@ function Router() {
       <Route path="/chat" component={() => <ProtectedRoute component={ChatRoom} />} />
       <Route path="/events" component={() => <ProtectedRoute component={Events} />} />
       <Route path="/profile" component={() => <ProtectedRoute component={ProfilePage} />} />
+      <Route path="/sales-force" component={() => <ProtectedRoute component={SalesForce} />} />
+      <Route path="/sales-force/:id" component={() => <ProtectedRoute component={AccountDetail} />} />
       <Route component={NotFound} />
     </Switch>
   );
