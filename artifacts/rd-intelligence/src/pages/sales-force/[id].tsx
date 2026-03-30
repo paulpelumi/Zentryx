@@ -529,19 +529,28 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
 
   const ords = orders as any[];
 
+  const reseedForecasts = () => {
+    api("api/forecasts/seed", { method: "POST" })
+      .then(() => queryClient.invalidateQueries({ queryKey: ["/api/forecasts"] }))
+      .catch(() => {});
+  };
+
   const addRow = async () => {
     await api(`api/accounts/${accountId}/production-orders`, { method: "POST", body: JSON.stringify({ price: "", volume: "", dateOrdered: "", dateDelivered: "" }) });
     queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/production-orders`] });
+    reseedForecasts();
   };
 
   const updateRow = async (id: number, data: any) => {
     await api(`api/accounts/${accountId}/production-orders/${id}`, { method: "PUT", body: JSON.stringify(data) });
     queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/production-orders`] });
+    reseedForecasts();
   };
 
   const deleteRow = async (id: number) => {
     await api(`api/accounts/${accountId}/production-orders/${id}`, { method: "DELETE" });
     queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/production-orders`] });
+    reseedForecasts();
   };
 
   const exportTable = () => {

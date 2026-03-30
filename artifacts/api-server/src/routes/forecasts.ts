@@ -73,6 +73,63 @@ function parseDMY(s: string | null | undefined): Date | null {
   return isNaN(date.getTime()) ? null : date;
 }
 
+function clamp(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function popStdDev(values: number[]): number {
+  if (values.length < 2) return 0;
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / values.length;
+  return Math.sqrt(variance);
+}
+
+function calculateConfidence(dated: { date: Date; vol: number }[]): number {
+  const n = dated.length;
+  if (n < 2) return 10;
+
+  // ── Step 1: Order Interval Consistency ──────────────────────────────
+  const gaps: number[] = [];
+  for (let i = 1; i < n; i++) {
+    gaps.push((dated[i].date.getTime() - dated[i - 1].date.getTime()) / 86400000);
+  }
+  const avgInterval = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+  const sdInterval = popStdDev(gaps);
+  const consistencyScore = avgInterval > 0
+    ? clamp(100 - (sdInterval / avgInterval) * 100, 0, 100)
+    : 0;
+
+  // ── Step 2: Data Volume Score ────────────────────────────────────────
+  let dataVolumeScore: number;
+  if (n >= 10) dataVolumeScore = 100;
+  else if (n >= 5) dataVolumeScore = 70;
+  else if (n >= 3) dataVolumeScore = 50;
+  else dataVolumeScore = 30; // n === 2
+
+  // ── Step 3: Volume Stability ─────────────────────────────────────────
+  const vols = dated.map(o => o.vol).filter(v => v > 0);
+  const hasVolume = vols.length >= 2;
+  let volumeStability = 0;
+  if (hasVolume) {
+    const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length;
+    const sdVol = popStdDev(vols);
+    volumeStability = avgVol > 0
+      ? clamp(100 - (sdVol / avgVol) * 100, 0, 100)
+      : 0;
+  }
+
+  // ── Step 4: Weighted Final Score ─────────────────────────────────────
+  let confidence: number;
+  if (hasVolume) {
+    confidence = (consistencyScore * 0.4) + (dataVolumeScore * 0.3) + (volumeStability * 0.3);
+  } else {
+    // Reweight: distribute the 0.3 volume weight between remaining factors
+    confidence = (consistencyScore * (4 / 7)) + (dataVolumeScore * (3 / 7));
+  }
+
+  return Math.round(confidence);
+}
+
 router.post("/seed", requireAuth, async (_req: AuthRequest, res) => {
   try {
     const accounts = await db.select().from(accountsTable)
@@ -99,7 +156,7 @@ router.post("/seed", requireAuth, async (_req: AuthRequest, res) => {
         d.setDate(d.getDate() + 30);
         forecastDateStr = d.toISOString().split("T")[0];
         forecastVolumeStr = account.volume ?? "0";
-        confidence = 30;
+        confidence = 10;
       } else if (dated.length === 1) {
         const lo = dated[0];
         lastOrderDate = lo.raw.dateOrdered;
@@ -108,7 +165,7 @@ router.post("/seed", requireAuth, async (_req: AuthRequest, res) => {
         fd.setDate(fd.getDate() + 30);
         forecastDateStr = fd.toISOString().split("T")[0];
         forecastVolumeStr = String(lo.vol);
-        confidence = 40;
+        confidence = 10;
       } else {
         const lo = dated[dated.length - 1];
         lastOrderDate = lo.raw.dateOrdered;
@@ -116,8 +173,7 @@ router.post("/seed", requireAuth, async (_req: AuthRequest, res) => {
 
         const gaps: number[] = [];
         for (let i = 1; i < dated.length; i++) {
-          const gap = (dated[i].date!.getTime() - dated[i - 1].date!.getTime()) / 86400000;
-          gaps.push(gap);
+          gaps.push((dated[i].date!.getTime() - dated[i - 1].date!.getTime()) / 86400000);
         }
         const avgDays = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
 
@@ -134,7 +190,7 @@ router.post("/seed", requireAuth, async (_req: AuthRequest, res) => {
         const forecastVol = Math.max(0, lo.vol + avgGrowth);
         forecastVolumeStr = (Math.round(forecastVol * 100) / 100).toString();
 
-        confidence = Math.min(90, 40 + dated.length * 10);
+        confidence = calculateConfidence(dated.map(o => ({ date: o.date!, vol: o.vol })));
       }
 
       const existing = await db.select({ id: accountForecastsTable.id })
