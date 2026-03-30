@@ -275,7 +275,7 @@ function PortfolioView({ items, isLight, fmtNGN, onUpdate, onDelete, onEdit }: a
 }
 
 /* ─────────────────────────────── List View ──────────────────────────────── */
-function ListView({ items, isLight, onUpdate, onDelete, onEdit }: any) {
+function ListView({ items, isLight, fmtNGN, onUpdate, onDelete, onEdit }: any) {
   if (items.length === 0) return null;
   return (
     <div className={cn("rounded-2xl border overflow-hidden", isLight ? "border-slate-200 bg-white" : "border-white/10 bg-card/60")}>
@@ -346,7 +346,7 @@ type SortKey = "name" | "stage" | "status" | "priority" | "targetDate" | "custom
 
 const PRIORITY_ORDER: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
 
-function MatrixView({ items, isLight, onUpdate, onDelete, onEdit }: any) {
+function MatrixView({ items, isLight, fmtNGN, onUpdate, onDelete, onEdit }: any) {
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
 
