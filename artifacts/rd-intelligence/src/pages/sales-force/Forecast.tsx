@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { useExchangeRate } from "@/hooks/useExchangeRate";
+import { useTheme } from "@/lib/theme";
 import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, isWithinInterval } from "date-fns";
 
 const BASE = import.meta.env.BASE_URL;
@@ -117,7 +118,11 @@ function ChartPanel({
   defaultView: ChartViewType;
 }) {
   const [view, setView] = useState<ChartViewType>(defaultView);
-  const axisColor = "#64748b";
+  const { theme: _ft } = useTheme();
+  const isLF = _ft === "light";
+  const axisColor = isLF ? "#374151" : "#64748b";
+  const gridStrokeF = isLF ? "#E5E7EB" : "rgba(255,255,255,0.05)";
+  const tipStyleF = { background: isLF ? "#FFFFFF" : "#1e1e2e", border: isLF ? "1px solid #E5E7EB" : "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, color: isLF ? "#111827" : undefined };
   const icons: Record<ChartViewType, any> = { bar: BarChart2, pie: PieChartIcon, donut: Donut };
 
   return (
@@ -140,10 +145,10 @@ function ChartPanel({
         <ResponsiveContainer width="100%" height="100%">
           {view === "bar" ? (
             <BarChart data={data} margin={{ left: 0, right: 16, top: 4, bottom: 4 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeF} />
               <XAxis dataKey="name" tick={{ fill: axisColor, fontSize: 10 }} />
               <YAxis tick={{ fill: axisColor, fontSize: 10 }} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
-              <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }}
+              <Tooltip contentStyle={tipStyleF}
                 formatter={(v: any) => [`${Number(v).toLocaleString()} kg`]} />
               <Bar dataKey="value" radius={[6, 6, 0, 0]}>
                 {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
@@ -156,7 +161,7 @@ function ChartPanel({
                 paddingAngle={view === "donut" ? 3 : 0}>
                 {data.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
               </Pie>
-              <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }}
+              <Tooltip contentStyle={tipStyleF}
                 formatter={(v: any) => [`${Number(v).toLocaleString()} kg`]} />
               <Legend iconSize={10} wrapperStyle={{ fontSize: 10, color: axisColor }} />
             </PieChart>

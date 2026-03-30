@@ -82,16 +82,19 @@ function FlexChart({ data, nameKey, valueKey, label }: { data: any[]; nameKey: s
   const [view, setView] = useState<ChartView>("bar");
   const [full, setFull] = useState(false);
   const { theme } = useTheme();
-  const axisColor = theme === "light" ? "#475569" : "#64748b";
+  const isL = theme === "light";
+  const axisColor = isL ? "#374151" : "#64748b";
+  const gridStroke = isL ? "#E5E7EB" : "rgba(255,255,255,0.05)";
+  const tipStyle = { background: isL ? "#FFFFFF" : "#1e1e2e", border: isL ? "1px solid #E5E7EB" : "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, color: isL ? "#111827" : undefined };
 
   const renderContent = (h: number) => (
     view === "bar" ? (
       <ResponsiveContainer width="100%" height={h}>
         <BarChart data={data} layout="vertical" margin={{ left: 12, right: 24, top: 4, bottom: 4 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
           <XAxis type="number" tick={{ fill: axisColor, fontSize: 11 }} />
           <YAxis type="category" dataKey={nameKey} tick={{ fill: axisColor, fontSize: 11 }} width={140} />
-          <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} />
+          <Tooltip contentStyle={tipStyle} />
           <Bar dataKey={valueKey} fill="#8b5cf6" radius={[0, 6, 6, 0]} />
         </BarChart>
       </ResponsiveContainer>
@@ -101,8 +104,8 @@ function FlexChart({ data, nameKey, valueKey, label }: { data: any[]; nameKey: s
           <Pie data={data} dataKey={valueKey} nameKey={nameKey} cx="50%" cy="50%" outerRadius={h * 0.3} label={({ name, value }) => `${name}: ${value}`} labelLine>
             {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
-          <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} />
-          <Legend />
+          <Tooltip contentStyle={tipStyle} />
+          <Legend wrapperStyle={{ fontSize: 12, color: isL ? "#374151" : undefined }} />
         </PieChart>
       </ResponsiveContainer>
     ) : (
@@ -198,7 +201,11 @@ export default function SalesChartsPage() {
   const companyAccounts = companyExpand ? acc.filter(a => a.company === companyExpand) : [];
   const volumeAccounts = volumeExpand ? acc.filter(a => VOLUME_BANDS.find(b => b.key === volumeExpand)?.test(parseFloat(a.volume || 0))) : [];
 
-  const axisColor = "#64748b";
+  const { theme: _ct } = useTheme();
+  const isLC = _ct === "light";
+  const axisColor = isLC ? "#374151" : "#64748b";
+  const gridStrokeC = isLC ? "#E5E7EB" : "rgba(255,255,255,0.05)";
+  const tipStyleC = { background: isLC ? "#FFFFFF" : "#1e1e2e", border: isLC ? "1px solid #E5E7EB" : "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, color: isLC ? "#111827" : undefined };
 
   return (
     <div className="space-y-6">
@@ -209,10 +216,10 @@ export default function SalesChartsPage() {
               <ResponsiveContainer width="100%" height={full ? "100%" : 360}>
                 <BarChart data={companyData} layout="vertical" margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
                   onClick={(d: any) => { if (d?.activePayload?.[0]?.payload?.company) setCompanyExpand(d.activePayload[0].payload.company); }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeC} />
                   <XAxis type="number" tick={{ fill: axisColor, fontSize: 11 }} allowDecimals={false} />
                   <YAxis type="category" dataKey="company" tick={{ fill: axisColor, fontSize: 11 }} width={120} />
-                  <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} cursor={{ fill: "rgba(139,92,246,0.1)" }} />
+                  <Tooltip contentStyle={tipStyleC} cursor={{ fill: isLC ? "rgba(79,70,229,0.05)" : "rgba(139,92,246,0.1)" }} />
                   <Bar dataKey="count" name="Accounts" fill="#8b5cf6" radius={[0, 6, 6, 0]} cursor="pointer">
                     {companyData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Bar>
@@ -257,10 +264,10 @@ export default function SalesChartsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={volumeBandData} margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
                   onClick={(d: any) => { if (d?.activePayload?.[0]?.payload?.key) setVolumeExpand(d.activePayload[0].payload.key); }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStrokeC} />
                   <XAxis dataKey="band" tick={{ fill: axisColor, fontSize: 10 }} />
                   <YAxis tick={{ fill: axisColor, fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} cursor={{ fill: "rgba(139,92,246,0.1)" }} />
+                  <Tooltip contentStyle={tipStyleC} cursor={{ fill: isLC ? "rgba(79,70,229,0.05)" : "rgba(139,92,246,0.1)" }} />
                   <Bar dataKey="count" name="Accounts" radius={[6, 6, 0, 0]} cursor="pointer">
                     {volumeBandData.map((d, i) => <Cell key={i} fill={d.color} />)}
                   </Bar>

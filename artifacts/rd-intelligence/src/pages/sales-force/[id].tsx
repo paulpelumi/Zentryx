@@ -481,7 +481,11 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
     return acc;
   }, []);
 
-  const axisColor = "#64748b";
+  const { theme: _idTheme } = useTheme();
+  const isLightTab = _idTheme === "light";
+  const axisColor = isLightTab ? "#374151" : "#64748b";
+  const gridStroke = isLightTab ? "#E5E7EB" : "rgba(255,255,255,0.05)";
+  const tooltipCfg = { background: isLightTab ? "#FFFFFF" : "#1e1e2e", border: isLightTab ? "1px solid #E5E7EB" : "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, color: isLightTab ? "#111827" : undefined };
   const CHART_CFG = [
     { id: "order_count", title: "Order Count Over Time" },
     { id: "revenue_trend", title: "Revenue Trend Over Time" },
@@ -494,28 +498,28 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
     const cType = chartType[id] || (id === "price_volume" ? "bubble" : "default");
     if (id === "order_count") return (
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={orderCount}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" /><XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} allowDecimals={false} /><Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} /><Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: "#8b5cf6", r: 3 }} /></LineChart>
+        <LineChart data={orderCount}><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} allowDecimals={false} /><Tooltip contentStyle={tooltipCfg} /><Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: "#8b5cf6", r: 3 }} /></LineChart>
       </ResponsiveContainer>
     );
     if (id === "revenue_trend") return (
       <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={revenueByDate}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" /><XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} tickFormatter={v => `$${v}`} /><Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Income"]} /><Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={{ fill: "#10b981", r: 3 }} /></LineChart>
+        <LineChart data={revenueByDate}><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} tickFormatter={v => `$${v}`} /><Tooltip contentStyle={tooltipCfg} formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Income"]} /><Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={{ fill: "#10b981", r: 3 }} /></LineChart>
       </ResponsiveContainer>
     );
     if (id === "lead_time") return (
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={leadTimes}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" /><XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} unit=" d" /><Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} formatter={(v: any) => [`${v} days`, "Lead Time"]} /><Bar dataKey="days" fill="#f59e0b" radius={[4, 4, 0, 0]} /></BarChart>
+        <BarChart data={leadTimes}><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} unit=" d" /><Tooltip contentStyle={tooltipCfg} formatter={(v: any) => [`${v} days`, "Lead Time"]} /><Bar dataKey="days" fill="#f59e0b" radius={[4, 4, 0, 0]} /></BarChart>
       </ResponsiveContainer>
     );
     if (id === "price_volume") return (
       <ResponsiveContainer width="100%" height={height}>
-        <ScatterChart><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" /><XAxis dataKey="x" name="Price" tick={{ fill: axisColor, fontSize: 11 }} label={{ value: "Price ($)", position: "insideBottom", fill: axisColor, fontSize: 11 }} /><YAxis dataKey="y" name="Volume" tick={{ fill: axisColor, fontSize: 11 }} /><ZAxis dataKey="z" range={[40, 400]} /><Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} formatter={(v: any, name: string) => [name === "z" ? `$${Number(v).toLocaleString()}` : Number(v).toLocaleString(), name === "x" ? "Price" : name === "y" ? "Volume" : "Income"]} cursor={{ strokeDasharray: "3 3" }} />
+        <ScatterChart><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="x" name="Price" tick={{ fill: axisColor, fontSize: 11 }} label={{ value: "Price ($)", position: "insideBottom", fill: axisColor, fontSize: 11 }} /><YAxis dataKey="y" name="Volume" tick={{ fill: axisColor, fontSize: 11 }} /><ZAxis dataKey="z" range={[40, 400]} /><Tooltip contentStyle={tooltipCfg} formatter={(v: any, name: string) => [name === "z" ? `$${Number(v).toLocaleString()}` : Number(v).toLocaleString(), name === "x" ? "Price" : name === "y" ? "Volume" : "Income"]} cursor={{ strokeDasharray: "3 3" }} />
           <Scatter data={ords.map(o => ({ x: parseFloat(o.price || 0), y: parseFloat(o.volume || 0), z: parseFloat(o.price || 0) * parseFloat(o.volume || 0) }))} fill="#8b5cf6" fillOpacity={0.7} /></ScatterChart>
       </ResponsiveContainer>
     );
     if (id === "income_by_month") return (
       <ResponsiveContainer width="100%" height={height}>
-        <BarChart data={incomeByMonth}><CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" /><XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} /><Tooltip contentStyle={{ background: "#1e1e2e", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 12, fontSize: 12 }} formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Income"]} /><Bar dataKey="income" fill="#06b6d4" radius={[4, 4, 0, 0]} /></BarChart>
+        <BarChart data={incomeByMonth}><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} /><Tooltip contentStyle={tooltipCfg} formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Income"]} /><Bar dataKey="income" fill="#06b6d4" radius={[4, 4, 0, 0]} /></BarChart>
       </ResponsiveContainer>
     );
     return null;

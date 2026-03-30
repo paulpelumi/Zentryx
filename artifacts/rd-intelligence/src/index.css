@@ -53,28 +53,28 @@
 }
 
 /* ─────────────────────────────────────────────
-   LIGHT THEME — Apple-style glassmorphism
+   LIGHT THEME — Enterprise readability
    ───────────────────────────────────────────── */
 .light {
-  --background: 210 40% 98%;
-  --foreground: 222 47% 11%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 11%;
-  --border: 213 27% 86%;
-  --input: 210 30% 95%;
-  --ring: 252 78% 58%;
-  --primary: 252 78% 58%;
+  --background: 210 40% 98%;       /* #F8FAFC */
+  --foreground: 220 39% 11%;       /* #111827 – gray-900 */
+  --card: 0 0% 100%;               /* #FFFFFF */
+  --card-foreground: 220 39% 11%;  /* #111827 */
+  --border: 220 13% 91%;           /* #E5E7EB */
+  --input: 210 20% 98%;            /* near-white inputs */
+  --ring: 244 58% 51%;             /* #4338CA – indigo-700 */
+  --primary: 244 58% 51%;          /* #4338CA */
   --primary-foreground: 0 0% 100%;
   --secondary: 200 70% 38%;
   --secondary-foreground: 0 0% 100%;
-  --muted: 210 30% 95%;
-  --muted-foreground: 215 16% 47%;
+  --muted: 220 14% 96%;            /* #F1F5F9 */
+  --muted-foreground: 220 9% 46%;  /* #6B7280 – gray-500 WCAG AA */
   --accent: 265 70% 55%;
   --accent-foreground: 0 0% 100%;
-  --destructive: 0 72% 51%;
+  --destructive: 0 72% 51%;        /* #EF4444 */
   --destructive-foreground: 0 0% 100%;
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 220 39% 11%;
   --radius: 0.85rem;
 }
 
@@ -120,56 +120,45 @@
    GLASSMORPHISM — LIGHT SIDEBAR
    ───────────────────────────────────────────── */
 .light-sidebar {
-  background: rgba(255, 255, 255, 0.72);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  border-right: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    inset -1px 0 0 rgba(255, 255, 255, 0.5),
-    4px 0 32px rgba(0, 0, 0, 0.05),
-    1px 0 0 rgba(127, 90, 240, 0.04);
+  background: #FFFFFF;
+  border-right: 1px solid #E5E7EB;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
 }
 
 /* ─────────────────────────────────────────────
    GLASSMORPHISM — LIGHT HEADER / NAVBAR
    ───────────────────────────────────────────── */
 .light-header {
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.55);
-  box-shadow:
-    inset 0 -1px 0 rgba(203, 213, 225, 0.4),
-    0 2px 16px rgba(0, 0, 0, 0.04),
-    0 1px 3px rgba(0, 0, 0, 0.02);
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid #E5E7EB;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 /* ─────────────────────────────────────────────
    NAV ITEMS — LIGHT
    ───────────────────────────────────────────── */
 .light-nav-item {
-  color: #475569;
-  transition: all 0.2s ease;
+  color: #374151;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 .light-nav-item:hover {
-  background: rgba(255, 255, 255, 0.85);
-  color: #1E293B;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
-  transform: translateX(2px);
+  background: #F1F5F9;
+  color: #111827;
+  box-shadow: none;
+  transform: none;
 }
 
 .light-nav-active {
-  background: linear-gradient(135deg, rgba(127, 90, 240, 0.12) 0%, rgba(59, 130, 246, 0.08) 100%);
-  color: #7C3AED;
-  border: 1px solid rgba(127, 90, 240, 0.22);
-  box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.9),
-    0 2px 8px rgba(127, 90, 240, 0.14),
-    0 1px 3px rgba(0, 0, 0, 0.05);
+  background: #EEF2FF;
+  color: #4338CA;
+  border: 1px solid #C7D2FE;
+  box-shadow: none;
 }
 .light-nav-active svg {
-  color: #7C3AED;
-  filter: drop-shadow(0 0 4px rgba(127, 90, 240, 0.3));
+  color: #4338CA;
+  filter: none;
 }
 
 /* ─────────────────────────────────────────────
@@ -180,37 +169,28 @@
     @apply bg-card/60 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/40;
   }
   .light .glass-panel {
-    background: rgba(255, 255, 255, 0.65);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border: 1px solid rgba(255, 255, 255, 0.5);
-    box-shadow:
-      inset 0 1px 1px rgba(255, 255, 255, 0.7),
-      0 8px 32px rgba(0, 0, 0, 0.06),
-      0 2px 8px rgba(0, 0, 0, 0.04);
+    background: #FFFFFF;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
   }
 
   .glass-card {
     @apply bg-white/5 backdrop-blur-md border border-white/5 shadow-xl shadow-black/20 hover:bg-white/10 hover:border-white/15 transition-all duration-300;
   }
   .light .glass-card {
-    background: rgba(255, 255, 255, 0.80);
-    backdrop-filter: blur(12px) saturate(160%);
-    -webkit-backdrop-filter: blur(12px) saturate(160%);
-    border: 1px solid rgba(255, 255, 255, 0.6);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.9),
-      0 4px 24px rgba(0, 0, 0, 0.06),
-      0 1px 4px rgba(0, 0, 0, 0.04);
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #FFFFFF;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1px solid #E5E7EB;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
   }
   .light .glass-card:hover {
-    transform: translateY(-2px) scale(1.002);
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 1),
-      0 12px 40px rgba(0, 0, 0, 0.09),
-      0 4px 12px rgba(127, 90, 240, 0.06);
+    transform: translateY(-1px);
+    background: #FFFFFF;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
   }
 
   /* ── Gradient text ── */
@@ -318,19 +298,31 @@
   }
 
   /* ── Chart panels — light ── */
-  .light .recharts-wrapper .recharts-surface {
-    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.04));
-  }
   .light .recharts-cartesian-grid-horizontal line,
   .light .recharts-cartesian-grid-vertical line {
-    stroke: rgba(203, 213, 225, 0.5);
+    stroke: #E5E7EB;
+    stroke-opacity: 1;
+  }
+  .light .recharts-text.recharts-cartesian-axis-tick-value tspan {
+    fill: #374151;
+    font-size: 12px;
+  }
+  .light .recharts-legend-item-text {
+    color: #374151 !important;
+    font-size: 13px !important;
   }
   .light .recharts-tooltip-wrapper .recharts-default-tooltip {
-    background: rgba(255, 255, 255, 0.95) !important;
-    border: 1px solid rgba(203, 213, 225, 0.8) !important;
-    border-radius: 12px !important;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08) !important;
-    backdrop-filter: blur(12px) !important;
+    background: #FFFFFF !important;
+    border: 1px solid #E5E7EB !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.10) !important;
+  }
+  .light .recharts-tooltip-wrapper .recharts-default-tooltip .recharts-tooltip-label {
+    color: #111827 !important;
+    font-weight: 600;
+  }
+  .light .recharts-tooltip-wrapper .recharts-default-tooltip .recharts-tooltip-item {
+    color: #374151 !important;
   }
 
   /* ── Logo pill glow ── */
@@ -409,11 +401,51 @@
    LIGHT THEME TABLE POLISH
    ───────────────────────────────────────────── */
 .light table thead tr {
-  background: rgba(241, 245, 249, 0.7);
+  background: #F8FAFC;
+}
+.light table thead th {
+  color: #374151;
+  font-weight: 600;
+  border-bottom: 1px solid #E5E7EB;
+}
+.light table tbody tr {
+  border-bottom: 1px solid #F3F4F6;
 }
 .light table tbody tr:hover {
-  background: rgba(127, 90, 240, 0.03) !important;
+  background: #F8FAFC !important;
 }
 .light table td, .light table th {
-  border-color: rgba(226, 232, 240, 0.8);
+  border-color: #E5E7EB;
+}
+.light table td {
+  color: #111827;
+}
+
+/* ─────────────────────────────────────────────
+   LIGHT THEME HEADING CONTRAST
+   ───────────────────────────────────────────── */
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: #111827;
+  font-weight: 600;
+}
+.light .text-muted-foreground {
+  color: #6B7280;
+}
+.light .text-foreground {
+  color: #111827;
+}
+
+/* ─────────────────────────────────────────────
+   LIGHT THEME FORM INPUTS BORDERS
+   ───────────────────────────────────────────── */
+.light input:not([class*="bg-"]),
+.light select:not([class*="bg-"]),
+.light textarea:not([class*="bg-"]) {
+  background: #FFFFFF;
+  border-color: #D1D5DB;
+  color: #111827;
+}
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #9CA3AF;
 }
