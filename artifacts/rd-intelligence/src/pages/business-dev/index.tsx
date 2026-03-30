@@ -177,41 +177,38 @@ export default function BusinessDev() {
         </div>
       </div>
 
-      {/* View toggle + filters */}
-      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-        {/* View mode toggle */}
-        <div className={cn("flex items-center gap-1 p-1 rounded-xl border", isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5")}>
-          <button className={viewBtnCls("list")} onClick={() => setViewMode("list")}>
-            <List className="w-3.5 h-3.5" /> List
-          </button>
-          <button className={viewBtnCls("portfolio")} onClick={() => setViewMode("portfolio")}>
-            <LayoutGrid className="w-3.5 h-3.5" /> Portfolio
-          </button>
-          <button className={viewBtnCls("matrix")} onClick={() => setViewMode("matrix")}>
-            <Table2 className="w-3.5 h-3.5" /> Matrix
-          </button>
-        </div>
+      {/* View toggle */}
+      <div className={cn("flex items-center gap-1 p-1 rounded-xl border w-fit", isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5")}>
+        <button className={viewBtnCls("list")} onClick={() => setViewMode("list")}>
+          <List className="w-3.5 h-3.5" /> List
+        </button>
+        <button className={viewBtnCls("portfolio")} onClick={() => setViewMode("portfolio")}>
+          <LayoutGrid className="w-3.5 h-3.5" /> Portfolio
+        </button>
+        <button className={viewBtnCls("matrix")} onClick={() => setViewMode("matrix")}>
+          <Table2 className="w-3.5 h-3.5" /> Matrix
+        </button>
+      </div>
 
-        {/* Search + status filters */}
-        <div className="flex flex-col sm:flex-row gap-3 flex-1 sm:justify-end">
-          <div className="relative max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input placeholder="Search BD items..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {["all", ...STATUSES].map(s => (
-              <button key={s} onClick={() => setStatusFilter(s === statusFilter && s !== "all" ? "all" : s)}
-                className={cn("px-3 py-1.5 rounded-lg text-xs font-medium border transition-all capitalize",
-                  statusFilter === s
-                    ? "bg-primary text-white border-primary"
-                    : isLight
-                      ? "border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                      : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"
-                )}>
-                {s === "all" ? "All" : s.replace(/_/g, ' ')}
-              </button>
-            ))}
-          </div>
+      {/* Search + status filters — directly below view toggles */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input placeholder="Search BD items..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {["all", ...STATUSES].map(s => (
+            <button key={s} onClick={() => setStatusFilter(s === statusFilter && s !== "all" ? "all" : s)}
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-medium border transition-all capitalize",
+                statusFilter === s
+                  ? "bg-primary text-white border-primary"
+                  : isLight
+                    ? "border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"
+              )}>
+              {s === "all" ? "All" : s.replace(/_/g, ' ')}
+            </button>
+          ))}
         </div>
       </div>
 

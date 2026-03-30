@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Send, Plus, ImageIcon, Mic, MicOff, Users, Lock, Video, Hash,
   MoreVertical, StopCircle, Trash2, Pin, PinOff, LogOut, X,
-  MessageSquare, AtSign, ChevronRight
+  MessageSquare, AtSign, ChevronRight, FileText, Download, ZoomIn, Paperclip
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -175,6 +175,7 @@ export default function ChatRoom() {
   const [showPinnedMsgs, setShowPinnedMsgs] = useState(false);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState<number>(-1);
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -272,7 +273,10 @@ export default function ChatRoom() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const type = file.type.startsWith("image/") ? "image" : "voice_note";
+    let type: string;
+    if (file.type.startsWith("image/")) type = "image";
+    else if (file.type.startsWith("audio/")) type = "voice_note";
+    else type = "document";
     uploadFile(file, type);
     e.target.value = "";
   };
@@ -353,6 +357,53 @@ export default function ChatRoom() {
   if (loading && rooms.length === 0) return <PageLoader />;
 
   return (
+    <>
+    {/* Image Lightbox */}
+    <AnimatePresence>
+      {lightboxImg && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-[999] flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
+          onClick={() => setLightboxImg(null)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            transition={{ duration: 0.18 }}
+            className="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center"
+            onClick={e => e.stopPropagation()}
+          >
+            <img
+              src={lightboxImg}
+              alt="Full size"
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+            />
+            <button
+              onClick={() => setLightboxImg(null)}
+              className="absolute -top-3 -right-3 w-9 h-9 rounded-full bg-black/70 hover:bg-black/90 border border-white/20 flex items-center justify-center text-white transition-colors shadow-lg"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <a
+              href={lightboxImg}
+              download
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-black/70 hover:bg-black/90 border border-white/20 text-white text-xs font-medium shadow-lg transition-colors"
+              onClick={e => e.stopPropagation()}
+            >
+              <Download className="w-3.5 h-3.5" /> Download
+            </a>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
     <div className="flex h-[calc(100vh-10rem)] gap-0 rounded-2xl overflow-hidden glass-card border border-white/5">
       {/* Sidebar */}
       <div className="w-64 shrink-0 border-r border-white/5 flex flex-col bg-white/[0.02]">
@@ -477,18 +528,7 @@ export default function ChatRoom() {
                       )}
                       <div className={`relative group/bubble rounded-2xl px-4 py-2.5 ${isOwn ? "bg-primary text-white rounded-tr-sm" : "bg-white/8 text-foreground rounded-tl-sm"} ${pinned ? "ring-1 ring-amber-400/30" : ""}`}>
                         {pinned && <Pin className="w-3 h-3 text-amber-400 absolute -top-1 -right-1" />}
-                        {msg.messageType === "text" && <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>}
-                        {msg.messageType === "image" && (
-                          <a href={`${BASE}api${msg.fileUrl?.replace('/api', '')}`} target="_blank" rel="noopener noreferrer">
-                            <img src={`${BASE}api${msg.fileUrl?.replace('/api', '')}`} alt={msg.fileName} className="max-w-xs max-h-48 rounded-xl object-cover" />
-                          </a>
-                        )}
-                        {msg.messageType === "voice_note" && (
-                          <div className="flex items-center gap-2 py-1">
-                            <Mic className="w-4 h-4 text-primary" />
-                            <audio controls src={`${BASE}api${msg.fileUrl?.replace('/api', '')}`} className="h-8 max-w-xs" />
-                          </div>
-                        )}
+                        <MsgContent msg={msg} isOwn={isOwn} base={BASE} onImageClick={setLightboxImg} />
                       </div>
                       <div className={`flex items-center gap-1 px-1 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
                         <span className="text-[10px] text-muted-foreground">{format(new Date(msg.createdAt), "h:mm a")}</span>
@@ -533,10 +573,10 @@ export default function ChatRoom() {
                 )}
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,audio/*" className="hidden" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.ppt,.pptx" className="hidden" />
                     <button onClick={() => fileInputRef.current?.click()}
-                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors" title="Attach image">
-                      <ImageIcon className="w-5 h-5" />
+                      className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors" title="Attach image or document">
+                      <Paperclip className="w-5 h-5" />
                     </button>
                     <button
                       onClick={isRecording ? stopRecording : startRecording}
@@ -585,7 +625,75 @@ export default function ChatRoom() {
         )}
       </div>
     </div>
+    </>
   );
+}
+
+function MsgContent({ msg, isOwn, base, onImageClick }: {
+  msg: any; isOwn: boolean; base: string; onImageClick: (src: string) => void;
+}) {
+  if (msg.messageType === "text") {
+    return <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>;
+  }
+  if (msg.messageType === "image") {
+    const src = `${base}api${msg.fileUrl?.replace('/api', '')}`;
+    return (
+      <div className="relative group/img">
+        <button onClick={() => onImageClick(src)} className="block focus:outline-none">
+          <img
+            src={src}
+            alt={msg.fileName || "image"}
+            className="max-w-[260px] w-full rounded-xl object-contain cursor-zoom-in"
+            style={{ maxHeight: "320px" }}
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 rounded-xl transition-colors flex items-center justify-center opacity-0 group-hover/img:opacity-100">
+            <ZoomIn className="w-6 h-6 text-white drop-shadow" />
+          </div>
+        </button>
+      </div>
+    );
+  }
+  if (msg.messageType === "voice_note") {
+    return (
+      <div className="flex items-center gap-2 py-1">
+        <Mic className="w-4 h-4 text-primary" />
+        <audio controls src={`${base}api${msg.fileUrl?.replace('/api', '')}`} className="h-8 max-w-xs" />
+      </div>
+    );
+  }
+  if (msg.messageType === "document") {
+    const src = `${base}api${msg.fileUrl?.replace('/api', '')}`;
+    const name = msg.fileName || "document";
+    const ext = name.split('.').pop()?.toLowerCase() || "";
+    let iconColor = "text-blue-400";
+    if (ext === "pdf") iconColor = "text-red-400";
+    else if (["xls","xlsx","csv"].includes(ext)) iconColor = "text-green-400";
+    else if (["doc","docx"].includes(ext)) iconColor = "text-blue-500";
+    else if (["ppt","pptx"].includes(ext)) iconColor = "text-orange-400";
+    return (
+      <div className="min-w-[220px] max-w-xs">
+        <div className={`flex items-center gap-3 p-3 rounded-xl mb-2 ${isOwn ? "bg-white/10" : "bg-white/5"} border border-white/10`}>
+          <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${isOwn ? "bg-white/15" : "bg-white/8"}`}>
+            <FileText className={`w-5 h-5 ${iconColor}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate" title={name}>{name}</p>
+            <p className="text-[11px] opacity-60 uppercase">{ext} file</p>
+          </div>
+        </div>
+        <a
+          href={src}
+          download={name}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors w-full justify-center ${isOwn ? "bg-white/15 hover:bg-white/25 text-white" : "bg-primary/10 hover:bg-primary/20 text-primary"}`}
+        >
+          <Download className="w-3.5 h-3.5" /> Download
+        </a>
+      </div>
+    );
+  }
+  return null;
 }
 
 function CreateGroupModal({ users, onCreate }: { users: any[]; onCreate: (name: string, memberIds: number[]) => void }) {
