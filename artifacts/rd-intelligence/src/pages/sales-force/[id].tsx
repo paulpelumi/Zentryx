@@ -555,14 +555,21 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
     XLSX.writeFile(wb, `production_orders_${accountId}.xlsx`);
   };
 
-  const ordersByDate = [...ords].sort((a, b) => (a.dateOrdered || "").localeCompare(b.dateOrdered || ""));
-  const orderCount = ordersByDate.reduce((acc: any[], o) => {
-    const existing = acc.find(x => x.date === o.dateOrdered);
-    if (existing) existing.count++;
-    else acc.push({ date: o.dateOrdered || "—", count: 1 });
-    return acc;
-  }, []);
+  const parseDMY = (s: string) => {
+    if (!s || !s.includes("/")) return "";
+    const parts = s.split("/");
+    if (parts.length !== 3) return s;
+    const [d, m, y] = parts;
+    return `${y || "0000"}-${(m || "00").padStart(2, "0")}-${(d || "00").padStart(2, "0")}`;
+  };
+  const ordersByDate = [...ords].sort((a, b) => parseDMY(a.dateOrdered || "").localeCompare(parseDMY(b.dateOrdered || "")));
   const revenueByDate = ordersByDate.map(o => ({ date: o.dateOrdered || "—", income: parseFloat(o.price || 0) * parseFloat(o.volume || 0) }));
+  const orderFreqData = ordersByDate.map(o => ({
+    date: o.dateOrdered || "—",
+    volume: parseFloat(o.volume || 0),
+    price: parseFloat(o.price || 0),
+  }));
+  const totalIncome = ords.reduce((sum, o) => sum + parseFloat(o.price || 0) * parseFloat(o.volume || 0), 0);
   const leadTimes = ords.filter(o => o.dateOrdered && o.dateDelivered).map(o => {
     const days = Math.round((new Date(o.dateDelivered.split("/").reverse().join("-")).getTime() - new Date(o.dateOrdered.split("/").reverse().join("-")).getTime()) / 86400000);
     return { label: `${o.dateOrdered}`, days };
@@ -582,20 +589,40 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
   const gridStroke = isLightTab ? "#E5E7EB" : "rgba(255,255,255,0.05)";
   const tooltipCfg = { background: isLightTab ? "#FFFFFF" : "#1e1e2e", border: isLightTab ? "1px solid #E5E7EB" : "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, color: isLightTab ? "#111827" : undefined };
   const CHART_CFG = [
-    { id: "order_count", title: "Order Count Over Time" },
+    { id: "income_by_month", title: "Income by Month" },
     { id: "revenue_trend", title: "Revenue Trend Over Time" },
     { id: "lead_time", title: "Average Delivery Lead Time" },
     { id: "price_volume", title: "Price vs Volume" },
-    { id: "income_by_month", title: "Income by Month" },
+    { id: "order_frequency", title: "Order Frequency" },
   ];
 
-  const renderChart = (id: string, height: number) => {
-    const cType = chartType[id] || (id === "price_volume" ? "bubble" : "default");
-    if (id === "order_count") return (
-      <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={orderCount}><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} allowDecimals={false} /><Tooltip contentStyle={tooltipCfg} /><Line type="monotone" dataKey="count" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: "#8b5cf6", r: 3 }} /></LineChart>
-      </ResponsiveContainer>
+  const PriceVolumeTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0]?.payload;
+    const price = Number(d?.x || 0);
+    const volume = Number(d?.y || 0);
+    const income = price * volume;
+    return (
+      <div style={{ background: tooltipCfg.background, border: tooltipCfg.border, borderRadius: tooltipCfg.borderRadius, padding: "8px 12px", fontSize: 12, color: tooltipCfg.color || "#e2e8f0" }}>
+        <p style={{ marginBottom: 4 }}><span style={{ color: "#a78bfa", fontWeight: 600 }}>Price ($/KG):</span> {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+        <p style={{ marginBottom: 4 }}><span style={{ color: "#38bdf8", fontWeight: 600 }}>Volume (kg):</span> {volume.toLocaleString()}</p>
+        <p><span style={{ color: "#34d399", fontWeight: 600 }}>Income:</span> ${income.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+      </div>
     );
+  };
+
+  const OrderFreqTooltip = ({ active, payload }: any) => {
+    if (!active || !payload?.length) return null;
+    const d = payload[0]?.payload;
+    return (
+      <div style={{ background: tooltipCfg.background, border: tooltipCfg.border, borderRadius: tooltipCfg.borderRadius, padding: "8px 12px", fontSize: 12, color: tooltipCfg.color || "#e2e8f0" }}>
+        <p style={{ marginBottom: 4 }}><span style={{ color: "#38bdf8", fontWeight: 600 }}>Volume:</span> {Number(d?.volume || 0).toLocaleString()} kg</p>
+        <p><span style={{ color: "#34d399", fontWeight: 600 }}>Price:</span> ${Number(d?.price || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/kg</p>
+      </div>
+    );
+  };
+
+  const renderChart = (id: string, height: number) => {
     if (id === "revenue_trend") return (
       <ResponsiveContainer width="100%" height={height}>
         <LineChart data={revenueByDate}><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} tickFormatter={v => `$${v}`} /><Tooltip contentStyle={tooltipCfg} formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Income"]} /><Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} dot={{ fill: "#10b981", r: 3 }} /></LineChart>
@@ -608,13 +635,29 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
     );
     if (id === "price_volume") return (
       <ResponsiveContainer width="100%" height={height}>
-        <ScatterChart><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="x" name="Price" tick={{ fill: axisColor, fontSize: 11 }} label={{ value: "Price ($)", position: "insideBottom", fill: axisColor, fontSize: 11 }} /><YAxis dataKey="y" name="Volume" tick={{ fill: axisColor, fontSize: 11 }} /><ZAxis dataKey="z" range={[40, 400]} /><Tooltip contentStyle={tooltipCfg} formatter={(v: any, name: string) => [name === "z" ? `$${Number(v).toLocaleString()}` : Number(v).toLocaleString(), name === "x" ? "Price" : name === "y" ? "Volume" : "Income"]} cursor={{ strokeDasharray: "3 3" }} />
-          <Scatter data={ords.map(o => ({ x: parseFloat(o.price || 0), y: parseFloat(o.volume || 0), z: parseFloat(o.price || 0) * parseFloat(o.volume || 0) }))} fill="#8b5cf6" fillOpacity={0.7} /></ScatterChart>
+        <ScatterChart><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+          <XAxis dataKey="x" name="Price" tick={{ fill: axisColor, fontSize: 11 }} label={{ value: "Price ($/kg)", position: "insideBottom", fill: axisColor, fontSize: 11 }} />
+          <YAxis dataKey="y" name="Volume" tick={{ fill: axisColor, fontSize: 11 }} />
+          <ZAxis dataKey="z" range={[40, 400]} />
+          <Tooltip content={<PriceVolumeTooltip />} cursor={{ strokeDasharray: "3 3" }} />
+          <Scatter data={ords.map(o => ({ x: parseFloat(o.price || 0), y: parseFloat(o.volume || 0), z: parseFloat(o.price || 0) * parseFloat(o.volume || 0) }))} fill="#8b5cf6" fillOpacity={0.7} />
+        </ScatterChart>
       </ResponsiveContainer>
     );
     if (id === "income_by_month") return (
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={incomeByMonth}><CartesianGrid strokeDasharray="3 3" stroke={gridStroke} /><XAxis dataKey="month" tick={{ fill: axisColor, fontSize: 10 }} /><YAxis tick={{ fill: axisColor, fontSize: 11 }} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} /><Tooltip contentStyle={tooltipCfg} formatter={(v: any) => [`$${Number(v).toLocaleString()}`, "Income"]} /><Bar dataKey="income" fill="#06b6d4" radius={[4, 4, 0, 0]} /></BarChart>
+      </ResponsiveContainer>
+    );
+    if (id === "order_frequency") return (
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart data={orderFreqData}>
+          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+          <XAxis dataKey="date" tick={{ fill: axisColor, fontSize: 10 }} />
+          <YAxis dataKey="volume" tick={{ fill: axisColor, fontSize: 11 }} tickFormatter={v => `${Number(v).toLocaleString()} kg`} width={70} />
+          <Tooltip content={<OrderFreqTooltip />} />
+          <Line type="monotone" dataKey="volume" stroke="#f472b6" strokeWidth={2} dot={{ fill: "#f472b6", r: 3 }} activeDot={{ r: 5 }} />
+        </LineChart>
       </ResponsiveContainer>
     );
     return null;
@@ -647,7 +690,7 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
                   <tr key={o.id} className="hover:bg-white/[0.02]">
                     <td className="px-3 py-2">
                       <input type="number" defaultValue={o.price} onBlur={e => updateRow(o.id, { ...o, price: e.target.value })}
-                        className="w-20 bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 h-7" step="1" />
+                        className="w-20 bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 h-7" step="0.01" min="0" />
                     </td>
                     <td className="px-3 py-2">
                       <input type="number" defaultValue={o.volume} onBlur={e => updateRow(o.id, { ...o, volume: e.target.value })}
@@ -675,6 +718,17 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
               <Plus className="w-3.5 h-3.5" /> Add Row
             </button>
           </div>
+        </div>
+
+        {/* Total Income */}
+        <div className="glass-card rounded-2xl p-4 border border-emerald-500/20 bg-emerald-500/5">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Total Income</p>
+          <p className="text-2xl font-bold text-emerald-400">
+            ${totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </p>
+          {ords.length > 0 && (
+            <p className="text-xs text-muted-foreground mt-1">Across {ords.length} order{ords.length !== 1 ? "s" : ""}</p>
+          )}
         </div>
       </div>
 
