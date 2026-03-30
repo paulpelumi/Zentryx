@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Send, Plus, ImageIcon, Mic, MicOff, Users, Lock, Video, Hash,
   MoreVertical, StopCircle, Trash2, Pin, PinOff, LogOut, X,
-  MessageSquare, AtSign, ChevronRight, FileText, Download, ZoomIn, Paperclip
+  MessageSquare, AtSign, ChevronRight, FileText, Download, ZoomIn, Paperclip, ArrowDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,9 +178,23 @@ export default function ChatRoom() {
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLInputElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+
+  const handleMessagesScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const threshold = 80;
+    setIsAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < threshold);
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setIsAtBottom(true);
+  };
 
   const { isPinned: isRoomPinned, toggle: toggleRoomPin } = usePinnedRooms();
   const { isPinned: isMsgPinned, toggle: toggleMsgPin } = usePinnedMessages(activeRoom?.id || 0);
@@ -215,7 +229,6 @@ export default function ChatRoom() {
         }
         return msgList;
       });
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     });
   }, [currentUserId]);
 
@@ -236,7 +249,6 @@ export default function ChatRoom() {
       const msg = await api.post(`/chat/rooms/${activeRoom.id}/messages`, { content: newMsg, messageType: "text" });
       setMessages(prev => [...prev.filter((m: any) => m.id !== msg.id), msg]);
       setNewMsg("");
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } finally { setSending(false); }
   };
 
@@ -266,7 +278,6 @@ export default function ChatRoom() {
     try {
       const msg = await api.postForm(`/chat/rooms/${activeRoom.id}/upload`, formData);
       setMessages(prev => [...prev.filter((m: any) => m.id !== msg.id), msg]);
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     } catch { toast({ title: "Upload failed", variant: "destructive" }); }
   };
 
@@ -510,7 +521,15 @@ export default function ChatRoom() {
               )}
             </AnimatePresence>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-1">
+            <div ref={scrollContainerRef} onScroll={handleMessagesScroll} className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-1 relative">
+              {!isAtBottom && (
+                <button
+                  onClick={scrollToBottom}
+                  className="sticky top-2 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary text-white text-xs font-medium shadow-lg z-10 hover:bg-primary/90 transition-all w-fit mx-auto"
+                >
+                  <ArrowDown className="w-3.5 h-3.5" /> Jump to latest
+                </button>
+              )}
               {messages.map((msg: any, i: number) => {
                 const isOwn = msg.senderId === currentUserId;
                 const showName = !isOwn && (i === 0 || messages[i - 1].senderId !== msg.senderId);

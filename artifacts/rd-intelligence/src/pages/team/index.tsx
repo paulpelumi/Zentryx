@@ -388,7 +388,7 @@ function AddDepartmentModal({ onAdd }: { onAdd: (name: string) => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2"><Building className="w-4 h-4" /> New Department</Button>
+        <Button className="gap-2"><Building className="w-4 h-4" /> New Department</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[360px] glass-panel border-white/10">
         <DialogHeader><DialogTitle>Create Department</DialogTitle></DialogHeader>
@@ -421,7 +421,7 @@ function AddRoleModal({ onAdd }: { onAdd: (label: string) => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2"><Tag className="w-4 h-4" /> New Role</Button>
+        <Button className="gap-2"><Tag className="w-4 h-4" /> New Role</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[360px] glass-panel border-white/10">
         <DialogHeader><DialogTitle>Create New Role</DialogTitle></DialogHeader>

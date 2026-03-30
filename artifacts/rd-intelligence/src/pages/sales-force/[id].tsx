@@ -258,7 +258,7 @@ function KanbanBoard({ accountId, account }: { accountId: number; account: any }
         <div className="flex items-center gap-3">
           <div className="relative">
             <button onClick={() => setShowApprovalDrop(d => !d)}
-              className={cn("flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all", `bg-${approvalInfo.dot.replace("bg-", "").replace("-500", "-500/10")} border-white/10`)}>
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-semibold transition-all bg-black border-white/20 hover:bg-zinc-900">
               <span className={cn("w-2.5 h-2.5 rounded-full", approvalInfo.dot)} />
               <span className={approvalInfo.text}>{approvalInfo.label}</span>
               <ChevronDown className="w-3 h-3 text-muted-foreground" />
@@ -281,8 +281,8 @@ function KanbanBoard({ accountId, account }: { accountId: number; account: any }
           <button onClick={addTemplateTasks} title={someTemplatePresent ? "Remove template tasks" : "Load template tasks"}
             className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition-colors",
               someTemplatePresent
-                ? "border-amber-500/40 bg-amber-500/20 text-amber-300 hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-400"
-                : "border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                ? "border-amber-500/40 bg-black text-amber-300 hover:bg-zinc-900 hover:border-red-500/40 hover:text-red-400"
+                : "border-amber-500/40 bg-black text-amber-400 hover:bg-zinc-900"
             )}>
             {someTemplatePresent ? "✓ Template Loaded (click to remove)" : "⭐ Load Template"}
           </button>

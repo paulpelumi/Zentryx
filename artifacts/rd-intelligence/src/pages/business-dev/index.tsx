@@ -172,7 +172,7 @@ export default function BusinessDev() {
           <p className={cn("mt-1 text-sm", isLight ? "text-gray-500" : "text-muted-foreground")}>Track and manage BD opportunities and customer pipelines.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExport} className="gap-2"><Download className="w-4 h-4" /> Export</Button>
+          <Button onClick={handleExport} className="gap-2"><Download className="w-4 h-4" /> Export</Button>
           <CreateBDModal users={users || []} onCreate={create} />
         </div>
       </div>
