@@ -49,10 +49,10 @@ artifacts-monorepo/
 ## Features
 
 ### 1. Dashboard
-- KPI cards: total projects, active projects, completed, team size
-- Innovation Velocity area chart (monthly projects)
-- Pipeline Distribution: Pie / Donut / Bar / Histogram / Line chart selector
-- Team section with List / Pie / Donut / Bar views
+- KPI cards: total projects, active projects (excludes cancelled/on_hold/pushed_to_live), completed (pushed_to_live), team size (unlimited)
+- **Innovation Velocity**: area chart with Weekly/Monthly/Yearly toggle + expand fullscreen button
+- **Pipeline Distribution**: Pie / Donut / Bar / Line chart selector + expand fullscreen button
+- **Team Overview**: department filter dropdown; List / Pie / Donut / Bar views
 - Click team member → view their assigned projects → click project to navigate
 
 ### 2. Project Portfolio
@@ -74,16 +74,18 @@ artifacts-monorepo/
 - **Matrix view**: clickable rows → project detail, interactive sensory score bars, $ currency
 - **Export tab**: CSV (`project_export_[date].csv`) + real Excel XLSX (`projects_export_[date].xlsx`) with 20 columns including financial data
 
-### 3. Analytics & AI
-- Overview charts: product category bar, stage donut, status horizontal bar, radar chart
-- **AI Analyst tab**: live GPT streaming chat with SSE — ask anything about R&D strategy
-- Quick prompts for common queries
+### 3. Analytics
+- Title: "Analytics" with subtitle "Insights, metric and powered analysis for R&D pipeline"
+- Overview charts: product category bar, stage distribution (donut/pie/bar toggle + animation), status horizontal bar, Category Performance Radar (radar/bar toggle)
+- Expand fullscreen button on all chart cards
+- KPI cards: Total Projects, Approved, In Progress, Pushed to Live
 
 ### 4. Team Directory
-- Add/edit/remove members
-- Roles: Manager, NPD Technologist, Head of Product Development, Key Account Manager, Senior Key Account Manager, Project Manager, Admin, Scientist, Analyst, Viewer
-- Department filter: NPD, Marketing & Sales, Account Management + create custom departments
-- Member metadata: name, email, role, department, active status
+- Add/edit/remove members (admin-only for others; users can edit own profile only)
+- Roles: CEO, HR, Head of Department, NPD Technologist, Head of Product Development, Key Account Manager, Senior Key Account Manager, Project Manager, Admin, Quality Control, Graphics Designer, Scientist, Analyst, Viewer + **New Role** button (custom roles persisted to localStorage)
+- Department filter bar + create custom departments button
+- Unlimited team size (no cap)
+- Member metadata: name, email, role, department, country, active status
 
 ### 5. Business Development
 - Mirrors project structure with full CRUD
@@ -103,7 +105,7 @@ artifacts-monorepo/
 
 **Accounts tab**: List/Portfolio/Matrix views, search, filter, sort, CSV/XLSX export, Add Account modal. Click row → Account Detail page.
 
-**Account Detail** (`/sales-force/:id`): 4 sub-tabs — Tasks (Kanban DnD + template tasks, approval dropdown), Status Report (threaded posts), Production Orders (editable table + 5 charts + resizable split pane), Account Info (full edit form).
+**Account Detail** (`/sales-force/:id`): 4 sub-tabs — Tasks (Kanban DnD + **Load Template toggle**: click to add 13 template tasks, click again to remove them), Status Report (threaded posts with **@ mention** system: type @name → live dropdown → rendered as purple highlighted text), Production Orders (editable table + 5 charts + resizable split pane), Account Info (full edit form).
 
 **Charts tab**: 4 drilldown charts with bar/pie/list toggle, priority scoring.
 
@@ -116,7 +118,18 @@ artifacts-monorepo/
 - 3 chart panels (Forecast Volume by Month bar/donut/pie, Forecast by Customer pie/bar, Forecast by Product Type donut/pie/bar) — all respect filters
 - Forecast Calendar: monthly grid view, events per day color-coded by confidence, prev/next navigation, tooltip on hover, click → detail modal, "+N more" overflow, auto-seeded from accounts
 
-### 8. Notifications & Activity
+### 8. Events
+- Monthly calendar view + mini sidebar calendar
+- **Public Holidays**: fetched from Nager.Date API (`https://date.nager.at/api/v3/PublicHolidays/{year}/{countryCode}`) based on user's country field (defaults to "NG" for Nigeria); holidays highlighted in amber on both calendars + listed in a panel
+- Personal event CRUD (add/edit/delete events)
+
+### 9. Weekly Activities Tracker
+- Weekly table (Mon–Fri) with rows per team member
+- New rows default `assignedUserId: null` — any user can add activities for others
+- Columns: Assigned To, Project Title, Product Type, Status, Priority, Remarks
+- Notify Account Managers button
+
+### 10. Notifications & Activity
 - Notification types: Deadline, Update, Reminder, Mention, System
 - Full activity audit log (tracks accounts, projects, business dev, etc.)
 

@@ -301,7 +301,7 @@ export default function WeeklyActivities() {
     mutationFn: async () => {
       const r = await fetch(`${BASE}api/weekly-activities/weeks/${selectedWeekId}/activities`, {
         method: "POST", headers: authHeaders(),
-        body: JSON.stringify({ assignedUserId: me?.id ?? null, projectTitle: "", productType: null, status: "not_started", priority: "medium", remarks: "" }),
+        body: JSON.stringify({ assignedUserId: null, projectTitle: "", productType: null, status: "not_started", priority: "medium", remarks: "" }),
       });
       return r.json();
     },

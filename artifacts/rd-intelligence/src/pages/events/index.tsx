@@ -14,6 +14,32 @@ import { motion, AnimatePresence } from "framer-motion";
 
 const BASE = import.meta.env.BASE_URL;
 
+const COUNTRY_ISO: Record<string, string> = {
+  "nigeria": "NG", "united states": "US", "usa": "US", "uk": "GB", "united kingdom": "GB",
+  "canada": "CA", "australia": "AU", "germany": "DE", "france": "FR", "india": "IN",
+  "south africa": "ZA", "kenya": "KE", "ghana": "GH", "egypt": "EG", "brazil": "BR",
+  "mexico": "MX", "spain": "ES", "italy": "IT", "netherlands": "NL", "sweden": "SE",
+  "norway": "NO", "denmark": "DK", "finland": "FI", "portugal": "PT", "poland": "PL",
+  "switzerland": "CH", "austria": "AT", "belgium": "BE", "ireland": "IE", "new zealand": "NZ",
+  "singapore": "SG", "malaysia": "MY", "indonesia": "ID", "philippines": "PH", "japan": "JP",
+  "china": "CN", "south korea": "KR", "united arab emirates": "AE", "uae": "AE",
+};
+
+function getCountryCode(country: string | undefined): string {
+  if (!country) return "NG";
+  return COUNTRY_ISO[country.toLowerCase().trim()] || "NG";
+}
+
+async function fetchPublicHolidays(year: number, countryCode: string): Promise<{ date: string; localName: string; name: string }[]> {
+  try {
+    const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/${countryCode}`);
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
+}
+
 const EVENT_TYPES = [
   { value: "general", label: "General", icon: CalendarDays, color: "#6c5ce7" },
   { value: "meeting", label: "Meeting", icon: Briefcase, color: "#0984e3" },
@@ -45,22 +71,22 @@ function useApi() {
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-function MiniCalendar({ events, selectedDate, onSelectDate, currentMonth, onMonthChange }: {
+function MiniCalendar({ events, selectedDate, onSelectDate, currentMonth, onMonthChange, holidays = [] }: {
   events: any[]; selectedDate: Date | null; onSelectDate: (d: Date) => void;
   currentMonth: Date; onMonthChange: (d: Date) => void;
+  holidays?: { date: string; name: string; localName: string }[];
 }) {
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(currentMonth);
   const days = eachDayOfInterval({ start: monthStart, end: monthEnd });
   const startPad = getDay(monthStart);
 
-  const hasEvents = (d: Date) => events.some(e => isSameDay(new Date(e.startDate), d));
   const getEventColors = (d: Date) =>
     [...new Set(events.filter(e => isSameDay(new Date(e.startDate), d)).map(e => e.color))].slice(0, 3);
+  const getHoliday = (d: Date) => holidays.find(h => isSameDay(parseISO(h.date), d));
 
   return (
     <div className="glass-card rounded-2xl p-5 select-none">
-      {/* Month Header */}
       <div className="flex items-center justify-between mb-5">
         <button onClick={() => onMonthChange(subMonths(currentMonth, 1))}
           className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-muted-foreground hover:text-foreground">
@@ -75,14 +101,12 @@ function MiniCalendar({ events, selectedDate, onSelectDate, currentMonth, onMont
         </button>
       </div>
 
-      {/* Day headers */}
       <div className="grid grid-cols-7 mb-2">
         {DAYS.map(d => (
           <div key={d} className="text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider py-1">{d}</div>
         ))}
       </div>
 
-      {/* Grid */}
       <div className="grid grid-cols-7 gap-y-1">
         {Array.from({ length: startPad }).map((_, i) => <div key={`p-${i}`} />)}
         {days.map(day => {
@@ -90,16 +114,19 @@ function MiniCalendar({ events, selectedDate, onSelectDate, currentMonth, onMont
           const isSelected = selectedDate && isSameDay(day, selectedDate);
           const todayDay = isToday(day);
           const notCurrentMonth = !isSameMonth(day, currentMonth);
+          const holiday = getHoliday(day);
           return (
             <button key={day.toISOString()} onClick={() => onSelectDate(day)}
+              title={holiday ? `🎉 ${holiday.localName || holiday.name}` : undefined}
               className={`relative flex flex-col items-center justify-center h-9 w-full rounded-xl text-sm font-medium transition-all
-                ${isSelected ? "bg-primary text-white shadow-lg shadow-primary/30" : todayDay ? "bg-primary/15 text-primary ring-1 ring-primary/30" : "hover:bg-white/8 text-foreground"}
+                ${isSelected ? "bg-primary text-white shadow-lg shadow-primary/30" : todayDay ? "bg-primary/15 text-primary ring-1 ring-primary/30" : holiday ? "bg-amber-500/10 text-amber-300 ring-1 ring-amber-500/20" : "hover:bg-white/8 text-foreground"}
                 ${notCurrentMonth ? "opacity-30" : ""}
               `}>
               <span className="leading-none">{format(day, "d")}</span>
-              {eventColors.length > 0 && !isSelected && (
-                <div className="flex gap-0.5 mt-0.5">
-                  {eventColors.map((c, i) => (
+              {!isSelected && (
+                <div className="flex gap-0.5 mt-0.5 items-center">
+                  {holiday && <span className="text-[8px]">🎉</span>}
+                  {eventColors.slice(0, 2).map((c, i) => (
                     <span key={i} className="w-1 h-1 rounded-full" style={{ backgroundColor: c }} />
                   ))}
                 </div>
@@ -109,9 +136,16 @@ function MiniCalendar({ events, selectedDate, onSelectDate, currentMonth, onMont
         })}
       </div>
 
-      {/* Today button */}
+      {holidays.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-white/5">
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1 mb-1">
+            <span>🎉</span> Public holidays highlighted in amber
+          </p>
+        </div>
+      )}
+
       <button onClick={() => { onSelectDate(new Date()); onMonthChange(new Date()); }}
-        className="mt-4 w-full text-center text-xs text-primary hover:text-primary/80 font-medium transition-colors py-1">
+        className="mt-2 w-full text-center text-xs text-primary hover:text-primary/80 font-medium transition-colors py-1">
         Jump to Today
       </button>
     </div>
@@ -350,11 +384,22 @@ export default function EventsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [searchQ, setSearchQ] = useState("");
+  const [holidays, setHolidays] = useState<{ date: string; name: string; localName: string }[]>([]);
+  const [holidayCountry, setHolidayCountry] = useState("NG");
 
   useEffect(() => {
-    Promise.all([api.get("/events"), api.get("/users")]).then(([evts, usrs]) => {
+    const token = localStorage.getItem("rd_token");
+    Promise.all([
+      api.get("/events"),
+      api.get("/users"),
+      fetch(`${BASE}api/auth/me`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()),
+    ]).then(([evts, usrs, me]) => {
       setEvents(Array.isArray(evts) ? evts : []);
       setUsers(Array.isArray(usrs) ? usrs : []);
+      const code = getCountryCode(me?.country);
+      setHolidayCountry(code);
+      const year = new Date().getFullYear();
+      fetchPublicHolidays(year, code).then(h => setHolidays(h));
     }).finally(() => setLoading(false));
   }, []);
 
@@ -434,7 +479,37 @@ export default function EventsPage() {
             onSelectDate={setSelectedDate}
             currentMonth={currentMonth}
             onMonthChange={setCurrentMonth}
+            holidays={holidays}
           />
+
+          {/* Public holidays in this month */}
+          {(() => {
+            const monthHols = holidays.filter(h => {
+              const d = parseISO(h.date);
+              return d.getFullYear() === currentMonth.getFullYear() && d.getMonth() === currentMonth.getMonth();
+            });
+            if (!monthHols.length) return null;
+            return (
+              <div className="glass-card rounded-2xl p-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  🎉 Public Holidays ({holidayCountry})
+                </p>
+                <div className="space-y-2">
+                  {monthHols.map(h => (
+                    <div key={h.date} className="flex items-start gap-2 text-xs">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0 text-amber-400 font-bold mt-0.5">
+                        {parseISO(h.date).getDate()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate">{h.localName || h.name}</p>
+                        {h.localName !== h.name && <p className="text-[10px] text-muted-foreground truncate">{h.name}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Selected day events */}
           {selectedDate && (

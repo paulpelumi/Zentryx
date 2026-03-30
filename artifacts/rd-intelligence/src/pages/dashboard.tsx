@@ -3,12 +3,12 @@ import { useGetDashboardStats, useListProjects, useListUsers } from "@workspace/
 import { PageLoader } from "@/components/ui/spinner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, Legend
+  PieChart, Pie, Cell, AreaChart, Area, Legend, LineChart, Line,
 } from "recharts";
-import { FlaskConical, Users, Award, FolderOpen, GripHorizontal } from "lucide-react";
+import { FlaskConical, Users, Award, FolderOpen, GripHorizontal, Maximize2, Minimize2, Building } from "lucide-react";
 import { formatNumber } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "wouter";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -35,8 +35,9 @@ const LIGHT_STATUS: Record<string, string> = {
   pushed_to_live: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
-type ChartType = "pie" | "donut" | "bar" | "histogram" | "line";
+type PipelineChartType = "pie" | "donut" | "bar" | "line";
 type TeamView = "list" | "pie" | "donut" | "bar";
+type VelocityView = "weekly" | "monthly" | "yearly";
 
 function TooltipStyle(isLight: boolean) {
   return {
@@ -71,8 +72,7 @@ function useResize(defaultH: number, minH: number, maxH: number) {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!dragging.current) return;
-      const delta = e.clientY - startY.current;
-      setHeight(Math.min(maxH, Math.max(minH, startH.current + delta)));
+      setHeight(Math.min(maxH, Math.max(minH, startH.current + (e.clientY - startY.current))));
     };
     const onUp = () => {
       dragging.current = false;
@@ -89,15 +89,51 @@ function useResize(defaultH: number, minH: number, maxH: number) {
 
 function ResizeHandle({ onMouseDown, isLight }: { onMouseDown: (e: React.MouseEvent) => void; isLight: boolean }) {
   return (
-    <div
-      onMouseDown={onMouseDown}
-      className={cn("flex items-center justify-center py-2 cursor-ns-resize transition-colors group mt-2 rounded-b-xl -mx-6 -mb-6",
-        isLight ? "hover:bg-slate-50" : "hover:bg-white/5"
-      )}
+    <div onMouseDown={onMouseDown}
+      className={cn("flex items-center justify-center py-2 cursor-ns-resize transition-colors group mt-2 rounded-b-xl -mx-6 -mb-6", isLight ? "hover:bg-slate-50" : "hover:bg-white/5")}
       title="Drag to resize">
       <GripHorizontal className={cn("w-4 h-4 transition-colors", isLight ? "text-slate-300 group-hover:text-slate-500" : "text-white/20 group-hover:text-white/40")} />
     </div>
   );
+}
+
+function ExpandOverlay({ title, isLight, onClose, children }: { title: string; isLight: boolean; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className={cn("text-xl font-bold", isLight ? "text-gray-900" : "text-foreground")}>{title}</h2>
+        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-muted-foreground hover:text-foreground">
+          <Minimize2 className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1">{children}</div>
+    </motion.div>
+  );
+}
+
+function buildVelocityData(monthly: any[], view: VelocityView) {
+  if (!monthly.length) return [];
+  if (view === "weekly") {
+    return monthly.flatMap((m: any, mi: number) =>
+      [1, 2, 3, 4].map(w => ({
+        month: `W${mi * 4 + w}`,
+        projects: Math.floor((m.projects || 0) / 4) + (w === 4 ? (m.projects || 0) % 4 : 0),
+        formulations: Math.floor((m.formulations || 0) / 4),
+      }))
+    );
+  }
+  if (view === "yearly") {
+    const grouped: Record<string, any> = {};
+    monthly.forEach((m: any) => {
+      const yr = m.month?.split("'")?.[1] ? `20${m.month.split("'")[1]}` : "This Year";
+      if (!grouped[yr]) grouped[yr] = { month: yr, projects: 0, formulations: 0 };
+      grouped[yr].projects += m.projects || 0;
+      grouped[yr].formulations += m.formulations || 0;
+    });
+    return Object.values(grouped);
+  }
+  return monthly;
 }
 
 export default function Dashboard() {
@@ -107,55 +143,123 @@ export default function Dashboard() {
   const { data: stats, isLoading, error } = useGetDashboardStats();
   const { data: projects } = useListProjects({});
   const { data: users } = useListUsers();
-  const [pipelineChartType, setPipelineChartType] = useState<ChartType>("donut");
+
+  const [pipelineChartType, setPipelineChartType] = useState<PipelineChartType>("donut");
   const [teamView, setTeamView] = useState<TeamView>("list");
   const [selectedMember, setSelectedMember] = useState<number | null>(null);
+  const [velocityView, setVelocityView] = useState<VelocityView>("monthly");
+  const [deptFilter, setDeptFilter] = useState<string>("all");
+  const [expandVelocity, setExpandVelocity] = useState(false);
+  const [expandPipeline, setExpandPipeline] = useState(false);
 
   const velocityResize = useResize(280, 160, 600);
   const pipelineResize = useResize(220, 140, 600);
 
   const COLORS = isLight ? LIGHT_COLORS : DARK_COLORS;
   const STATUS_COLORS = isLight ? LIGHT_STATUS : DARK_STATUS;
-
   const gridStroke = isLight ? "#E5E7EB" : "rgba(255,255,255,0.05)";
   const axisStroke = isLight ? "#9CA3AF" : "rgba(255,255,255,0.3)";
   const axisTickFill = isLight ? "#374151" : "rgba(255,255,255,0.6)";
+  const primaryAreaColor = isLight ? '#4F46E5' : 'hsl(252, 89%, 65%)';
 
   if (isLoading) return <PageLoader />;
   if (error || !stats) return <div className="p-8 text-destructive">Failed to load dashboard data.</div>;
-
-  const teamSize = Math.min(500, stats.teamSize || 0);
 
   const kpis = [
     { label: "Total Projects", value: formatNumber(stats.totalProjects || 0), icon: FolderOpen, color: isLight ? "text-indigo-600" : "text-primary", bg: isLight ? "bg-indigo-50" : "bg-primary/10" },
     { label: "Active Projects", value: formatNumber(stats.activeProjects || 0), icon: FlaskConical, color: isLight ? "text-cyan-600" : "text-secondary", bg: isLight ? "bg-cyan-50" : "bg-secondary/10" },
     { label: "Completed Projects", value: formatNumber(stats.completedProjects || 0), icon: Award, color: isLight ? "text-emerald-600" : "text-green-400", bg: isLight ? "bg-emerald-50" : "bg-green-400/10" },
-    { label: "Team Size", value: formatNumber(teamSize), icon: Users, color: isLight ? "text-purple-600" : "text-accent", bg: isLight ? "bg-purple-50" : "bg-accent/10" },
+    { label: "Team Size", value: formatNumber(stats.teamSize || 0), icon: Users, color: isLight ? "text-purple-600" : "text-accent", bg: isLight ? "bg-purple-50" : "bg-accent/10" },
   ];
+
+  const departments = ["all", ...Array.from(new Set((users || []).map((u: any) => u.department).filter(Boolean)))];
+  const filteredUsers = deptFilter === "all" ? (users || []) : (users || []).filter((u: any) => u.department === deptFilter);
 
   const memberProjects = selectedMember
     ? (projects || []).filter(p => Array.isArray(p.assignees) && p.assignees.some((a: any) => a.id === selectedMember))
     : [];
 
-  const teamChartData = (users || []).map(u => ({
+  const teamChartData = filteredUsers.map((u: any) => ({
     name: u.name.split(' ')[0],
     fullName: u.name,
     id: u.id,
     projects: (projects || []).filter(p => Array.isArray(p.assignees) && p.assignees.some((a: any) => a.id === u.id)).length,
-  })).filter(u => u.projects > 0);
+  })).filter((u: any) => u.projects > 0);
 
   const pipelineData = stats.projectsByStage || [];
+  const velocityData = buildVelocityData(stats.monthlyProjects || [], velocityView);
 
   const chartTypeBtn = (t: string, active: boolean) => cn(
     "px-2 py-0.5 rounded text-xs font-medium transition-all capitalize",
-    active
-      ? "bg-primary text-white shadow-sm"
-      : isLight
-        ? "bg-slate-100 text-slate-600 hover:bg-slate-200"
-        : "bg-white/5 text-muted-foreground hover:bg-white/10"
+    active ? "bg-primary text-white shadow-sm" : isLight ? "bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-white/5 text-muted-foreground hover:bg-white/10"
   );
 
-  const primaryAreaColor = isLight ? '#4F46E5' : 'hsl(252, 89%, 65%)';
+  const renderVelocityChart = (height: number | string) => (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={velocityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <defs>
+          <linearGradient id="cProj" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={primaryAreaColor} stopOpacity={isLight ? 0.15 : 0.3} />
+            <stop offset="95%" stopColor={primaryAreaColor} stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+        <XAxis dataKey="month" stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 11 }} tickLine={false} axisLine={false} />
+        <YAxis stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 11 }} tickLine={false} axisLine={false} />
+        <RechartsTooltip {...TooltipStyle(isLight)} />
+        <Area type="monotone" dataKey="projects" name="Projects" stroke={primaryAreaColor} strokeWidth={2} fillOpacity={1} fill="url(#cProj)" />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+
+  const renderPipelineChart = (height: number | string) => {
+    if (pipelineChartType === "pie") return (
+      <ResponsiveContainer width="100%" height={height}>
+        <PieChart>
+          <Pie data={pipelineData} cx="50%" cy="50%" outerRadius="70%" dataKey="count" nameKey="stage" stroke="none">
+            {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+          </Pie>
+          <RechartsTooltip {...TooltipStyle(isLight)} />
+          <Legend wrapperStyle={{ fontSize: 11, color: isLight ? "#374151" : undefined }} />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+    if (pipelineChartType === "donut") return (
+      <ResponsiveContainer width="100%" height={height}>
+        <PieChart>
+          <Pie data={pipelineData} cx="50%" cy="50%" innerRadius="40%" outerRadius="70%" paddingAngle={4} dataKey="count" nameKey="stage" stroke="none">
+            {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+          </Pie>
+          <RechartsTooltip {...TooltipStyle(isLight)} />
+          <Legend wrapperStyle={{ fontSize: 11, color: isLight ? "#374151" : undefined }} />
+        </PieChart>
+      </ResponsiveContainer>
+    );
+    if (pipelineChartType === "line") return (
+      <ResponsiveContainer width="100%" height={height}>
+        <LineChart data={pipelineData} margin={{ top: 5, right: 5, bottom: 40, left: -20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+          <XAxis dataKey="stage" stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 10 }} angle={-30} textAnchor="end" tickLine={false} />
+          <YAxis stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 11 }} tickLine={false} axisLine={false} />
+          <RechartsTooltip {...TooltipStyle(isLight)} />
+          <Line type="monotone" dataKey="count" name="Projects" stroke={primaryAreaColor} strokeWidth={2} dot={{ fill: primaryAreaColor, r: 4 }} />
+        </LineChart>
+      </ResponsiveContainer>
+    );
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        <BarChart data={pipelineData} margin={{ top: 5, right: 5, bottom: 40, left: -20 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
+          <XAxis dataKey="stage" stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 10 }} angle={-30} textAnchor="end" tickLine={false} />
+          <YAxis stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 11 }} tickLine={false} axisLine={false} />
+          <RechartsTooltip {...TooltipStyle(isLight)} />
+          <Bar dataKey="count" name="Projects" radius={[4, 4, 0, 0]}>
+            {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  };
 
   return (
     <div className="space-y-8 pb-8">
@@ -167,17 +271,12 @@ export default function Dashboard() {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map((kpi, i) => (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.1 }}
             key={kpi.label}
-            className={cn("glass-card p-6 rounded-2xl flex items-start justify-between", isLight && "border border-slate-200")}
-          >
+            className={cn("glass-card p-6 rounded-2xl flex items-start justify-between", isLight && "border border-slate-200")}>
             <div>
               <p className={cn("text-sm font-medium", isLight ? "text-gray-500" : "text-muted-foreground")}>{kpi.label}</p>
               <h3 className={cn("text-3xl font-bold font-display mt-2", isLight ? "text-gray-900" : "text-foreground")}>{kpi.value}</h3>
-              {kpi.label === "Team Size" && (stats.teamSize || 0) > 500 && (
-                <p className={cn("text-xs mt-1", isLight ? "text-gray-400" : "text-muted-foreground")}>(capped at 500)</p>
-              )}
             </div>
             <div className={`p-3 rounded-xl ${kpi.bg}`}>
               <kpi.icon className={`w-6 h-6 ${kpi.color}`} />
@@ -188,78 +287,47 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Velocity chart */}
+        {/* Innovation Velocity */}
         <div className={cn("lg:col-span-2 glass-card p-6 rounded-2xl flex flex-col", isLight && "border border-slate-200")}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className={cn("text-lg font-semibold font-display", isLight ? "text-gray-900" : "")}> Innovation Velocity</h3>
-            <span className={cn("text-xs", isLight ? "text-gray-400" : "text-muted-foreground")}>Drag handle to resize</span>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className={cn("text-lg font-semibold font-display", isLight ? "text-gray-900" : "")}>Innovation Velocity</h3>
+            <div className="flex items-center gap-2">
+              <div className="flex gap-1">
+                {(["weekly", "monthly", "yearly"] as VelocityView[]).map(v => (
+                  <button key={v} onClick={() => setVelocityView(v)} className={chartTypeBtn(v, velocityView === v)}>{v.charAt(0).toUpperCase() + v.slice(1)}</button>
+                ))}
+              </div>
+              <button onClick={() => setExpandVelocity(true)} className="p-1.5 hover:bg-white/10 rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="Expand">
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
           <div style={{ height: velocityResize.height }} className="transition-none">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.monthlyProjects || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="cProj" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor={primaryAreaColor} stopOpacity={isLight ? 0.15 : 0.3}/>
-                    <stop offset="95%" stopColor={primaryAreaColor} stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
-                <XAxis dataKey="month" stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 12 }} tickLine={false} axisLine={false} />
-                <YAxis stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 12 }} tickLine={false} axisLine={false} />
-                <RechartsTooltip {...TooltipStyle(isLight)} />
-                <Area type="monotone" dataKey="projects" stroke={primaryAreaColor} strokeWidth={2} fillOpacity={1} fill="url(#cProj)" />
-              </AreaChart>
-            </ResponsiveContainer>
+            {renderVelocityChart("100%")}
           </div>
           <ResizeHandle onMouseDown={velocityResize.onMouseDown} isLight={isLight} />
         </div>
 
-        {/* Pipeline chart */}
+        {/* Pipeline Distribution */}
         <div className={cn("glass-card p-6 rounded-2xl flex flex-col", isLight && "border border-slate-200")}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className={cn("text-lg font-semibold font-display", isLight ? "text-gray-900" : "")}>Pipeline Distribution</h3>
-            <span className={cn("text-xs", isLight ? "text-gray-400" : "text-muted-foreground")}>Drag ↕ to resize</span>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className={cn("text-lg font-semibold font-display", isLight ? "text-gray-900" : "")}>Pipeline</h3>
+            <button onClick={() => setExpandPipeline(true)} className="p-1.5 hover:bg-white/10 rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="Expand">
+              <Maximize2 className="w-3.5 h-3.5" />
+            </button>
           </div>
           <div className="flex flex-wrap gap-1 mb-3">
-            {(["pie", "donut", "bar", "histogram", "line"] as ChartType[]).map(t => (
-              <button key={t} onClick={() => setPipelineChartType(t)} className={chartTypeBtn(t, pipelineChartType === t)}>
-                {t}
-              </button>
+            {(["pie", "donut", "bar", "line"] as PipelineChartType[]).map(t => (
+              <button key={t} onClick={() => setPipelineChartType(t)} className={chartTypeBtn(t, pipelineChartType === t)}>{t}</button>
             ))}
           </div>
           <div style={{ height: pipelineResize.height }} className="transition-none">
-            <ResponsiveContainer width="100%" height="100%">
-              {pipelineChartType === "pie" ? (
-                <PieChart>
-                  <Pie data={pipelineData} cx="50%" cy="50%" outerRadius="70%" dataKey="count" nameKey="stage" stroke="none">
-                    {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <RechartsTooltip {...TooltipStyle(isLight)} />
-                </PieChart>
-              ) : pipelineChartType === "donut" ? (
-                <PieChart>
-                  <Pie data={pipelineData} cx="50%" cy="50%" innerRadius="40%" outerRadius="70%" paddingAngle={4} dataKey="count" nameKey="stage" stroke="none">
-                    {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Pie>
-                  <RechartsTooltip {...TooltipStyle(isLight)} />
-                </PieChart>
-              ) : (
-                <BarChart data={pipelineData} margin={{ top: 5, right: 5, bottom: 20, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-                  <XAxis dataKey="stage" stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 10 }} angle={-30} textAnchor="end" />
-                  <YAxis stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 11 }} />
-                  <RechartsTooltip {...TooltipStyle(isLight)} />
-                  <Bar dataKey="count" radius={[4, 4, 0, 0]}>
-                    {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              )}
-            </ResponsiveContainer>
+            {renderPipelineChart("100%")}
           </div>
           <div className="flex flex-wrap gap-2 mt-2 mb-1">
             {pipelineData.slice(0, 5).map((s: any, i: number) => (
               <div key={s.stage} className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                 <span className={cn("capitalize", isLight ? "text-gray-600" : "")}>{s.stage.replace(/_/g, ' ')}</span>
               </div>
             ))}
@@ -268,21 +336,46 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Fullscreen overlays */}
+      <AnimatePresence>
+        {expandVelocity && (
+          <ExpandOverlay title="Innovation Velocity" isLight={isLight} onClose={() => setExpandVelocity(false)}>
+            {renderVelocityChart("100%")}
+          </ExpandOverlay>
+        )}
+        {expandPipeline && (
+          <ExpandOverlay title="Pipeline Distribution" isLight={isLight} onClose={() => setExpandPipeline(false)}>
+            {renderPipelineChart("100%")}
+          </ExpandOverlay>
+        )}
+      </AnimatePresence>
+
       {/* Team Overview */}
       <div className={cn("glass-card p-6 rounded-2xl", isLight && "border border-slate-200")}>
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h3 className={cn("text-lg font-semibold font-display", isLight ? "text-gray-900" : "")}>Team Overview</h3>
-          <div className="flex gap-1">
-            {(["list", "pie", "donut", "bar"] as TeamView[]).map(v => (
-              <button key={v} onClick={() => setTeamView(v)} className={chartTypeBtn(v, teamView === v)}>{v}</button>
-            ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Department filter */}
+            <div className="relative">
+              <Building className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <select value={deptFilter} onChange={e => { setDeptFilter(e.target.value); setSelectedMember(null); }}
+                className={cn("text-xs rounded-lg border pl-7 pr-6 py-1.5 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/40",
+                  isLight ? "bg-white border-slate-200 text-slate-700" : "bg-black/20 border-white/10 text-foreground")}>
+                {departments.map(d => <option key={d} value={d}>{d === "all" ? "All Departments" : d}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-1">
+              {(["list", "pie", "donut", "bar"] as TeamView[]).map(v => (
+                <button key={v} onClick={() => setTeamView(v)} className={chartTypeBtn(v, teamView === v)}>{v}</button>
+              ))}
+            </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {teamView === "list" ? (
             <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
-              {(users || []).map(u => {
+              {filteredUsers.map((u: any) => {
                 const projectCount = (projects || []).filter(p => Array.isArray(p.assignees) && p.assignees.some((a: any) => a.id === u.id)).length;
                 return (
                   <button key={u.id} onClick={() => setSelectedMember(selectedMember === u.id ? null : u.id)}
@@ -291,21 +384,23 @@ export default function Dashboard() {
                         ? isLight ? "bg-indigo-50 border border-indigo-200" : "bg-primary/10 border border-primary/20"
                         : isLight ? "hover:bg-slate-50 border border-transparent" : "hover:bg-white/5"
                     )}>
-                    <div className={cn("w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm",
-                      isLight
-                        ? "bg-gradient-to-tr from-indigo-400 to-purple-500 text-white border border-indigo-200"
-                        : "bg-gradient-to-tr from-secondary/50 to-primary/50 text-white border border-white/10"
-                    )}>
-                      {u.name.charAt(0)}
+                    <div className={cn("w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0",
+                      isLight ? "bg-gradient-to-tr from-indigo-400 to-purple-500 text-white" : "bg-gradient-to-tr from-secondary/50 to-primary/50 text-white border border-white/10")}>
+                      {u.avatar ? <img src={u.avatar} alt={u.name} className="w-full h-full object-cover rounded-full" /> : u.name.charAt(0)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className={cn("font-medium text-sm", isLight ? "text-gray-900" : "text-foreground")}>{u.name}</div>
-                      <div className={cn("text-xs capitalize", isLight ? "text-gray-500" : "text-muted-foreground")}>{u.role.replace(/_/g, ' ')}</div>
+                      <div className={cn("text-xs capitalize", isLight ? "text-gray-500" : "text-muted-foreground")}>
+                        {u.role.replace(/_/g, ' ')} {u.department ? `· ${u.department}` : ""}
+                      </div>
                     </div>
-                    <div className={cn("text-xs px-2 py-0.5 rounded-full font-medium", isLight ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-primary/10 text-primary")}>{projectCount} proj</div>
+                    <div className={cn("text-xs px-2 py-0.5 rounded-full font-medium shrink-0", isLight ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-primary/10 text-primary")}>{projectCount} proj</div>
                   </button>
                 );
               })}
+              {filteredUsers.length === 0 && (
+                <p className={cn("text-sm text-center py-8", isLight ? "text-gray-500" : "text-muted-foreground")}>No members in this department.</p>
+              )}
             </div>
           ) : (
             <div className="h-[280px]">
@@ -327,9 +422,7 @@ export default function Dashboard() {
                       {teamChartData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                     </Pie>
                     <RechartsTooltip {...TooltipStyle(isLight)} />
-                    <Legend
-                      wrapperStyle={{ fontSize: 12, color: isLight ? '#374151' : undefined }}
-                    />
+                    <Legend wrapperStyle={{ fontSize: 12, color: isLight ? '#374151' : undefined }} />
                   </PieChart>
                 )}
               </ResponsiveContainer>
@@ -341,7 +434,7 @@ export default function Dashboard() {
               <>
                 <div className="mb-3 flex items-center justify-between">
                   <h4 className={cn("font-semibold", isLight ? "text-gray-900" : "text-foreground")}>
-                    {users?.find(u => u.id === selectedMember)?.name}'s Projects
+                    {users?.find((u: any) => u.id === selectedMember)?.name}'s Projects
                   </h4>
                   <button onClick={() => setSelectedMember(null)} className={cn("text-xs", isLight ? "text-gray-400 hover:text-gray-700" : "text-muted-foreground hover:text-foreground")}>Clear</button>
                 </div>
@@ -351,8 +444,7 @@ export default function Dashboard() {
                   ) : memberProjects.map((p: any) => (
                     <Link key={p.id} href={`/projects/${p.id}`}
                       className={cn("flex items-center justify-between p-3 rounded-xl transition-colors group",
-                        isLight ? "hover:bg-slate-50 border border-slate-200" : "hover:bg-white/5 border border-white/5"
-                      )}>
+                        isLight ? "hover:bg-slate-50 border border-slate-200" : "hover:bg-white/5 border border-white/5")}>
                       <div className="flex-1 min-w-0">
                         <div className={cn("font-medium text-sm group-hover:text-primary transition-colors truncate", isLight ? "text-gray-900" : "text-foreground")}>{p.name}</div>
                         <div className={cn("text-xs capitalize", isLight ? "text-gray-500" : "text-muted-foreground")}>{p.stage?.replace(/_/g, ' ')}</div>

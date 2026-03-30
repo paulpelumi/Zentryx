@@ -13,8 +13,10 @@ router.get("/dashboard", requireAuth, async (_req, res) => {
     const [{ userCount }] = await db.select({ userCount: count() }).from(usersTable).where(eq(usersTable.isActive, true));
 
     const totalProjects = allProjects.length;
-    const activeProjects = allProjects.filter(p => p.status === "active").length;
-    const completedProjects = allProjects.filter(p => p.status === "completed").length;
+    const activeProjects = allProjects.filter(p =>
+      p.status !== "cancelled" && p.status !== "on_hold" && p.status !== "pushed_to_live"
+    ).length;
+    const completedProjects = allProjects.filter(p => p.status === "pushed_to_live").length;
     const approvedFormulations = allFormulations.filter(f => f.status === "approved").length;
 
     const projectsWithSuccess = allProjects.filter(p => p.successRate !== null);

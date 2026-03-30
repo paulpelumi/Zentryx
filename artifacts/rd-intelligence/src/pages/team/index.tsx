@@ -1,33 +1,62 @@
 import { useState, useEffect } from "react";
 import { useListUsers } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, UserCheck, Filter, Phone, Globe, Briefcase } from "lucide-react";
+import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, Filter, Phone, Globe, Briefcase, Tag } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL;
-const ROLES = [
+
+const DEFAULT_ROLES = [
   { value: "admin", label: "Admin" },
   { value: "manager", label: "Manager" },
+  { value: "ceo", label: "CEO" },
+  { value: "hr", label: "HR" },
+  { value: "head_of_department", label: "Head of Department" },
   { value: "npd_technologist", label: "NPD Technologist" },
   { value: "head_of_product_development", label: "Head of Product Development" },
   { value: "key_account_manager", label: "Key Account Manager" },
   { value: "senior_key_account_manager", label: "Senior Key Account Manager" },
   { value: "project_manager", label: "Project Manager" },
+  { value: "quality_control", label: "Quality Control" },
+  { value: "graphics_designer", label: "Graphics Designer" },
   { value: "scientist", label: "Scientist" },
   { value: "analyst", label: "Analyst" },
   { value: "viewer", label: "Viewer" },
 ];
-const DEFAULT_DEPARTMENTS = ["NPD", "Marketing & Sales", "Account Management"];
+
+const CUSTOM_ROLES_KEY = "zentryx_custom_roles";
+
+function useRoles() {
+  const [customRoles, setCustomRoles] = useState<{ value: string; label: string }[]>(() => {
+    try { return JSON.parse(localStorage.getItem(CUSTOM_ROLES_KEY) || "[]"); } catch { return []; }
+  });
+  const allRoles = [...DEFAULT_ROLES, ...customRoles.filter(cr => !DEFAULT_ROLES.find(r => r.value === cr.value))];
+  const addRole = (label: string) => {
+    const value = label.toLowerCase().replace(/\s+/g, "_");
+    const newRole = { value, label };
+    const updated = [...customRoles, newRole];
+    setCustomRoles(updated);
+    localStorage.setItem(CUSTOM_ROLES_KEY, JSON.stringify(updated));
+    return newRole;
+  };
+  return { roles: allRoles, addRole };
+}
+
 const ROLE_COLORS: Record<string, string> = {
   admin: "destructive", manager: "info", npd_technologist: "success",
   head_of_product_development: "warning", project_manager: "default",
   key_account_manager: "outline", senior_key_account_manager: "outline",
+  ceo: "destructive", hr: "info", head_of_department: "warning",
+  quality_control: "success", graphics_designer: "default",
 };
+
+const DEFAULT_DEPARTMENTS = ["NPD", "Marketing & Sales", "Account Management"];
 
 function useDepartments() {
   const [departments, setDepartments] = useState<string[]>(DEFAULT_DEPARTMENTS);
@@ -57,6 +86,7 @@ export default function Team() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { departments, addDepartment } = useDepartments();
+  const { roles, addRole } = useRoles();
   const [deptFilter, setDeptFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -65,20 +95,35 @@ export default function Team() {
   const token = localStorage.getItem("rd_token");
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
+  const { data: me } = useQuery({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}api/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+      return r.json();
+    },
+  });
+
+  const isAdmin = me?.role === "admin";
+  const myId = me?.id;
+
   const filtered = (users || []).filter(u => {
     const matchDept = deptFilter === "all" || u.department === deptFilter;
     const matchSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase()) || u.email.toLowerCase().includes(searchTerm.toLowerCase());
     return matchDept && matchSearch;
   });
 
+  const canEdit = (user: any) => isAdmin || user.id === myId;
+
   const handleDelete = async (id: number, name: string) => {
+    if (!isAdmin) { toast({ title: "Permission denied", description: "Only admins can remove members.", variant: "destructive" }); return; }
     if (!confirm(`Remove ${name} from the team?`)) return;
     await fetch(`${BASE}api/users/${id}`, { method: "DELETE", headers });
     queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-    toast({ title: "Member removed", description: `${name} has been removed.` });
+    toast({ title: "Member removed", description: `${name} has been removed from the team.` });
   };
 
   const startEdit = (user: any) => {
+    if (!canEdit(user)) { toast({ title: "Permission denied", description: "You can only edit your own profile.", variant: "destructive" }); return; }
     setEditingUser(user.id);
     setEditForm({ name: user.name, email: user.email, role: user.role, department: user.department || "", isActive: user.isActive });
   };
@@ -87,7 +132,7 @@ export default function Team() {
     await fetch(`${BASE}api/users/${id}`, { method: "PUT", headers, body: JSON.stringify(editForm) });
     queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     setEditingUser(null);
-    toast({ title: "Member updated" });
+    toast({ title: "Profile updated", description: "Changes have been saved and applied." });
   };
 
   if (isLoading) return <PageLoader />;
@@ -99,11 +144,14 @@ export default function Team() {
           <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
             <Users className="w-8 h-8 text-primary" /> Team Directory
           </h1>
-          <p className="text-muted-foreground mt-1">Manage personnel, roles, and access controls.</p>
+          <p className="text-muted-foreground mt-1">
+            {(users || []).length} member{(users || []).length !== 1 ? "s" : ""} · Manage personnel, roles, and access controls.
+          </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <AddRoleModal onAdd={addRole} />
           <AddDepartmentModal onAdd={addDepartment} />
-          <AddMemberModal departments={departments} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} />
+          {isAdmin && <AddMemberModal departments={departments} roles={roles} onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/users"] })} />}
         </div>
       </div>
 
@@ -115,12 +163,12 @@ export default function Team() {
         <div className="flex flex-wrap gap-2 items-center">
           <Filter className="w-4 h-4 text-muted-foreground" />
           <button onClick={() => setDeptFilter("all")}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${deptFilter === "all" ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
-            All Departments
+            className={cn("px-3 py-1.5 rounded-lg text-xs font-medium border transition-all", deptFilter === "all" ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5")}>
+            All
           </button>
           {departments.map(d => (
             <button key={d} onClick={() => setDeptFilter(d === deptFilter ? "all" : d)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${deptFilter === d ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
+              className={cn("px-3 py-1.5 rounded-lg text-xs font-medium border transition-all", deptFilter === d ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5")}>
               {d}
             </button>
           ))}
@@ -143,27 +191,36 @@ export default function Team() {
               {filtered.map(user => (
                 <tr key={user.id} className="hover:bg-white/[0.02] transition-colors">
                   {editingUser === user.id ? (
-                    <>
-                      <td className="px-6 py-3" colSpan={5}>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-center">
-                          <input value={editForm.name} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))}
-                            className="h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground" placeholder="Name" />
-                          <select value={editForm.role} onChange={e => setEditForm((f: any) => ({ ...f, role: e.target.value }))}
+                    <td className="px-6 py-3" colSpan={5}>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 items-center">
+                        <input value={editForm.name} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))}
+                          className="h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground" placeholder="Name" />
+                        <input value={editForm.email} onChange={e => setEditForm((f: any) => ({ ...f, email: e.target.value }))}
+                          className="h-9 rounded-lg border border-white/10 bg-black/30 px-3 text-sm focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground" placeholder="Email" />
+                        <select value={editForm.role} onChange={e => setEditForm((f: any) => ({ ...f, role: e.target.value }))}
+                          disabled={!isAdmin}
+                          className="h-9 rounded-lg border border-white/10 bg-black/30 px-2 text-sm focus:outline-none text-foreground disabled:opacity-50">
+                          {roles.map(r => <option key={r.value} value={r.value} className="bg-card">{r.label}</option>)}
+                        </select>
+                        <select value={editForm.department || ""} onChange={e => setEditForm((f: any) => ({ ...f, department: e.target.value }))}
+                          disabled={!isAdmin}
+                          className="h-9 rounded-lg border border-white/10 bg-black/30 px-2 text-sm focus:outline-none text-foreground disabled:opacity-50">
+                          <option value="" className="bg-card">No Department</option>
+                          {departments.map(d => <option key={d} value={d} className="bg-card">{d}</option>)}
+                        </select>
+                        {isAdmin && (
+                          <select value={String(editForm.isActive)} onChange={e => setEditForm((f: any) => ({ ...f, isActive: e.target.value === "true" }))}
                             className="h-9 rounded-lg border border-white/10 bg-black/30 px-2 text-sm focus:outline-none text-foreground">
-                            {ROLES.map(r => <option key={r.value} value={r.value} className="bg-card">{r.label}</option>)}
+                            <option value="true" className="bg-card">Active</option>
+                            <option value="false" className="bg-card">Inactive</option>
                           </select>
-                          <select value={editForm.department || ""} onChange={e => setEditForm((f: any) => ({ ...f, department: e.target.value }))}
-                            className="h-9 rounded-lg border border-white/10 bg-black/30 px-2 text-sm focus:outline-none text-foreground">
-                            <option value="" className="bg-card">No Department</option>
-                            {departments.map(d => <option key={d} value={d} className="bg-card">{d}</option>)}
-                          </select>
-                          <div className="flex gap-2">
-                            <button onClick={() => saveEdit(user.id)} className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg"><Check className="w-4 h-4" /></button>
-                            <button onClick={() => setEditingUser(null)} className="p-1.5 bg-white/5 hover:bg-white/10 text-muted-foreground rounded-lg"><X className="w-4 h-4" /></button>
-                          </div>
+                        )}
+                        <div className="flex gap-2">
+                          <button onClick={() => saveEdit(user.id)} className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg"><Check className="w-4 h-4" /></button>
+                          <button onClick={() => setEditingUser(null)} className="p-1.5 bg-white/5 hover:bg-white/10 text-muted-foreground rounded-lg"><X className="w-4 h-4" /></button>
                         </div>
-                      </td>
-                    </>
+                      </div>
+                    </td>
                   ) : (
                     <>
                       <td className="px-6 py-4">
@@ -171,9 +228,7 @@ export default function Team() {
                           <div className="w-10 h-10 rounded-xl overflow-hidden bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white font-bold border border-white/10 shrink-0">
                             {(user as any).avatar ? (
                               <img src={(user as any).avatar} alt={user.name} className="w-full h-full object-cover" />
-                            ) : (
-                              user.name.charAt(0)
-                            )}
+                            ) : user.name.charAt(0)}
                           </div>
                           <div className="min-w-0">
                             <div className="font-medium text-foreground">{user.name}</div>
@@ -195,7 +250,7 @@ export default function Team() {
                       </td>
                       <td className="px-6 py-4">
                         <Badge variant={(ROLE_COLORS[user.role] as any) || "outline"} className="capitalize text-xs">
-                          {ROLES.find(r => r.value === user.role)?.label || user.role.replace(/_/g, ' ')}
+                          {roles.find(r => r.value === user.role)?.label || user.role.replace(/_/g, ' ')}
                         </Badge>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
@@ -216,8 +271,16 @@ export default function Team() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
-                          <button onClick={() => startEdit(user)} className="p-1.5 hover:bg-white/10 rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="Edit"><Edit3 className="w-4 h-4" /></button>
-                          <button onClick={() => handleDelete(user.id, user.name)} className="p-1.5 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive transition-colors" title="Remove"><Trash2 className="w-4 h-4" /></button>
+                          {canEdit(user) && (
+                            <button onClick={() => startEdit(user)} className="p-1.5 hover:bg-white/10 rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="Edit">
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button onClick={() => handleDelete(user.id, user.name)} className="p-1.5 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive transition-colors" title="Remove">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </>
@@ -238,7 +301,7 @@ export default function Team() {
   );
 }
 
-function AddMemberModal({ departments, onSuccess }: { departments: string[]; onSuccess: () => void }) {
+function AddMemberModal({ departments, roles, onSuccess }: { departments: string[]; roles: { value: string; label: string }[]; onSuccess: () => void }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -255,10 +318,7 @@ function AddMemberModal({ departments, onSuccess }: { departments: string[]; onS
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("rd_token")}` },
         body: JSON.stringify(form),
       });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to add member");
-      }
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed to add member"); }
       onSuccess();
       setOpen(false);
       toast({ title: "Member added!", description: `${form.name} has been added to the team.` });
@@ -283,7 +343,7 @@ function AddMemberModal({ departments, onSuccess }: { departments: string[]; onS
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Role *</label>
               <select required value={form.role} onChange={e => setF("role", e.target.value)} className={cls}>
-                {ROLES.map(r => <option key={r.value} value={r.value} className="bg-card">{r.label}</option>)}
+                {roles.map(r => <option key={r.value} value={r.value} className="bg-card">{r.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
@@ -328,7 +388,7 @@ function AddDepartmentModal({ onAdd }: { onAdd: (name: string) => void }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="gap-2"><Building className="w-4 h-4" /> New Dept</Button>
+        <Button variant="outline" className="gap-2"><Building className="w-4 h-4" /> New Department</Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[360px] glass-panel border-white/10">
         <DialogHeader><DialogTitle>Create Department</DialogTitle></DialogHeader>
@@ -337,6 +397,39 @@ function AddDepartmentModal({ onAdd }: { onAdd: (name: string) => void }) {
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit">Create</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddRoleModal({ onAdd }: { onAdd: (label: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const { toast } = useToast();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    onAdd(name.trim());
+    toast({ title: "Role created!", description: `"${name.trim()}" has been added to the roles list.` });
+    setOpen(false);
+    setName("");
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="gap-2"><Tag className="w-4 h-4" /> New Role</Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[360px] glass-panel border-white/10">
+        <DialogHeader><DialogTitle>Create New Role</DialogTitle></DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          <Input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Data Scientist" autoFocus />
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit">Create Role</Button>
           </div>
         </form>
       </DialogContent>

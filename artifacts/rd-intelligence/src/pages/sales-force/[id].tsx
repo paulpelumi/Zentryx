@@ -216,12 +216,24 @@ function KanbanBoard({ accountId, account }: { accountId: number; account: any }
     queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/tasks`] });
   };
 
+  const templateLoaded = TEMPLATE_TASKS.every(t => taskArr.some(tk => tk.title === t));
+  const someTemplatePresent = TEMPLATE_TASKS.some(t => taskArr.some(tk => tk.title === t));
+
   const addTemplateTasks = async () => {
-    for (let i = 0; i < TEMPLATE_TASKS.length; i++) {
-      await api(`api/accounts/${accountId}/tasks`, { method: "POST", body: JSON.stringify({ title: TEMPLATE_TASKS[i], status: "todo", sortOrder: i }) });
+    if (templateLoaded || someTemplatePresent) {
+      const toDelete = taskArr.filter(tk => TEMPLATE_TASKS.includes(tk.title));
+      for (const tk of toDelete) {
+        await api(`api/accounts/${accountId}/tasks/${tk.id}`, { method: "DELETE" });
+      }
+      queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/tasks`] });
+      toast({ title: "Template tasks removed" });
+    } else {
+      for (let i = 0; i < TEMPLATE_TASKS.length; i++) {
+        await api(`api/accounts/${accountId}/tasks`, { method: "POST", body: JSON.stringify({ title: TEMPLATE_TASKS[i], status: "todo", sortOrder: taskArr.length + i }) });
+      }
+      queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/tasks`] });
+      toast({ title: "Template tasks added" });
     }
-    queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/tasks`] });
-    toast({ title: "Template tasks added" });
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -266,9 +278,13 @@ function KanbanBoard({ accountId, account }: { accountId: number; account: any }
               )}
             </AnimatePresence>
           </div>
-          <button onClick={addTemplateTasks} title="Load template tasks"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 text-amber-400 text-xs hover:bg-amber-500/20 transition-colors">
-            ⭐ Load Template
+          <button onClick={addTemplateTasks} title={someTemplatePresent ? "Remove template tasks" : "Load template tasks"}
+            className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs transition-colors",
+              someTemplatePresent
+                ? "border-amber-500/40 bg-amber-500/20 text-amber-300 hover:bg-red-500/20 hover:border-red-500/40 hover:text-red-400"
+                : "border-amber-500/20 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+            )}>
+            {someTemplatePresent ? "✓ Template Loaded (click to remove)" : "⭐ Load Template"}
           </button>
         </div>
 
@@ -348,22 +364,73 @@ function KanbanBoard({ accountId, account }: { accountId: number; account: any }
   );
 }
 
+function renderWithMentions(content: string) {
+  const parts = content.split(/(@\w[\w\s]*(?:\s\w+)?)/g);
+  return parts.map((part, i) =>
+    part.startsWith("@") ? (
+      <span key={i} className="text-primary font-semibold">{part}</span>
+    ) : (
+      <span key={i}>{part}</span>
+    )
+  );
+}
+
 function StatusReportTab({ accountId }: { accountId: number }) {
   const queryClient = useQueryClient();
   const { data: currentUser } = useGetCurrentUser();
+  const { data: allUsers = [] } = useListUsers();
   const api = useApiCall();
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStart, setMentionStart] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const { data: reports = [] } = useQuery({
     queryKey: [`/api/accounts/${accountId}/status-reports`],
     queryFn: async () => { const res = await api(`api/accounts/${accountId}/status-reports`); return res.json(); },
   });
 
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setText(val);
+    const cursor = e.target.selectionStart;
+    const before = val.slice(0, cursor);
+    const match = before.match(/@(\w*)$/);
+    if (match) {
+      setMentionQuery(match[1]);
+      setMentionStart(before.lastIndexOf("@"));
+    } else {
+      setMentionQuery(null);
+    }
+  };
+
+  const insertMention = (user: any) => {
+    const before = text.slice(0, mentionStart);
+    const after = text.slice(mentionStart + 1 + (mentionQuery || "").length);
+    const newText = `${before}@${user.name}${after}`;
+    setText(newText);
+    setMentionQuery(null);
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const pos = mentionStart + user.name.length + 1;
+        textareaRef.current.setSelectionRange(pos, pos);
+        textareaRef.current.focus();
+      }
+    }, 10);
+  };
+
+  const filteredMentionUsers = (allUsers as any[]).filter(u =>
+    mentionQuery !== null && u.name.toLowerCase().includes(mentionQuery.toLowerCase())
+  ).slice(0, 6);
+
   const send = async () => {
     if (!text.trim()) return;
     setSending(true);
-    await api(`api/accounts/${accountId}/status-reports`, { method: "POST", body: JSON.stringify({ content: text, authorName: (currentUser as any)?.name || "Unknown" }) });
+    await api(`api/accounts/${accountId}/status-reports`, {
+      method: "POST",
+      body: JSON.stringify({ content: text, authorName: (currentUser as any)?.name || "Unknown" }),
+    });
     queryClient.invalidateQueries({ queryKey: [`/api/accounts/${accountId}/status-reports`] });
     setText("");
     setSending(false);
@@ -399,14 +466,42 @@ function StatusReportTab({ accountId }: { accountId: number }) {
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <p className="text-sm text-foreground mt-3 whitespace-pre-wrap">{r.content}</p>
+              <p className="text-sm text-foreground mt-3 whitespace-pre-wrap leading-relaxed">
+                {renderWithMentions(r.content)}
+              </p>
             </div>
           ))
         )}
       </div>
-      <div className="glass-card rounded-xl p-4 border border-white/5">
-        <textarea value={text} onChange={e => setText(e.target.value)} rows={3} placeholder="Write a status report…"
-          className="w-full bg-transparent text-sm text-foreground focus:outline-none resize-none placeholder:text-muted-foreground" />
+      <div className="glass-card rounded-xl p-4 border border-white/5 relative">
+        <p className="text-[10px] text-muted-foreground mb-2">Tip: Type <span className="text-primary font-mono">@name</span> to mention a team member</p>
+        <div className="relative">
+          <textarea ref={textareaRef} value={text} onChange={handleTextChange} rows={3}
+            placeholder="Write a status report… Use @name to mention someone"
+            onKeyDown={e => {
+              if (e.key === "Escape") setMentionQuery(null);
+            }}
+            className="w-full bg-transparent text-sm text-foreground focus:outline-none resize-none placeholder:text-muted-foreground" />
+          <AnimatePresence>
+            {mentionQuery !== null && filteredMentionUsers.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                className="absolute bottom-full left-0 mb-1 glass-panel border border-white/10 rounded-xl overflow-hidden shadow-xl z-30 min-w-[200px]">
+                {filteredMentionUsers.map((u: any) => (
+                  <button key={u.id} onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 hover:bg-white/10 text-left">
+                    <div className="w-6 h-6 rounded-full bg-primary/30 flex items-center justify-center text-[10px] font-bold text-primary shrink-0">
+                      {u.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-foreground truncate">{u.name}</p>
+                      <p className="text-[10px] text-muted-foreground capitalize">{u.role?.replace(/_/g, ' ')}</p>
+                    </div>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
         <div className="flex justify-end mt-2">
           <button onClick={send} disabled={!text.trim() || sending}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl text-xs font-semibold hover:bg-primary/90 disabled:opacity-50">
