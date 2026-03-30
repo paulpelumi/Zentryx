@@ -98,9 +98,27 @@ artifacts-monorepo/
 - Real-time polling every 3 seconds
 - Create new group channels with member selection
 
-### 7. Notifications & Activity
+### 7. Sales Force Module (`/sales-force`)
+3 tabs: **Accounts**, **Charts**, **Forecast**
+
+**Accounts tab**: List/Portfolio/Matrix views, search, filter, sort, CSV/XLSX export, Add Account modal. Click row → Account Detail page.
+
+**Account Detail** (`/sales-force/:id`): 4 sub-tabs — Tasks (Kanban DnD + template tasks, approval dropdown), Status Report (threaded posts), Production Orders (editable table + 5 charts + resizable split pane), Account Info (full edit form).
+
+**Charts tab**: 4 drilldown charts with bar/pie/list toggle, priority scoring.
+
+**Forecast tab** (full rebuild):
+- 3 existing KPI cards (Active Accounts, Monthly Revenue, Total Volume) + 4 new summary cards (Upcoming Orders 30d, Forecast Volume KG, High Confidence Orders, Strategic Customers)
+- Filters bar: Company, Product Name, Product Type, Customer Type, Confidence level, Time Range (7/30/90 days), Strategic Only toggle — all filters update table + charts + calendar
+- Forecast Table: Company, Product, Last Order Date, Last Order Volume, Forecast Date, Forecast Volume, Confidence (bar + %), Status (click to change: Pending/Confirmed/Probable); row color by confidence (green ≥75%, yellow 50-74%, red <50%)
+- Export Forecast button: CSV + XLSX with click-triggered dropdown
+- Notify Procurement button: modal with real-time staff search, multi-select, notification title + message input, sends via Zentryx notification system
+- 3 chart panels (Forecast Volume by Month bar/donut/pie, Forecast by Customer pie/bar, Forecast by Product Type donut/pie/bar) — all respect filters
+- Forecast Calendar: monthly grid view, events per day color-coded by confidence, prev/next navigation, tooltip on hover, click → detail modal, "+N more" overflow, auto-seeded from accounts
+
+### 8. Notifications & Activity
 - Notification types: Deadline, Update, Reminder, Mention, System
-- Full activity audit log
+- Full activity audit log (tracks accounts, projects, business dev, etc.)
 
 ## Database Schema
 
@@ -115,6 +133,11 @@ artifacts-monorepo/
 - `chat_room_members` — Room membership
 - `chat_messages` — Messages (text/image/voice_note)
 - `notifications`, `activity_logs` — Notifications and audit trail
+- `accounts` — Sales Force account records
+- `account_tasks` — Kanban tasks per account
+- `account_production_orders` — Production order history per account
+- `account_status_reports` — Threaded posts per account
+- `account_forecasts` — Forecast entries (auto-seeded + user-editable status/confidence)
 
 ## API Endpoints
 
@@ -134,6 +157,13 @@ All routes prefixed with `/api/`:
 - `GET /chat/users`
 - `POST /ai-chat/message` (SSE streaming)
 - `GET /notifications`, `GET /activity`, `GET /search`
+- `GET/POST/PUT/DELETE /accounts`
+- `GET/POST/PUT/DELETE /accounts/:id/tasks`
+- `GET/POST/PUT/DELETE /accounts/:id/production-orders`
+- `GET/POST /accounts/:id/status-reports`
+- `GET/POST/PUT/DELETE /forecasts`
+- `POST /forecasts/seed` (auto-generate forecasts from active accounts)
+- `POST /forecasts/notify-procurement` (bulk notification to selected staff)
 
 ## Theme
 

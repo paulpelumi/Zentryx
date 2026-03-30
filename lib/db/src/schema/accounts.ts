@@ -65,7 +65,29 @@ export const accountStatusReportsTable = pgTable("account_status_reports", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const forecastStatusEnum = pgEnum("forecast_status", ["pending", "confirmed", "probable"]);
+
+export const accountForecastsTable = pgTable("account_forecasts", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id"),
+  company: text("company").notNull(),
+  productName: text("product_name").notNull(),
+  productType: text("product_type"),
+  customerType: text("customer_type"),
+  isStrategic: boolean("is_strategic").notNull().default(false),
+  lastOrderDate: text("last_order_date"),
+  lastOrderVolume: numeric("last_order_volume", { precision: 12, scale: 2 }),
+  forecastDate: text("forecast_date").notNull(),
+  forecastVolume: numeric("forecast_volume", { precision: 12, scale: 2 }),
+  confidence: integer("confidence").notNull().default(50),
+  status: forecastStatusEnum("status").notNull().default("pending"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export type Account = typeof accountsTable.$inferSelect;
 export type AccountTask = typeof accountTasksTable.$inferSelect;
 export type AccountProductionOrder = typeof accountProductionOrdersTable.$inferSelect;
 export type AccountStatusReport = typeof accountStatusReportsTable.$inferSelect;
+export type AccountForecast = typeof accountForecastsTable.$inferSelect;

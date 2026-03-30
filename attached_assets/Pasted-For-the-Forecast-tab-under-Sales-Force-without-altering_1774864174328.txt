@@ -1,0 +1,123 @@
+For the Forecast" tab under Sales Force without altering the existing UI layout, styling system, or navigation structure.
+Location
+Sales Force ├── Account ├── Dashboards └── Forecast (NEW)
+
+First remove the 12months revenue forecast vs Target chart, also remove the Top 10 accounts by Projected Monthly Revenue chart..
+
+Do NOT modify
+* Existing UI theme 
+* Light/Dark mode behavior 
+* Sidebar layout 
+* Existing Sales Force pages 
+* Typography & spacing system 
+Use the same design tokens already used in Zetrynx.
+
+Forecast Page Layout Order
+-Do not touch the Active Accounts, Monthly revenue, Total Volume 
+-remove monthly target
+1. Summary Cards (Top Row) 
+2. Filters Bar 
+3. Forecast Table (Main Component) 
+4. Charts Section 
+5. Calendar Forecast Chart 
+DO NOT add:
+* Insights section 
+* Action panel 
+
+Summary Cards
+Add 4 cards:
+* Upcoming Orders (30 Days) 
+* Forecast Volume (KG) 
+* High Confidence Orders 
+* Strategic Customers 
+
+Filters Bar
+Add filters:
+* Company dropdown
+* Product name dropdown
+* Product Type dropdown
+* Customer Type dropdown
+* Confidence dropdown
+* Time Range dropdown (7 / 30 / 90 days) 
+* Strategic Only toggle 
+Filters update:
+* table
+* charts
+* calendar 
+
+Forecast Table Columns
+Company Product name Last Order Date Last Order Volume (KG)  Forecast Date Forecast Volume (KG) Confidence Status (should be selected by user “Pending”- Red indicator, “Confirmed ” -Green indicator , “Probable” - Yellow Indicator)
+REMOVE:
+* Action column 
+Row color logic:
+* <50% red 
+* 50–75% yellow 
+* 75% green
+
+Export Forecast Button
+Top-right above table: "Export Forecast"
+Function:
+* Export filtered data
+* CSV format, file name: forecast_export_[date].csv
+* Excel Format, file name: forecast_export_[date].xlsx
+* unlimited export 
+
+Notify Procurement Button
+Next to Export button: "Notify Procurement"
+On click:
+* open modal popup 
+* searchable staff list 
+* real-time typing search 
+* multi-select 
+* Send Notification button 
+Notification content: should be input by the user (format as text and numbers)
+Send notification to:
+* Selected staff
+Send via existing Zetrynx notification system.
+
+Charts Section
+Add:
+1. Forecast Volume by Month (Chart view options: bar chart, Donut chart, Pie chart)
+2. Forecast by Customer (Chart view options: pie chart, bar chart)
+3. Forecast by Product Type (Chart view options: donut chart, pie chat, bar chart) 
+Charts must respect filters.
+
+
+Calendar Forecast Chart (NEW)
+Add below charts section: Title: "Forecast Calendar"
+Display:
+* monthly calendar grid view
+* each day cell shows forecasted orders 
+Each calendar event shows:
+* Company
+* Product name
+* Product type 
+* Forecast volume (KG)
+* Confidence % 
+Color coding: Green → high confidence (>75%) Yellow → medium (50–75%) Red → low (<50%)
+Features:
+* Month navigation (prev / next) 
+* Tooltip on hover (full details) 
+* Click event → open forecast row detail 
+* Filtered by page filters 
+* Responsive design 
+Calendar must:
+* auto-group multiple forecasts per day 
+* show "+3 more" when overflow 
+* support dark/light mode 
+
+Data Mapping
+Calendar uses: Forecast Date → event date Customer → title Forecast Volume → subtitle Confidence → color indicator
+
+Performance Requirements
+* Lazy load calendar 
+* Fast render (<1s) 
+* Debounced filter updates 
+
+Deliverables
+* Forecast page component 
+* Forecast table 
+* Export function 
+* Procurement notification modal 
+* Charts 
+* Calendar forecast grid 
