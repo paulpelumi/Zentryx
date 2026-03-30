@@ -315,7 +315,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <div className="relative">
-                    <item.icon className={cn("w-5 h-5 transition-transform group-hover:scale-110", isActive && "text-primary")} />
+                    <item.icon className={cn(
+                      "w-5 h-5 transition-transform group-hover:scale-110",
+                      isActive
+                        ? isLight ? "text-white" : "text-primary"
+                        : ""
+                    )} />
                     {isChatWithUnread && <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />}
                   </div>
                   {item.label}
