@@ -49,7 +49,7 @@ export const accountTasksTable = pgTable("account_tasks", {
 export const accountProductionOrdersTable = pgTable("account_production_orders", {
   id: serial("id").primaryKey(),
   accountId: integer("account_id").notNull(),
-  price: numeric("price", { precision: 10, scale: 0 }),
+  price: numeric("price", { precision: 10, scale: 4 }),
   volume: numeric("volume", { precision: 10, scale: 2 }),
   dateOrdered: text("date_ordered"),
   dateDelivered: text("date_delivered"),
