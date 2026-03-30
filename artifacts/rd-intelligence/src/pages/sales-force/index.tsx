@@ -649,8 +649,8 @@ function AccountsPage() {
   );
 }
 
-export const SF_TABS = ["Accounts", "Charts", "Forecast"] as const;
-export type SfTab = typeof SF_TABS[number];
+const SF_TABS = ["Accounts", "Charts", "Forecast"] as const;
+type SfTab = typeof SF_TABS[number];
 
 export default function SalesForce() {
   const [activeTab, setActiveTab] = useState<SfTab>("Accounts");

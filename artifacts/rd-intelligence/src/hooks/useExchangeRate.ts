@@ -124,6 +124,14 @@ export function useExchangeRate() {
     return `${mins} mins ago`;
   }
 
+  function fmtNGN(usd: number): string {
+    if (!usd || isNaN(usd)) return "—";
+    const rate = cache.manualNGN ?? cache.rates["NGN"] ?? null;
+    if (!rate) return "—";
+    const ngn = usd * rate;
+    return `₦${ngn.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+  }
+
   return {
     rates: cache.rates,
     ngnRate: effectiveNGN,
@@ -131,8 +139,10 @@ export function useExchangeRate() {
     fetchedAt: cache.fetchedAt,
     isManualOverride: cache.manualNGN !== null,
     convert,
+    fmtNGN,
     setManualNGN,
     getLastUpdated,
+    rate: effectiveNGN,
     refresh: () => fetchRates(true),
   };
 }
