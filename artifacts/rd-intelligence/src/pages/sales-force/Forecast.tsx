@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -543,6 +543,7 @@ export default function SalesForecastPage() {
   const [showNotify, setShowNotify] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const seededRef = useRef(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -579,17 +580,15 @@ export default function SalesForecastPage() {
     },
   });
 
-  const seedIfEmpty = useCallback(async () => {
-    if (rawForecasts.length === 0 && !loadingForecasts && !seeding) {
+  useEffect(() => {
+    if (!loadingForecasts && !seeding && !seededRef.current) {
+      seededRef.current = true;
       setSeeding(true);
-      try {
-        await fetch(`${BASE}api/forecasts/seed`, { method: "POST", headers: authHeaders() });
-        qc.invalidateQueries({ queryKey: ["/api/forecasts"] });
-      } finally { setSeeding(false); }
+      fetch(`${BASE}api/forecasts/seed`, { method: "POST", headers: authHeaders() })
+        .then(() => qc.invalidateQueries({ queryKey: ["/api/forecasts"] }))
+        .finally(() => setSeeding(false));
     }
-  }, [rawForecasts.length, loadingForecasts, seeding, qc]);
-
-  useEffect(() => { seedIfEmpty(); }, [rawForecasts.length, loadingForecasts]);
+  }, [loadingForecasts]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<Forecast> }) => {

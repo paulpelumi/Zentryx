@@ -689,7 +689,7 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
                 {ords.map((o: any) => (
                   <tr key={o.id} className="hover:bg-white/[0.02]">
                     <td className="px-3 py-2">
-                      <input type="number" defaultValue={o.price} onBlur={e => updateRow(o.id, { ...o, price: e.target.value })}
+                      <input type="number" defaultValue={parseFloat(o.price || 0).toFixed(2)} onBlur={e => updateRow(o.id, { ...o, price: e.target.value })}
                         className="w-20 bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 h-7" step="0.01" min="0" />
                     </td>
                     <td className="px-3 py-2">
@@ -705,7 +705,7 @@ function ProductionOrdersTab({ accountId }: { accountId: number }) {
                         className="w-28 bg-transparent text-foreground focus:outline-none focus:ring-1 focus:ring-primary/30 rounded px-1 h-7 placeholder:text-muted-foreground/40" />
                     </td>
                     <td className="px-3 py-2 text-emerald-400 font-medium">
-                      ${(parseFloat(o.price || 0) * parseFloat(o.volume || 0)).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      ${(parseFloat(o.price || 0) * parseFloat(o.volume || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-3 py-2">
                       <button onClick={() => deleteRow(o.id)} className="p-1 hover:bg-red-500/10 rounded text-muted-foreground hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
