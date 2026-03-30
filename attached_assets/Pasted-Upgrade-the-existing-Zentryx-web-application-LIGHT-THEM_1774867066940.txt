@@ -1,0 +1,204 @@
+Upgrade the existing Zentryx web application LIGHT THEME ONLY inspired by modern Apple-style glassmorphism design.
+
+IMPORTANT:
+- Do NOT rebuild the app
+- Extend the current UI system
+- Maintain all functionality
+
+---
+
+🎨 LIGHT THEME DESIGN SYSTEM
+
+1. BACKGROUND
+
+Replace dark background with:
+
+- Base: #F8FAFC (soft white)
+- Add subtle gradient overlays:
+  linear-gradient(135deg, #ffffff, #eef2ff, #f0f9ff)
+
+- Add soft radial glow accents:
+  light blue / lavender tones in corners
+
+---
+
+2. GLASSMORPHISM PANELS (LIGHT VERSION)
+
+Apply to ALL cards, modals, navbars:
+
+- background: rgba(255, 255, 255, 0.6)
+- backdrop-filter: blur(16px)
+- border: 1px solid rgba(255, 255, 255, 0.4)
+
+Add soft inner highlight:
+- box-shadow: inset 0 1px 1px rgba(255,255,255,0.6)
+
+Add outer shadow:
+- box-shadow: 0 10px 30px rgba(0,0,0,0.08)
+
+---
+
+3. COLOR SYSTEM
+
+Primary gradient:
+- #7F5AF0 → #3B82F6 (purple → blue)
+
+Accent colors:
+- Soft lavender (#E0E7FF)
+- Light cyan (#ECFEFF)
+- Pale blue (#EFF6FF)
+
+Status colors (soft pastel):
+- Success → #BBF7D0
+- Warning → #FED7AA
+- Danger → #FECACA
+- Info → #BFDBFE
+
+---
+
+4. SIDEBAR (LIGHT)
+
+- Background: translucent white (glass)
+- Active item:
+  - gradient highlight
+  - soft glow border
+- Icons:
+  - muted gray → colored on active
+- Hover:
+  - slight lift + glow
+
+---
+
+5. NAVBAR
+
+- Glass style (blurred white)
+- Rounded search input
+- Focus state:
+  - glowing border (blue/purple)
+- Icons:
+  - subtle hover animation
+
+---
+
+6. PROJECT CARDS (PORTFOLIO)
+
+Upgrade cards:
+
+- Soft white glass background
+- Floating effect (shadow)
+- Rounded corners (20px+)
+
+Each card should include:
+- Title (dark gray #0F172A)
+- Description (muted gray #64748B)
+- Progress bar (gradient fill)
+- Assignee avatar
+- Status badge (pastel pill)
+
+---
+
+7. PROGRESS BARS
+
+- Gradient fill (purple → blue)
+- Smooth animation on load
+- Rounded edges
+
+---
+
+8. STATUS BADGES
+
+- Pill shape
+- Background: soft pastel color
+- Text: darker tone of same color
+- Subtle border glow
+
+---
+
+9. CHARTS
+
+- White glass panels
+- Line chart:
+  - gradient stroke (purple → blue)
+  - smooth curves
+- Donut chart:
+  - pastel color segments
+- Add subtle shadow + glow
+
+---
+
+10. TYPOGRAPHY
+
+- Font: Inter or Poppins
+- Titles:
+  - color: #0F172A
+  - semi-bold
+- Subtext:
+  - color: #64748B
+
+---
+
+11. MICRO-INTERACTIONS
+
+Apply globally:
+
+- transition: all 0.25s ease
+
+Hover effects:
+- transform: translateY(-3px) scale(1.01)
+- soft glow shadow
+
+Click:
+- slight press animation
+
+---
+
+12. ANIMATIONS (FRAMER MOTION)
+
+- Page load:
+  fade + slide up
+- Cards:
+  stagger animation
+- View switching:
+  smooth fade transitions
+
+---
+
+13. THEME TOGGLE (IMPORTANT)
+
+Implement light/dark mode switch:
+
+- Store preference in localStorage
+- Smooth transition between themes
+- Toggle button in navbar
+
+---
+
+14. SPACING & LAYOUT
+
+- Increase whitespace
+- Maintain clean grid
+- Ensure alignment consistency
+
+---
+
+🎯 GOAL
+
+Transform the UI into a:
+
+- bright
+- elegant
+- calm
+- premium SaaS experience
+
+It should feel like:
+- Apple-level design quality
+- modern fintech/dashboard UI
+- extremely clean and visually pleasing
+
+---
+
+DELIVER:
+- Updated Tailwind config (light theme tokens)
+- Reusable glass card component
+- Theme toggle logic
+- Updated UI components

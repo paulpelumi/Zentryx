@@ -79,9 +79,13 @@ function UserMenu({ user, logout, isLight }: { user: any; logout: () => void; is
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -8 }}
             transition={{ duration: 0.15 }}
-            className={cn("absolute right-0 top-full mt-2 w-64 rounded-2xl border shadow-2xl z-50 overflow-hidden",
-              isLight ? "bg-white border-slate-200" : "glass-panel border-white/10"
+            className={cn("absolute right-0 top-full mt-2 w-64 rounded-2xl border z-50 overflow-hidden",
+              isLight
+                ? "border-white/50 shadow-[0_16px_48px_rgba(0,0,0,0.10),inset_0_1px_0_rgba(255,255,255,0.9)]"
+                : "glass-panel border-white/10 shadow-2xl",
+              isLight && "backdrop-blur-2xl saturate-200"
             )}
+            style={isLight ? { background: "rgba(255,255,255,0.82)" } : undefined}
           >
             <div className={cn("p-4 border-b", isLight ? "border-slate-100" : "border-white/5")}>
               <div className="flex items-center gap-3">
@@ -188,11 +192,12 @@ function GlobalSearch({ isLight }: { isLight: boolean }) {
             exit={{ opacity: 0, y: 8, scale: 0.97 }}
             transition={{ duration: 0.15 }}
             className={cn(
-              "absolute top-full left-0 mt-2 w-full min-w-[420px] rounded-2xl border shadow-2xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto",
-              isLight ? "bg-white border-slate-200" : "glass-panel border-white/10"
+              "absolute top-full left-0 mt-2 w-full min-w-[420px] rounded-2xl border z-50 overflow-hidden max-h-[70vh] overflow-y-auto",
+              isLight ? "backdrop-blur-2xl border-white/50 shadow-[0_16px_48px_rgba(0,0,0,0.10)]" : "glass-panel border-white/10 shadow-2xl"
             )}
+            style={isLight ? { background: "rgba(255,255,255,0.88)" } : undefined}
           >
-            <div className={cn("px-4 py-2.5 border-b flex items-center justify-between", isLight ? "border-slate-100" : "border-white/5")}>
+            <div className={cn("px-4 py-2.5 border-b flex items-center justify-between", isLight ? "border-white/40" : "border-white/5")}>
               <span className="text-xs text-muted-foreground">{totalResults} result{totalResults !== 1 ? "s" : ""} for <span className="text-foreground font-medium">"{query}"</span></span>
               <button onClick={() => { setQuery(""); setOpen(false); }} className="text-muted-foreground hover:text-foreground p-0.5"><X className="w-3.5 h-3.5" /></button>
             </div>
@@ -202,7 +207,7 @@ function GlobalSearch({ isLight }: { isLight: boolean }) {
               if (items.length === 0) return null;
               const Icon = meta.icon;
               return (
-                <div key={key} className={cn("border-b last:border-0", isLight ? "border-slate-50" : "border-white/5")}>
+                <div key={key} className={cn("border-b last:border-0", isLight ? "border-slate-100/60" : "border-white/5")}>
                   <div className="px-4 py-2 flex items-center gap-2">
                     <Icon className={`w-3.5 h-3.5 ${meta.color}`} />
                     <span className={`text-[11px] font-semibold uppercase tracking-wider ${meta.color}`}>{meta.label}</span>
@@ -214,7 +219,7 @@ function GlobalSearch({ isLight }: { isLight: boolean }) {
                     return (
                       <button key={i} onClick={() => handleSelect(href)}
                         className={cn("w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left transition-colors group",
-                          isLight ? "hover:bg-slate-50" : "hover:bg-white/5"
+                          isLight ? "hover:bg-violet-50/60" : "hover:bg-white/5"
                         )}>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground truncate">{title}</p>
@@ -232,9 +237,10 @@ function GlobalSearch({ isLight }: { isLight: boolean }) {
         {open && results && totalResults === 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className={cn("absolute top-full left-0 mt-2 w-full rounded-2xl border shadow-2xl z-50 p-6 text-center",
-              isLight ? "bg-white border-slate-200" : "glass-panel border-white/10"
-            )}>
+            className={cn("absolute top-full left-0 mt-2 w-full rounded-2xl border z-50 p-6 text-center backdrop-blur-2xl",
+              isLight ? "border-white/50 shadow-[0_12px_40px_rgba(0,0,0,0.08)]" : "glass-panel border-white/10 shadow-2xl"
+            )}
+            style={isLight ? { background: "rgba(255,255,255,0.88)" } : undefined}>
             <p className="text-sm text-muted-foreground">No results for <span className="text-foreground font-medium">"{query}"</span></p>
           </motion.div>
         )}
@@ -274,16 +280,16 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [location]);
 
   return (
-    <div className={cn("min-h-screen flex flex-col md:flex-row overflow-hidden", isLight ? "bg-slate-100" : "bg-background")}>
+    <div className={cn("min-h-screen flex flex-col md:flex-row overflow-hidden", isLight ? "light-app-bg" : "bg-background")}>
       {/* Sidebar */}
       <aside className={cn(
         "fixed inset-y-0 left-0 z-50 w-64 border-r transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
         isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-        isLight ? "bg-white border-slate-200 shadow-lg" : "glass-panel border-white/5"
+        isLight ? "light-sidebar" : "glass-panel border-white/5"
       )}>
-        <div className={cn("h-16 flex items-center px-6 border-b", isLight ? "border-slate-100" : "border-white/5")}>
+        <div className={cn("h-16 flex items-center px-6 border-b", isLight ? "border-white/40" : "border-white/5")}>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
+            <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30", isLight && "logo-glow")}>
               <Zap className="w-5 h-5 text-white" />
             </div>
             <span className="font-display font-bold text-xl tracking-wide text-gradient">Zentryx</span>
@@ -302,9 +308,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 <Link key={item.href} href={item.href}
                   className={cn(
                     "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group font-medium relative",
-                    isActive ? "bg-primary/10 text-primary border border-primary/20 shadow-inner"
-                      : isLight ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-                        : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                    isActive
+                      ? isLight ? "light-nav-active" : "bg-primary/10 text-primary border border-primary/20 shadow-inner"
+                      : isLight ? "light-nav-item" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                   )}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
@@ -325,7 +331,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className={cn(
           "h-16 flex items-center justify-between px-4 sm:px-6 z-40 sticky top-0 border-b gap-3",
-          isLight ? "bg-white/90 backdrop-blur-xl border-slate-200 shadow-sm" : "glass-panel border-white/5"
+          isLight ? "light-header" : "glass-panel border-white/5"
         )}>
           <div className="flex items-center gap-3 flex-1 min-w-0">
             <button className="md:hidden p-2 text-muted-foreground hover:text-foreground shrink-0" onClick={() => setIsMobileMenuOpen(true)}>
