@@ -760,7 +760,7 @@ export default function SalesForecastPage() {
                 Export Forecast
               </button>
               {showExportMenu && (
-                <div className="absolute right-0 top-full mt-1 z-50 bg-[#1e1e2e] border border-white/10 rounded-xl shadow-xl py-1 min-w-[150px]">
+                <div className="absolute right-0 bottom-full mb-1 z-50 bg-[#1e1e2e] border border-white/10 rounded-xl shadow-xl py-1 min-w-[150px]">
                   <button onClick={() => { exportCSV(); setShowExportMenu(false); }}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-white/5 text-left">
                     <Download className="w-3.5 h-3.5 text-muted-foreground" /> Export as CSV

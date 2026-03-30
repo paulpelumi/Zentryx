@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { accountForecastsTable, notificationsTable, accountsTable, accountProductionOrdersTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, asc } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
 
 const router = Router();
@@ -64,43 +64,116 @@ router.delete("/:id", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
+function parseDMY(s: string | null | undefined): Date | null {
+  if (!s) return null;
+  const parts = s.split("/");
+  if (parts.length !== 3) return null;
+  const [d, m, y] = parts;
+  const date = new Date(parseInt(y), parseInt(m) - 1, parseInt(d));
+  return isNaN(date.getTime()) ? null : date;
+}
+
 router.post("/seed", requireAuth, async (_req: AuthRequest, res) => {
   try {
     const accounts = await db.select().from(accountsTable)
       .where(eq(accountsTable.isActive, true));
-    const existing = await db.select({ accountId: accountForecastsTable.accountId })
-      .from(accountForecastsTable);
-    const existingIds = new Set(existing.map(f => f.accountId));
 
-    const toInsert: any[] = [];
     for (const account of accounts) {
-      if (existingIds.has(account.id)) continue;
-      const lastOrders = await db.select().from(accountProductionOrdersTable)
+      const allOrders = await db.select().from(accountProductionOrdersTable)
         .where(eq(accountProductionOrdersTable.accountId, account.id))
-        .orderBy(desc(accountProductionOrdersTable.dateOrdered))
+        .orderBy(asc(accountProductionOrdersTable.createdAt));
+
+      const dated = allOrders
+        .map(o => ({ date: parseDMY(o.dateOrdered), vol: parseFloat(o.volume || "0"), raw: o }))
+        .filter(o => o.date !== null)
+        .sort((a, b) => a.date!.getTime() - b.date!.getTime());
+
+      let forecastDateStr: string;
+      let forecastVolumeStr: string;
+      let lastOrderDate: string | null = null;
+      let lastOrderVolume: string | null = null;
+      let confidence: number;
+
+      if (dated.length === 0) {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        forecastDateStr = d.toISOString().split("T")[0];
+        forecastVolumeStr = account.volume ?? "0";
+        confidence = 30;
+      } else if (dated.length === 1) {
+        const lo = dated[0];
+        lastOrderDate = lo.raw.dateOrdered;
+        lastOrderVolume = String(lo.vol);
+        const fd = new Date(lo.date!);
+        fd.setDate(fd.getDate() + 30);
+        forecastDateStr = fd.toISOString().split("T")[0];
+        forecastVolumeStr = String(lo.vol);
+        confidence = 40;
+      } else {
+        const lo = dated[dated.length - 1];
+        lastOrderDate = lo.raw.dateOrdered;
+        lastOrderVolume = String(lo.vol);
+
+        const gaps: number[] = [];
+        for (let i = 1; i < dated.length; i++) {
+          const gap = (dated[i].date!.getTime() - dated[i - 1].date!.getTime()) / 86400000;
+          gaps.push(gap);
+        }
+        const avgDays = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+
+        const growthChanges: number[] = [];
+        for (let i = 1; i < dated.length; i++) {
+          growthChanges.push(dated[i].vol - dated[i - 1].vol);
+        }
+        const avgGrowth = growthChanges.reduce((a, b) => a + b, 0) / growthChanges.length;
+
+        const fd = new Date(lo.date!);
+        fd.setDate(fd.getDate() + avgDays);
+        forecastDateStr = fd.toISOString().split("T")[0];
+
+        const forecastVol = Math.max(0, lo.vol + avgGrowth);
+        forecastVolumeStr = (Math.round(forecastVol * 100) / 100).toString();
+
+        confidence = Math.min(90, 40 + dated.length * 10);
+      }
+
+      const existing = await db.select({ id: accountForecastsTable.id })
+        .from(accountForecastsTable)
+        .where(eq(accountForecastsTable.accountId, account.id))
         .limit(1);
-      const lo = lastOrders[0];
-      const d = new Date();
-      d.setDate(d.getDate() + 30);
-      toInsert.push({
-        accountId: account.id,
-        company: account.company,
-        productName: account.productName,
-        productType: account.productType ?? null,
-        customerType: account.customerType ?? null,
-        isStrategic: account.customerType === "existing",
-        lastOrderDate: lo?.dateOrdered ?? null,
-        lastOrderVolume: lo?.volume ?? account.volume ?? null,
-        forecastDate: d.toISOString().split("T")[0],
-        forecastVolume: lo?.volume ?? account.volume ?? null,
-        confidence: 50,
-        status: "pending" as const,
-      });
+
+      if (existing.length > 0) {
+        await db.update(accountForecastsTable).set({
+          company: account.company,
+          productName: account.productName,
+          productType: account.productType ?? null,
+          customerType: account.customerType ?? null,
+          isStrategic: account.customerType === "existing",
+          lastOrderDate,
+          lastOrderVolume,
+          forecastDate: forecastDateStr,
+          forecastVolume: forecastVolumeStr,
+          confidence,
+          updatedAt: new Date(),
+        }).where(eq(accountForecastsTable.accountId, account.id));
+      } else {
+        await db.insert(accountForecastsTable).values({
+          accountId: account.id,
+          company: account.company,
+          productName: account.productName,
+          productType: account.productType ?? null,
+          customerType: account.customerType ?? null,
+          isStrategic: account.customerType === "existing",
+          lastOrderDate,
+          lastOrderVolume,
+          forecastDate: forecastDateStr,
+          forecastVolume: forecastVolumeStr,
+          confidence,
+          status: "pending",
+        });
+      }
     }
 
-    if (toInsert.length > 0) {
-      await db.insert(accountForecastsTable).values(toInsert);
-    }
     const all = await db.select().from(accountForecastsTable)
       .orderBy(desc(accountForecastsTable.forecastDate));
     res.json(all);
