@@ -19,11 +19,11 @@ const navItems = [
   { href: "/projects", label: "Project Portfolio", icon: FlaskConical },
   { href: "/analytics", label: "Analytics", icon: LineChart },
   { href: "/weekly-activities", label: "Weekly Activities", icon: ClipboardList },
+  { href: "/business-dev", label: "Business Development", icon: Briefcase },
   { href: "/sales-force", label: "Sales Force", icon: TrendingUp },
   { href: "/team", label: "Team Directory", icon: Users },
   { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/activity", label: "Activity Feed", icon: Activity },
-  { href: "/business-dev", label: "Business Development", icon: Briefcase },
   { href: "/chat", label: "Chat Room", icon: MessageSquare },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];

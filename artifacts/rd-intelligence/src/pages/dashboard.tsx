@@ -220,7 +220,6 @@ export default function Dashboard() {
             {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
           <RechartsTooltip {...TooltipStyle(isLight)} />
-          <Legend wrapperStyle={{ fontSize: 11, color: isLight ? "#374151" : undefined }} />
         </PieChart>
       </ResponsiveContainer>
     );
@@ -231,7 +230,6 @@ export default function Dashboard() {
             {pipelineData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
           </Pie>
           <RechartsTooltip {...TooltipStyle(isLight)} />
-          <Legend wrapperStyle={{ fontSize: 11, color: isLight ? "#374151" : undefined }} />
         </PieChart>
       </ResponsiveContainer>
     );

@@ -3,16 +3,20 @@ import { useListUsers } from "@workspace/api-client-react";
 import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Calendar, Trash2, Briefcase, Edit3, X, Check, Download } from "lucide-react";
+import { Plus, Search, Calendar, Trash2, Briefcase, Edit3, X, Check, Download, LayoutGrid, List, Table2, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { format } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 
 const BASE = import.meta.env.BASE_URL;
 const STAGES = ["testing", "reformulation", "innovation", "cost_optimization", "modification"] as const;
 const STATUSES = ["approved", "awaiting_feedback", "on_hold", "in_progress", "new_inventory", "cancelled", "pushed_to_live"] as const;
 const PRODUCT_TYPES = ["Seasoning", "Snack Dusting", "Bread & Dough Premix", "Dairy Premix", "Functional Blend", "Pasta Sauce", "Sweet Flavour", "Savoury Flavour"] as const;
 const PRIORITIES = ["low", "medium", "high", "critical"] as const;
+
+type ViewMode = "list" | "portfolio" | "matrix";
 
 const STATUS_COLORS: Record<string, string> = {
   approved: "bg-green-500/10 text-green-400 border-green-500/20",
@@ -22,6 +26,23 @@ const STATUS_COLORS: Record<string, string> = {
   new_inventory: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   cancelled: "bg-red-500/10 text-red-400 border-red-500/20",
   pushed_to_live: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+};
+
+const STATUS_COLORS_LIGHT: Record<string, string> = {
+  approved: "bg-green-50 text-green-700 border-green-200",
+  in_progress: "bg-blue-50 text-blue-700 border-blue-200",
+  awaiting_feedback: "bg-yellow-50 text-yellow-700 border-yellow-200",
+  on_hold: "bg-orange-50 text-orange-700 border-orange-200",
+  new_inventory: "bg-purple-50 text-purple-700 border-purple-200",
+  cancelled: "bg-red-50 text-red-700 border-red-200",
+  pushed_to_live: "bg-emerald-50 text-emerald-700 border-emerald-200",
+};
+
+const PRIORITY_COLORS: Record<string, string> = {
+  low: "text-slate-400",
+  medium: "text-blue-400",
+  high: "text-amber-400",
+  critical: "text-red-400",
 };
 
 const STAGE_COLORS: Record<string, string> = {
@@ -87,7 +108,10 @@ export default function BusinessDev() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingCard, setEditingCard] = useState<any | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("portfolio");
   const { toast } = useToast();
+  const { theme } = useTheme();
+  const isLight = theme === "light";
 
   const filtered = items.filter(item => {
     const matchSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,14 +151,23 @@ export default function BusinessDev() {
     </div>
   );
 
+  const viewBtnCls = (v: ViewMode) => cn(
+    "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all",
+    viewMode === v
+      ? "bg-primary text-white border-primary"
+      : isLight
+        ? "border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+        : "border-white/10 text-muted-foreground hover:bg-white/5 hover:text-foreground"
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-display font-bold text-foreground flex items-center gap-3">
+          <h1 className={cn("text-3xl font-display font-bold flex items-center gap-3", isLight ? "text-gray-900" : "text-foreground")}>
             <Briefcase className="w-8 h-8 text-primary" /> Business Development
           </h1>
-          <p className="text-muted-foreground mt-1">Track and manage BD opportunities and customer pipelines.</p>
+          <p className={cn("mt-1 text-sm", isLight ? "text-gray-500" : "text-muted-foreground")}>Track and manage BD opportunities and customer pipelines.</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExport} className="gap-2"><Download className="w-4 h-4" /> Export</Button>
@@ -142,31 +175,77 @@ export default function BusinessDev() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative max-w-xs flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search BD items..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+      {/* View toggle + filters */}
+      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+        {/* View mode toggle */}
+        <div className={cn("flex items-center gap-1 p-1 rounded-xl border", isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5")}>
+          <button className={viewBtnCls("list")} onClick={() => setViewMode("list")}>
+            <List className="w-3.5 h-3.5" /> List
+          </button>
+          <button className={viewBtnCls("portfolio")} onClick={() => setViewMode("portfolio")}>
+            <LayoutGrid className="w-3.5 h-3.5" /> Portfolio
+          </button>
+          <button className={viewBtnCls("matrix")} onClick={() => setViewMode("matrix")}>
+            <Table2 className="w-3.5 h-3.5" /> Matrix
+          </button>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {["all", ...STATUSES].map(s => (
-            <button key={s} onClick={() => setStatusFilter(s === statusFilter && s !== "all" ? "all" : s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all capitalize ${statusFilter === s ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
-              {s === "all" ? "All" : s.replace(/_/g, ' ')}
-            </button>
-          ))}
+
+        {/* Search + status filters */}
+        <div className="flex flex-col sm:flex-row gap-3 flex-1 sm:justify-end">
+          <div className="relative max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input placeholder="Search BD items..." className="pl-9" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {["all", ...STATUSES].map(s => (
+              <button key={s} onClick={() => setStatusFilter(s === statusFilter && s !== "all" ? "all" : s)}
+                className={cn("px-3 py-1.5 rounded-lg text-xs font-medium border transition-all capitalize",
+                  statusFilter === s
+                    ? "bg-primary text-white border-primary"
+                    : isLight
+                      ? "border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                      : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"
+                )}>
+                {s === "all" ? "All" : s.replace(/_/g, ' ')}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filtered.map(item => (
-          <BDCard key={item.id} item={item} onUpdate={update} onDelete={handleDelete} onEdit={setEditingCard} />
-        ))}
-      </div>
+      {/* Views */}
+      {viewMode === "portfolio" && (
+        <PortfolioView
+          items={filtered}
+          isLight={isLight}
+          onUpdate={update}
+          onDelete={handleDelete}
+          onEdit={setEditingCard}
+        />
+      )}
+      {viewMode === "list" && (
+        <ListView
+          items={filtered}
+          isLight={isLight}
+          onUpdate={update}
+          onDelete={handleDelete}
+          onEdit={setEditingCard}
+        />
+      )}
+      {viewMode === "matrix" && (
+        <MatrixView
+          items={filtered}
+          isLight={isLight}
+          onUpdate={update}
+          onDelete={handleDelete}
+          onEdit={setEditingCard}
+        />
+      )}
 
       {filtered.length === 0 && (
-        <div className="text-center py-20 glass-card rounded-2xl">
+        <div className={cn("text-center py-20 rounded-2xl", isLight ? "bg-slate-50 border border-slate-200" : "glass-card")}>
           <Briefcase className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-30" />
-          <h3 className="text-lg font-medium text-foreground">No BD items found</h3>
+          <h3 className={cn("text-lg font-medium", isLight ? "text-gray-700" : "text-foreground")}>No BD items found</h3>
           <p className="text-muted-foreground text-sm mt-1">Create a new opportunity or adjust your filters.</p>
         </div>
       )}
@@ -178,7 +257,215 @@ export default function BusinessDev() {
   );
 }
 
-function BDCard({ item, onUpdate, onDelete, onEdit }: { item: any; onUpdate: any; onDelete: any; onEdit: any }) {
+/* ─────────────────────────────── Portfolio View ─────────────────────────── */
+function PortfolioView({ items, isLight, onUpdate, onDelete, onEdit }: any) {
+  if (items.length === 0) return null;
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {items.map((item: any) => (
+        <BDCard key={item.id} item={item} isLight={isLight} onUpdate={onUpdate} onDelete={onDelete} onEdit={onEdit} />
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────── List View ──────────────────────────────── */
+function ListView({ items, isLight, onUpdate, onDelete, onEdit }: any) {
+  if (items.length === 0) return null;
+  return (
+    <div className={cn("rounded-2xl border overflow-hidden", isLight ? "border-slate-200 bg-white" : "border-white/10 bg-card/60")}>
+      {items.map((item: any, idx: number) => {
+        const sc = isLight ? STATUS_COLORS_LIGHT : STATUS_COLORS;
+        return (
+          <div key={item.id} className={cn(
+            "flex items-center gap-4 px-5 py-4 transition-colors",
+            idx !== 0 && (isLight ? "border-t border-slate-100" : "border-t border-white/5"),
+            isLight ? "hover:bg-slate-50" : "hover:bg-white/5"
+          )}>
+            {/* Title + meta */}
+            <div className="flex-1 min-w-0">
+              <p className={cn("font-semibold text-sm truncate", isLight ? "text-gray-900" : "text-foreground")}>{item.name}</p>
+              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                {item.productType && <span className="text-xs text-muted-foreground">{item.productType}</span>}
+                {item.customerName && <span className="text-xs text-muted-foreground">· {item.customerName}</span>}
+              </div>
+            </div>
+
+            {/* Stage badge */}
+            <span className={cn("hidden sm:inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize", STAGE_COLORS[item.stage] || "text-muted-foreground bg-white/5")}>
+              {item.stage?.replace(/_/g, ' ')}
+            </span>
+
+            {/* Status badge */}
+            <span className={cn("hidden md:inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize", sc[item.status] || "border-white/10 text-muted-foreground")}>
+              {item.status?.replace(/_/g, ' ')}
+            </span>
+
+            {/* Priority */}
+            <span className={cn("hidden lg:inline text-xs font-medium capitalize", PRIORITY_COLORS[item.priority] || "text-muted-foreground")}>
+              {item.priority}
+            </span>
+
+            {/* Due date */}
+            <span className="hidden xl:inline text-xs text-muted-foreground whitespace-nowrap">
+              {item.targetDate ? format(new Date(item.targetDate), "MMM d, yyyy") : "—"}
+            </span>
+
+            {/* Assignee avatars */}
+            <div className="flex items-center gap-0.5">
+              {(item.assignees || []).slice(0, 3).map((a: any) => (
+                <div key={a.id} title={a.name} className="w-6 h-6 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 border border-white/20 flex items-center justify-center text-white text-[10px] font-bold">
+                  {a.name.charAt(0)}
+                </div>
+              ))}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1">
+              <button onClick={() => onEdit(item)} className={cn("p-1.5 rounded-lg transition-colors", isLight ? "hover:bg-slate-100 text-slate-400 hover:text-slate-700" : "hover:bg-white/10 text-muted-foreground hover:text-foreground")}>
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => onDelete(item.id, item.name)} className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ─────────────────────────────── Matrix View ────────────────────────────── */
+type SortKey = "name" | "stage" | "status" | "priority" | "targetDate" | "customerName" | "costTarget";
+
+const PRIORITY_ORDER: Record<string, number> = { critical: 4, high: 3, medium: 2, low: 1 };
+
+function MatrixView({ items, isLight, onUpdate, onDelete, onEdit }: any) {
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  if (items.length === 0) return null;
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const sorted = [...items].sort((a, b) => {
+    let va: any, vb: any;
+    if (sortKey === "priority") { va = PRIORITY_ORDER[a.priority] ?? 0; vb = PRIORITY_ORDER[b.priority] ?? 0; }
+    else if (sortKey === "targetDate") { va = a.targetDate ? new Date(a.targetDate).getTime() : 0; vb = b.targetDate ? new Date(b.targetDate).getTime() : 0; }
+    else if (sortKey === "costTarget") { va = parseFloat(a.costTarget) || 0; vb = parseFloat(b.costTarget) || 0; }
+    else { va = (a[sortKey] || "").toLowerCase(); vb = (b[sortKey] || "").toLowerCase(); }
+    return sortDir === "asc" ? (va > vb ? 1 : -1) : (va < vb ? 1 : -1);
+  });
+
+  const SortIcon = ({ k }: { k: SortKey }) => {
+    if (sortKey !== k) return <ArrowUpDown className="w-3 h-3 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />;
+  };
+
+  const thCls = cn("px-4 py-3 text-xs font-semibold uppercase tracking-wide text-left cursor-pointer select-none whitespace-nowrap",
+    isLight ? "text-slate-500 hover:text-slate-700" : "text-muted-foreground hover:text-foreground"
+  );
+  const tdCls = cn("px-4 py-3 text-sm", isLight ? "text-gray-700" : "text-foreground/80");
+  const sc = isLight ? STATUS_COLORS_LIGHT : STATUS_COLORS;
+
+  return (
+    <div className={cn("rounded-2xl border overflow-x-auto", isLight ? "border-slate-200 bg-white" : "border-white/10 bg-card/60")}>
+      <table className="w-full min-w-[800px]">
+        <thead>
+          <tr className={cn("border-b", isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5")}>
+            <th className={thCls} onClick={() => handleSort("name")}>
+              <span className="flex items-center gap-1">Title <SortIcon k="name" /></span>
+            </th>
+            <th className={thCls} onClick={() => handleSort("stage")}>
+              <span className="flex items-center gap-1">Stage <SortIcon k="stage" /></span>
+            </th>
+            <th className={thCls} onClick={() => handleSort("status")}>
+              <span className="flex items-center gap-1">Status <SortIcon k="status" /></span>
+            </th>
+            <th className={thCls} onClick={() => handleSort("priority")}>
+              <span className="flex items-center gap-1">Priority <SortIcon k="priority" /></span>
+            </th>
+            <th className={thCls} onClick={() => handleSort("customerName")}>
+              <span className="flex items-center gap-1">Customer <SortIcon k="customerName" /></span>
+            </th>
+            <th className={thCls}>Product Type</th>
+            <th className={thCls} onClick={() => handleSort("costTarget")}>
+              <span className="flex items-center gap-1">Cost Target <SortIcon k="costTarget" /></span>
+            </th>
+            <th className={thCls} onClick={() => handleSort("targetDate")}>
+              <span className="flex items-center gap-1">Due Date <SortIcon k="targetDate" /></span>
+            </th>
+            <th className={thCls}>Team</th>
+            <th className={cn(thCls, "text-right cursor-default")}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((item: any, idx: number) => (
+            <tr key={item.id} className={cn(
+              "transition-colors",
+              idx !== 0 && (isLight ? "border-t border-slate-100" : "border-t border-white/5"),
+              isLight ? "hover:bg-slate-50" : "hover:bg-white/5"
+            )}>
+              <td className={cn(tdCls, "font-medium max-w-[200px]")}>
+                <span className="line-clamp-1">{item.name}</span>
+              </td>
+              <td className={tdCls}>
+                <span className={cn("inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium capitalize", STAGE_COLORS[item.stage] || "text-muted-foreground bg-white/5")}>
+                  {item.stage?.replace(/_/g, ' ')}
+                </span>
+              </td>
+              <td className={tdCls}>
+                <span className={cn("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border capitalize", sc[item.status] || "border-white/10 text-muted-foreground")}>
+                  {item.status?.replace(/_/g, ' ')}
+                </span>
+              </td>
+              <td className={tdCls}>
+                <span className={cn("text-xs font-semibold capitalize", PRIORITY_COLORS[item.priority] || "text-muted-foreground")}>
+                  {item.priority}
+                </span>
+              </td>
+              <td className={cn(tdCls, "text-xs")}>{item.customerName || "—"}</td>
+              <td className={cn(tdCls, "text-xs")}>{item.productType || "—"}</td>
+              <td className={cn(tdCls, "text-xs font-medium")}>
+                {item.costTarget ? `R${parseFloat(item.costTarget).toLocaleString()}` : "—"}
+              </td>
+              <td className={cn(tdCls, "text-xs whitespace-nowrap")}>
+                {item.targetDate ? format(new Date(item.targetDate), "MMM d, yyyy") : "—"}
+              </td>
+              <td className={tdCls}>
+                <div className="flex items-center gap-0.5">
+                  {(item.assignees || []).slice(0, 3).map((a: any) => (
+                    <div key={a.id} title={a.name} className="w-6 h-6 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 border border-white/20 flex items-center justify-center text-white text-[10px] font-bold">
+                      {a.name.charAt(0)}
+                    </div>
+                  ))}
+                  {item.assignees?.length > 3 && <span className="text-xs text-muted-foreground ml-1">+{item.assignees.length - 3}</span>}
+                </div>
+              </td>
+              <td className={tdCls}>
+                <div className="flex items-center gap-1 justify-end">
+                  <button onClick={() => onEdit(item)} className={cn("p-1.5 rounded-lg transition-colors", isLight ? "hover:bg-slate-100 text-slate-400 hover:text-slate-700" : "hover:bg-white/10 text-muted-foreground hover:text-foreground")}>
+                    <Edit3 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => onDelete(item.id, item.name)} className="p-1.5 rounded-lg text-destructive hover:bg-destructive/10 transition-colors">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+/* ─────────────────────────────── Portfolio Card ────────────────────────── */
+function BDCard({ item, isLight, onUpdate, onDelete, onEdit }: { item: any; isLight: boolean; onUpdate: any; onDelete: any; onEdit: any }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(item.name);
 
@@ -188,10 +475,14 @@ function BDCard({ item, onUpdate, onDelete, onEdit }: { item: any; onUpdate: any
     setEditingTitle(false);
   };
 
-  const cls = "h-8 rounded-lg border border-white/10 bg-black/30 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground";
+  const cls = cn(
+    "h-8 rounded-lg border px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground",
+    isLight ? "border-slate-200 bg-white" : "border-white/10 bg-black/30"
+  );
+  const sc = isLight ? STATUS_COLORS_LIGHT : STATUS_COLORS;
 
   return (
-    <div className="glass-card rounded-2xl p-6 flex flex-col relative group">
+    <div className={cn("rounded-2xl p-6 flex flex-col relative group", isLight ? "bg-white border border-slate-200 shadow-sm hover:shadow-md transition-shadow" : "glass-card")}>
       <div className="flex justify-between items-start mb-3">
         <select value={item.stage} onChange={e => onUpdate(item.id, { stage: e.target.value })} className={`${cls} text-xs capitalize`} onClick={e => e.stopPropagation()}>
           {STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}
@@ -205,24 +496,24 @@ function BDCard({ item, onUpdate, onDelete, onEdit }: { item: any; onUpdate: any
         <div className="flex items-center gap-2 mb-2">
           <input value={titleVal} onChange={e => setTitleVal(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") saveTitle(); if (e.key === "Escape") { setEditingTitle(false); setTitleVal(item.name); } }}
-            className="text-base font-bold bg-transparent border-b border-primary focus:outline-none text-foreground flex-1" autoFocus />
-          <button onClick={saveTitle} className="text-green-400"><Check className="w-4 h-4" /></button>
+            className={cn("text-base font-bold bg-transparent border-b border-primary focus:outline-none flex-1", isLight ? "text-gray-900" : "text-foreground")} autoFocus />
+          <button onClick={saveTitle} className="text-green-500"><Check className="w-4 h-4" /></button>
           <button onClick={() => { setEditingTitle(false); setTitleVal(item.name); }} className="text-muted-foreground"><X className="w-4 h-4" /></button>
         </div>
       ) : (
         <div className="flex items-start gap-1.5 group/title mb-2">
-          <h3 className="text-lg font-bold font-display text-foreground line-clamp-1 flex-1">{item.name}</h3>
+          <h3 className={cn("text-lg font-bold font-display line-clamp-1 flex-1", isLight ? "text-gray-900" : "text-foreground")}>{item.name}</h3>
           <button onClick={() => setEditingTitle(true)} className="opacity-0 group-hover/title:opacity-100 p-0.5 text-muted-foreground hover:text-foreground shrink-0">
             <Edit3 className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {item.productType && <p className="text-xs text-muted-foreground mb-1">📦 {item.productType}</p>}
-      {item.customerName && <p className="text-xs text-muted-foreground mb-1">👤 {item.customerName}</p>}
-      {item.customerEmail && <p className="text-xs text-muted-foreground mb-1">✉ {item.customerEmail}</p>}
-      {item.customerPhone && <p className="text-xs text-muted-foreground mb-2">📞 {item.customerPhone}</p>}
-      {item.description && <p className="text-sm text-muted-foreground line-clamp-2 mb-3 flex-1">{item.description}</p>}
+      {item.productType && <p className={cn("text-xs mb-1", isLight ? "text-slate-500" : "text-muted-foreground")}>📦 {item.productType}</p>}
+      {item.customerName && <p className={cn("text-xs mb-1", isLight ? "text-slate-500" : "text-muted-foreground")}>👤 {item.customerName}</p>}
+      {item.customerEmail && <p className={cn("text-xs mb-1", isLight ? "text-slate-500" : "text-muted-foreground")}>✉ {item.customerEmail}</p>}
+      {item.customerPhone && <p className={cn("text-xs mb-2", isLight ? "text-slate-500" : "text-muted-foreground")}>📞 {item.customerPhone}</p>}
+      {item.description && <p className={cn("text-sm line-clamp-2 mb-3 flex-1", isLight ? "text-slate-600" : "text-muted-foreground")}>{item.description}</p>}
 
       {item.assignees?.length > 0 && (
         <div className="flex items-center gap-1 mb-3">
@@ -235,20 +526,20 @@ function BDCard({ item, onUpdate, onDelete, onEdit }: { item: any; onUpdate: any
         </div>
       )}
 
-      <div className="mt-auto pt-3 border-t border-white/5 flex items-center justify-between text-xs text-muted-foreground">
+      <div className={cn("mt-auto pt-3 border-t flex items-center justify-between text-xs", isLight ? "border-slate-100 text-slate-500" : "border-white/5 text-muted-foreground")}>
         <div className="flex items-center gap-2">
           <Calendar className="w-3.5 h-3.5" />
           <input type="date"
             value={item.targetDate ? format(new Date(item.targetDate), "yyyy-MM-dd") : ""}
             onChange={e => onUpdate(item.id, { targetDate: e.target.value || null })}
-            className="bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/50 rounded cursor-pointer text-muted-foreground text-xs w-32"
+            className={cn("bg-transparent focus:outline-none focus:ring-1 focus:ring-primary/50 rounded cursor-pointer text-xs w-32", isLight ? "text-slate-500" : "text-muted-foreground")}
             title="Set due date" />
         </div>
-        {item.costTarget && <span className="text-green-400 font-medium">R{parseFloat(item.costTarget).toLocaleString()}</span>}
+        {item.costTarget && <span className="text-green-500 font-medium">R{parseFloat(item.costTarget).toLocaleString()}</span>}
       </div>
 
       <div className="absolute top-3 right-12 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-        <button onClick={() => onEdit(item)} className="p-1.5 bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground rounded-lg" title="Edit all details">
+        <button onClick={() => onEdit(item)} className={cn("p-1.5 rounded-lg", isLight ? "bg-slate-100 hover:bg-slate-200 text-slate-500" : "bg-white/5 hover:bg-white/10 text-muted-foreground hover:text-foreground")} title="Edit all details">
           <Edit3 className="w-3.5 h-3.5" />
         </button>
       </div>
@@ -261,6 +552,7 @@ function BDCard({ item, onUpdate, onDelete, onEdit }: { item: any; onUpdate: any
   );
 }
 
+/* ─────────────────────────────── Edit Modal ─────────────────────────────── */
 function EditBDModal({ item, users, onUpdate, onClose }: { item: any; users: any[]; onUpdate: any; onClose: () => void }) {
   const [form, setForm] = useState({
     name: item.name || "",
@@ -338,6 +630,7 @@ function EditBDModal({ item, users, onUpdate, onClose }: { item: any; users: any
   );
 }
 
+/* ─────────────────────────────── Create Modal ───────────────────────────── */
 function CreateBDModal({ users, onCreate }: { users: any[]; onCreate: (data: any) => Promise<any> }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -376,10 +669,10 @@ function CreateBDModal({ users, onCreate }: { users: any[]; onCreate: (data: any
             <div className="space-y-1.5"><label className="text-sm font-medium">Priority</label><select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>{PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Product Type</label><select value={form.productType} onChange={e => setF("productType", e.target.value)} className={cls}><option value="" className="bg-card">Select type...</option>{PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}</select></div>
             <div className="sm:col-span-2 border-t border-white/10 pt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer Info</p></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Customer Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} className={cls} placeholder="Customer / Client name" /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Customer Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} className={cls} placeholder="customer@email.com" /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Customer Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} className={cls} placeholder="+27 xx xxx xxxx" /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Cost Target (R)</label><input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} className={cls} placeholder="0.00" /></div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Customer Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} placeholder="Customer name" className={cls} /></div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} placeholder="email@example.com" className={cls} /></div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} placeholder="+27 xx xxx xxxx" className={cls} /></div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Cost Target (R)</label><input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} placeholder="0.00" className={cls} /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Start Date</label><input type="date" value={form.startDate} onChange={e => setF("startDate", e.target.value)} className={cls} /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Due Date</label><input type="date" value={form.targetDate} onChange={e => setF("targetDate", e.target.value)} className={cls} /></div>
           </div>
@@ -397,7 +690,10 @@ function CreateBDModal({ users, onCreate }: { users: any[]; onCreate: (data: any
               </div>
             </div>
           )}
-          <div className="pt-2 flex justify-end gap-3"><Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button><Button type="submit" disabled={loading}>{loading ? "Creating..." : "Create BD Item"}</Button></div>
+          <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button type="submit" disabled={loading}>{loading ? "Creating..." : "Create BD Item"}</Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>
