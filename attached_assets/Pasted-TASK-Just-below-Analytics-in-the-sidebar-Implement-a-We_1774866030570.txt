@@ -1,0 +1,202 @@
+TASK:
+Just below Analytics in the sidebar
+Implement a "Weekly Activities Tracker" feature using the existing UI components ONLY. Do NOT alter layout, styling, spacing, typography, sidebar, header, or navigation. The feature must blend seamlessly into the current interface.
+
+---
+
+## WEEK LOGIC (MANDATORY)
+
+Weeks must be calculated using Monday–Friday working days.
+
+Format:
+Week 1: Mon, April 22 - Fri, April 26, 2026
+Week 2: Mon, April 29 - Fri, May 3, 2026
+
+Rules:
+
+* Week numbering resets every new month
+* WEEK 1 = first Monday–Friday working week occurring in that month
+* Continue sequentially (Week 1–Week 5)
+* Weeks may span across months
+* Label must be auto-generated
+* Selector must show the full formatted label
+* Switching weeks loads corresponding data
+
+---
+
+## DATA STRUCTURE
+
+WeeklyReport
+
+* id
+* month
+* year
+* weekNumber
+* startDate (Monday)
+* endDate (Friday)
+* label (formatted string)
+* samplesSent (text, max 10 lines)
+* createdAt
+* updatedAt
+
+WeeklyActivity
+
+* id
+* weeklyReportId
+* assignedUserId (foreign key to existing users table)
+* projectTitle
+* productType (enum)
+* status (Not Started, Ongoing, Completed)
+* priority (Low, Medium, High)
+* remarks
+* createdAt
+* updatedAt
+
+---
+
+## PRODUCT TYPE REQUIREMENT (IMPORTANT)
+
+* Add a "Product Type" column to the table
+* Must NOT be free text
+* Must be dropdown selector
+* Must reuse existing dropdown component
+* Must store structured enum value
+* Must integrate with existing Zetrynx analytics
+
+Allowed values:
+
+* seasoning
+* dairy premix
+* dough and bread premix
+* snack dusting
+* functional blend
+* sweet flavors
+* savoury flavours
+
+Behavior:
+
+* Required field when creating activity
+* Editable inline
+* Filterable
+* Sortable
+* Used for analytics aggregation
+* Must not change UI styling
+
+---
+
+## ASSIGNED USER REQUIREMENT (IMPORTANT)
+
+* The Staff column must NOT be free text
+* Must use dropdown populated from existing Zetrynx users
+* Must reuse existing user selector component
+* Store value as assignedUserId
+* Display user's name
+* Display avatar if available
+* Prevent manual typing
+* Prevent duplicates
+* Default to current logged-in user when adding row
+* Allow filtering by assigned user
+
+---
+
+## TABLE BEHAVIOR
+
+Use existing table component.
+
+Columns:
+
+Assigned User | Project | Product Type | Status | Priority | Remarks | Actions
+
+* Group rows by assigned user
+* Multiple activities per user allowed
+* Inline editing
+* Auto-save changes
+* Add Activity button
+* Delete row
+* Sort by priority
+* Filter by assigned user
+* Filter by product type
+* No modal required
+
+---
+
+## SAMPLES SENT SECTION
+
+Below the table, create a section titled:
+
+Samples Sent
+
+Create a Notify Account Manager Button
+Next to each sample sent: "Notify”
+On click:
+* open modal popup 
+* searchable staff list 
+* real-time typing search 
+* multi-select 
+* Send Notification button 
+Send notification to:
+* Selected staff
+Send via existing Zetrynx notification system.
+
+
+Requirements:
+* Must appear directly below table
+* Must reuse existing textarea/card component
+* Multi-line textarea
+* Maximum 20 lines
+* Auto-save
+* Linked to selected week
+* No UI redesign
+* Persist per week
+*Have a notify
+
+Layout order:
+
+[ Week Selector: Week 1: Mon, April 22 - Fri, April 26, 2026 ]
+
+[ Weekly Activities Table ]
+
+## [ Samples Sent ]
+
+## | multiline textarea (10 lines) |
+
+---
+
+## FUNCTIONAL RULES
+
+* Selecting a week loads its activities
+* If week does not exist → create automatically
+* Each week stores separate activities
+* Each week stores separate Samples Sent notes
+* Inline edits auto-save
+* Multiple users can edit
+* No page reload
+* Persist in database
+
+---
+
+## STRICT CONSTRAINTS (DO NOT BREAK)
+
+* Do NOT modify global CSS
+* Do NOT change sidebar
+* Do NOT change header
+* Do NOT change fonts
+* Do NOT change spacing
+* Do NOT redesign table
+* Do NOT move navigation
+* Only inject logic + data binding
+
+---
+
+## GOAL
+
+Implement a weekly activity tracker with:
+
+* Week-of-month numbering
+* Monday–Friday date range
+* Assigned users (linked to system users)
+* Product type classification (analytics-ready)
+* Grouped activities
+* Inline editable table
+* Samples Sent textarea (10 lines)
+* No UI changes

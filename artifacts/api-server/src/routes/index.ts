@@ -17,6 +17,7 @@ import aiChatRouter from "./ai_chat";
 import eventsRouter from "./events";
 import accountsRouter from "./accounts";
 import forecastsRouter from "./forecasts";
+import weeklyActivitiesRouter from "./weekly_activities";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use("/ai-chat", aiChatRouter);
 router.use("/events", eventsRouter);
 router.use("/accounts", accountsRouter);
 router.use("/forecasts", forecastsRouter);
+router.use("/weekly-activities", weeklyActivitiesRouter);
 
 export default router;

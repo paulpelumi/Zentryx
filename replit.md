@@ -164,6 +164,13 @@ All routes prefixed with `/api/`:
 - `GET/POST/PUT/DELETE /forecasts`
 - `POST /forecasts/seed` (auto-generate forecasts from active accounts)
 - `POST /forecasts/notify-procurement` (bulk notification to selected staff)
+- `GET /weekly-activities/weeks?month=&year=` (auto-generates Mon-Fri weeks for month)
+- `PUT /weekly-activities/weeks/:id` (update samplesSent)
+- `GET /weekly-activities/weeks/:id/activities` (activities with user info)
+- `POST /weekly-activities/weeks/:id/activities` (create activity)
+- `PUT /weekly-activities/activities/:id` (update activity)
+- `DELETE /weekly-activities/activities/:id`
+- `POST /weekly-activities/notify` (notify account managers)
 
 ## Theme
 

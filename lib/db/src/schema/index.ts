@@ -12,3 +12,4 @@ export * from "./conversations";
 export * from "./messages";
 export * from "./events";
 export * from "./accounts";
+export * from "./weekly_activities";
