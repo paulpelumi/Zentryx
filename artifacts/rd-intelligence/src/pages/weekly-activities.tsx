@@ -309,6 +309,17 @@ export default function WeeklyActivities() {
     onSettled: () => setAddingRow(false),
   });
 
+  const addActivityForUser = useMutation({
+    mutationFn: async (assignedUserId: number | null) => {
+      const r = await fetch(`${BASE}api/weekly-activities/weeks/${selectedWeekId}/activities`, {
+        method: "POST", headers: authHeaders(),
+        body: JSON.stringify({ assignedUserId, projectTitle: "", productType: null, status: "not_started", priority: "medium", remarks: "" }),
+      });
+      return r.json();
+    },
+    onSuccess: (newRow) => setRows(prev => [...prev, newRow]),
+  });
+
   const saveSamples = async () => {
     if (!selectedWeekId) return;
     await fetch(`${BASE}api/weekly-activities/weeks/${selectedWeekId}`, {
@@ -517,16 +528,29 @@ export default function WeeklyActivities() {
                   {/* Assigned User */}
                   <td className="px-3 py-2">
                     {row.isGroupStart ? (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <MiniAvatar name={row.assignedUser?.name} size="sm" />
                         <select
                           value={row.assignedUserId ?? ""}
                           onChange={e => handleFieldChange(row.id, "assignedUserId", e.target.value || null)}
-                          className={cn("flex-1 text-xs bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary/40 rounded-lg px-1 py-0.5 appearance-none text-foreground", isLight ? "" : "text-foreground")}
+                          className={cn("flex-1 min-w-0 text-xs bg-transparent border-0 focus:outline-none focus:ring-1 focus:ring-primary/40 rounded-lg px-1 py-0.5 appearance-none text-foreground", isLight ? "" : "text-foreground")}
                         >
                           <option value="">Unassigned</option>
                           {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                         </select>
+                        <button
+                          title={`Add row for ${row.assignedUser?.name ?? "this user"}`}
+                          disabled={!selectedWeekId || addActivityForUser.isPending}
+                          onClick={() => addActivityForUser.mutate(row.assignedUserId)}
+                          className={cn(
+                            "shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold transition-colors",
+                            isLight
+                              ? "bg-primary/10 text-primary hover:bg-primary hover:text-white"
+                              : "bg-primary/20 text-primary hover:bg-primary hover:text-white"
+                          )}
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 pl-1 opacity-40">
