@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { accountsTable, accountTasksTable, accountProductionOrdersTable, accountStatusReportsTable, usersTable } from "@workspace/db";
 import { eq, asc, desc } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
+import { logActivity } from "../lib/activity";
 
 const router = Router();
 
@@ -68,9 +69,15 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
       urgencyLevel, competitorReference, sellingPrice, margin } = req.body;
     const [account] = await db.insert(accountsTable).values({
       company, productName, accountManagers: accountManagers || [],
-      contactPerson, cpPhone, cpEmail, customerType, productType, application,
-      targetPrice, volume, urgencyLevel, competitorReference, sellingPrice, margin,
+      contactPerson: contactPerson || null, cpPhone: cpPhone || null, cpEmail: cpEmail || null,
+      customerType: customerType || "new", productType, application: application || null,
+      targetPrice: targetPrice || null, volume: volume || null,
+      urgencyLevel: urgencyLevel || "normal", competitorReference: competitorReference || null,
+      sellingPrice: sellingPrice || null, margin: margin || null,
     }).returning();
+    if (req.user?.userId) {
+      await logActivity(req.user.userId, "created_account", "account", account.id, `Created account: ${company} – ${productName}`);
+    }
     res.status(201).json(formatAccount(account));
   } catch (err) {
     console.error(err);
@@ -78,7 +85,7 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
   }
 });
 
-router.put("/:id", requireAuth, async (req, res) => {
+router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
     const { company, productName, accountManagers, contactPerson, cpPhone, cpEmail,
@@ -86,13 +93,19 @@ router.put("/:id", requireAuth, async (req, res) => {
       competitorReference, sellingPrice, margin, approvalStatus, isActive } = req.body;
     const [account] = await db.update(accountsTable).set({
       company, productName, accountManagers: accountManagers || [],
-      contactPerson, cpPhone, cpEmail, customerType, productType, application,
-      targetPrice, volume, urgencyLevel, competitorReference, sellingPrice, margin,
-      approvalStatus, isActive, updatedAt: new Date(),
+      contactPerson: contactPerson || null, cpPhone: cpPhone || null, cpEmail: cpEmail || null,
+      customerType, productType, application: application || null,
+      targetPrice: targetPrice || null, volume: volume || null, urgencyLevel,
+      competitorReference: competitorReference || null, sellingPrice: sellingPrice || null,
+      margin: margin || null, approvalStatus, isActive, updatedAt: new Date(),
     }).where(eq(accountsTable.id, id)).returning();
     if (!account) { res.status(404).json({ error: "NotFound" }); return; }
+    if (req.user?.userId) {
+      await logActivity(req.user.userId, "updated_account", "account", id, `Updated account: ${account.company} – ${account.productName}`);
+    }
     res.json(formatAccount(account));
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "InternalServerError" });
   }
 });
@@ -173,10 +186,15 @@ router.post("/:id/production-orders", requireAuth, async (req, res) => {
     const accountId = parseInt(req.params.id);
     const { price, volume, dateOrdered, dateDelivered } = req.body;
     const [order] = await db.insert(accountProductionOrdersTable).values({
-      accountId, price, volume, dateOrdered, dateDelivered,
+      accountId,
+      price: price !== undefined && price !== "" ? String(price) : null,
+      volume: volume !== undefined && volume !== "" ? String(volume) : null,
+      dateOrdered: dateOrdered || null,
+      dateDelivered: dateDelivered || null,
     }).returning();
     res.status(201).json(order);
-  } catch {
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "InternalServerError" });
   }
 });

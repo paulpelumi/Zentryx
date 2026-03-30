@@ -146,7 +146,7 @@ router.post("/rooms/:roomId/upload", requireAuth, upload.single("file"), async (
 router.get("/uploads/:filename", (req, res) => {
   const filePath = path.resolve("uploads/chat", req.params.filename);
   res.sendFile(filePath, (err) => {
-    if (err) res.status(404).json({ error: "NotFound" });
+    if (err && !res.headersSent) res.status(404).json({ error: "NotFound" });
   });
 });
 

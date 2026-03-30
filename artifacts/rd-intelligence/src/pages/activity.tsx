@@ -22,6 +22,7 @@ const ENTITY_COLORS: Record<string, string> = {
   user: "text-amber-300",
   comment: "text-rose-300",
   business_dev: "text-emerald-300",
+  account: "text-cyan-300",
 };
 
 function getActionColor(action: string) {
@@ -99,6 +100,7 @@ export default function ActivityFeed() {
     user: "bg-amber-500",
     comment: "bg-rose-500",
     business_dev: "bg-emerald-500",
+    account: "bg-cyan-500",
   };
 
   return (
