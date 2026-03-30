@@ -167,14 +167,13 @@ function ChartPanel({
   );
 }
 
-interface CalendarTooltip { forecast: Forecast; x: number; y: number }
+interface CalendarTooltip { forecast: Forecast; clientX: number; clientY: number }
 
-function ForecastCalendar({ forecasts, filters }: { forecasts: Forecast[]; filters: any }) {
+function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
   const today = new Date();
   const [calDate, setCalDate] = useState(today);
   const [tooltip, setTooltip] = useState<CalendarTooltip | null>(null);
   const [selected, setSelected] = useState<Forecast | null>(null);
-  const calRef = useRef<HTMLDivElement>(null);
 
   const year = calDate.getFullYear();
   const month = calDate.getMonth();
@@ -198,131 +197,212 @@ function ForecastCalendar({ forecasts, filters }: { forecasts: Forecast[]; filte
 
   const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+  const handleEventEnter = (e: React.MouseEvent, f: Forecast) => {
+    setTooltip({ forecast: f, clientX: e.clientX, clientY: e.clientY });
+  };
+  const handleEventLeave = () => setTooltip(null);
+  const handleEventClick = (e: React.MouseEvent, f: Forecast) => {
+    e.stopPropagation();
+    setTooltip(null);
+    setSelected(f);
+  };
+
   return (
-    <div className="glass-card rounded-2xl border border-white/5 overflow-hidden" ref={calRef}>
-      <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">
-        <h3 className="font-semibold text-foreground text-sm">Forecast Calendar</h3>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/30 border border-emerald-500/50" /> High ≥75%</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500/30 border border-amber-500/50" /> Med 50-74%</span>
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-red-500/30 border border-red-500/50" /> Low &lt;50%</span>
+    <>
+      <div className="rounded-2xl border border-white/5 bg-white/3 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 bg-white/2">
+          <h3 className="font-semibold text-foreground text-sm">Forecast Calendar</h3>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-emerald-500/30 border border-emerald-500/50 inline-block" />
+                High ≥75%
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-amber-500/30 border border-amber-500/50 inline-block" />
+                Med 50–74%
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-3 h-3 rounded bg-red-500/30 border border-red-500/50 inline-block" />
+                Low &lt;50%
+              </span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCalDate(new Date(year, month - 1))}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-semibold text-foreground w-32 text-center">
+                {format(calDate, "MMMM yyyy")}
+              </span>
+              <button
+                onClick={() => setCalDate(new Date(year, month + 1))}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-1">
-            <button onClick={() => setCalDate(new Date(year, month - 1))}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors">
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="text-sm font-semibold text-foreground w-28 text-center">
-              {format(calDate, "MMMM yyyy")}
-            </span>
-            <button onClick={() => setCalDate(new Date(year, month + 1))}
-              className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors">
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+        </div>
+
+        {/* Day headers */}
+        <div className="grid grid-cols-7 border-b border-white/5">
+          {DAYS.map(d => (
+            <div key={d} className="px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7">
+          {grid.map((day, i) => {
+            const key = day ? format(day, "yyyy-MM-dd") : null;
+            const dayForecasts = key ? (forecastsByDay.get(key) ?? []) : [];
+            const isToday = day ? isSameDay(day, today) : false;
+            const visible = dayForecasts.slice(0, 3);
+            const extra = dayForecasts.length - 3;
+            return (
+              <div
+                key={i}
+                className={`min-h-[96px] p-1.5 border-r border-b border-white/5 ${i % 7 === 6 ? "border-r-0" : ""} ${!day ? "bg-black/15" : "hover:bg-white/3 transition-colors"}`}
+              >
+                {day && (
+                  <>
+                    <div className={`text-xs font-medium mb-1 w-6 h-6 flex items-center justify-center rounded-full mx-auto ${isToday ? "bg-primary text-white font-bold" : "text-muted-foreground"}`}>
+                      {day.getDate()}
+                    </div>
+                    <div className="space-y-0.5">
+                      {visible.map((f, fi) => (
+                        <div
+                          key={fi}
+                          className={`text-[9px] px-1.5 py-0.5 rounded border cursor-pointer truncate leading-tight select-none ${getCalColor(f.confidence)}`}
+                          onMouseEnter={e => handleEventEnter(e, f)}
+                          onMouseLeave={handleEventLeave}
+                          onMouseMove={e => setTooltip(t => t ? { ...t, clientX: e.clientX, clientY: e.clientY } : null)}
+                          onClick={e => handleEventClick(e, f)}
+                        >
+                          {f.company}
+                        </div>
+                      ))}
+                      {extra > 0 && (
+                        <span className="text-[9px] text-muted-foreground/60 pl-1 block">
+                          +{extra} more
+                        </span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="grid grid-cols-7 border-b border-white/5">
-        {DAYS.map(d => (
-          <div key={d} className="px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            {d}
-          </div>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-7">
-        {grid.map((day, i) => {
-          const dayForecasts = day ? forecastsByDay.get(format(day, "yyyy-MM-dd")) || [] : [];
-          const isToday = day ? isSameDay(day, today) : false;
-          const visible = dayForecasts.slice(0, 2);
-          const extra = dayForecasts.length - 2;
-          return (
-            <div key={i}
-              className={`min-h-[90px] p-1.5 border-r border-b border-white/4 last:border-r-0 ${!day ? "bg-black/10" : "hover:bg-white/2 transition-colors"}`}>
-              {day && (
-                <>
-                  <span className={`text-xs font-medium mb-1 block w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-primary text-white" : "text-muted-foreground"}`}>
-                    {day.getDate()}
-                  </span>
-                  <div className="space-y-0.5">
-                    {visible.map((f, fi) => (
-                      <div key={fi}
-                        className={`text-[9px] px-1 py-0.5 rounded border cursor-pointer truncate leading-tight ${getCalColor(f.confidence)}`}
-                        title={`${f.company} · ${f.productName} · ${f.forecastVolume ?? "?"} kg · ${f.confidence}%`}
-                        onMouseEnter={e => {
-                          const rect = (e.target as HTMLElement).getBoundingClientRect();
-                          const calRect = calRef.current?.getBoundingClientRect();
-                          setTooltip({ forecast: f, x: rect.left - (calRect?.left ?? 0), y: rect.bottom - (calRect?.top ?? 0) + 4 });
-                        }}
-                        onMouseLeave={() => setTooltip(null)}
-                        onClick={() => setSelected(f)}>
-                        {f.company}
-                      </div>
-                    ))}
-                    {extra > 0 && (
-                      <span className="text-[9px] text-muted-foreground pl-1">+{extra} more</span>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          );
-        })}
-      </div>
-
+      {/* Tooltip — rendered outside glass-card via fixed positioning */}
       {tooltip && (
-        <div className="absolute z-50 pointer-events-none bg-[#1e1e2e] border border-white/15 rounded-xl p-3 shadow-2xl text-xs"
-          style={{ left: tooltip.x, top: tooltip.y, minWidth: 200 }}>
-          <p className="font-semibold text-foreground">{tooltip.forecast.company}</p>
-          <p className="text-muted-foreground">{tooltip.forecast.productName}</p>
-          {tooltip.forecast.productType && <p className="text-muted-foreground capitalize">{tooltip.forecast.productType.replace(/_/g, " ")}</p>}
-          <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/10">
-            <span className="text-foreground font-medium">{tooltip.forecast.forecastVolume ?? "—"} kg</span>
-            <span className={`font-semibold ${getConfidenceColor(tooltip.forecast.confidence)}`}>{tooltip.forecast.confidence}%</span>
-            <StatusBadge status={tooltip.forecast.status} />
+        <div
+          className="fixed z-[9999] pointer-events-none"
+          style={{
+            left: Math.min(tooltip.clientX + 14, window.innerWidth - 220),
+            top: tooltip.clientY + 16,
+          }}
+        >
+          <div className="bg-[#1a1a2e] border border-white/20 rounded-xl p-3 shadow-2xl text-xs min-w-[200px]">
+            <p className="font-semibold text-foreground">{tooltip.forecast.company}</p>
+            <p className="text-muted-foreground mt-0.5">{tooltip.forecast.productName}</p>
+            {tooltip.forecast.productType && (
+              <p className="text-muted-foreground/70 capitalize mt-0.5">
+                {tooltip.forecast.productType.replace(/_/g, " ")}
+              </p>
+            )}
+            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/10">
+              <span className="text-foreground font-medium">
+                {tooltip.forecast.forecastVolume ? Number(tooltip.forecast.forecastVolume).toLocaleString() : "—"} kg
+              </span>
+              <span className={`font-bold ${getConfidenceColor(tooltip.forecast.confidence)}`}>
+                {tooltip.forecast.confidence}%
+              </span>
+              <span className={`px-1.5 py-0.5 rounded-full border text-[9px] font-medium ${STATUS_CONFIG[tooltip.forecast.status].badge}`}>
+                {STATUS_CONFIG[tooltip.forecast.status].label}
+              </span>
+            </div>
+            <p className="text-[10px] text-muted-foreground/50 mt-1.5">
+              📅 {tooltip.forecast.forecastDate}
+            </p>
           </div>
         </div>
       )}
 
+      {/* Detail modal — rendered outside glass-card so fixed positioning works */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1e1e2e] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex items-start justify-between mb-4">
-              <h3 className="font-bold text-foreground">{selected.company}</h3>
-              <button onClick={() => setSelected(null)} className="p-1 rounded-lg hover:bg-white/10 text-muted-foreground">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl mx-4"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-5">
+              <div>
+                <h3 className="font-bold text-foreground text-lg">{selected.company}</h3>
+                <p className="text-sm text-muted-foreground mt-0.5">{selected.productName}</p>
+              </div>
+              <button
+                onClick={() => setSelected(null)}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <dl className="space-y-2 text-sm">
-              {[
-                ["Product", selected.productName],
+            <dl className="space-y-3 text-sm">
+              {([
                 ["Product Type", selected.productType?.replace(/_/g, " ") ?? "—"],
                 ["Customer Type", selected.customerType ?? "—"],
                 ["Forecast Date", selected.forecastDate],
-                ["Forecast Volume", `${selected.forecastVolume ?? "—"} kg`],
+                ["Forecast Volume", selected.forecastVolume ? `${Number(selected.forecastVolume).toLocaleString()} kg` : "—"],
                 ["Last Order Date", selected.lastOrderDate ?? "—"],
-                ["Last Order Volume", selected.lastOrderVolume ? `${selected.lastOrderVolume} kg` : "—"],
-              ].map(([k, v]) => (
-                <div key={k} className="flex justify-between">
-                  <dt className="text-muted-foreground">{k}</dt>
-                  <dd className="font-medium text-foreground capitalize">{v}</dd>
+                ["Last Order Volume", selected.lastOrderVolume ? `${Number(selected.lastOrderVolume).toLocaleString()} kg` : "—"],
+              ] as [string, string][]).map(([k, v]) => (
+                <div key={k} className="flex justify-between items-center gap-4 py-1.5 border-b border-white/5 last:border-0">
+                  <dt className="text-muted-foreground shrink-0">{k}</dt>
+                  <dd className="font-medium text-foreground capitalize text-right">{v}</dd>
                 </div>
               ))}
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center py-1.5">
                 <dt className="text-muted-foreground">Confidence</dt>
-                <dd className={`font-bold ${getConfidenceColor(selected.confidence)}`}>{selected.confidence}%</dd>
+                <dd className="flex items-center gap-2">
+                  <div className="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${selected.confidence >= 75 ? "bg-emerald-500" : selected.confidence >= 50 ? "bg-amber-500" : "bg-red-500"}`}
+                      style={{ width: `${selected.confidence}%` }}
+                    />
+                  </div>
+                  <span className={`font-bold ${getConfidenceColor(selected.confidence)}`}>
+                    {selected.confidence}%
+                  </span>
+                </dd>
               </div>
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center py-1.5">
                 <dt className="text-muted-foreground">Status</dt>
-                <dd><StatusBadge status={selected.status} /></dd>
+                <dd>
+                  <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${STATUS_CONFIG[selected.status].badge}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[selected.status].dot}`} />
+                    {STATUS_CONFIG[selected.status].label}
+                  </span>
+                </dd>
               </div>
             </dl>
+            <button
+              onClick={() => setSelected(null)}
+              className="mt-5 w-full px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/8 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Close
+            </button>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -790,7 +870,7 @@ export default function SalesForecastPage() {
 
       {/* ── Calendar Forecast ── */}
       <div className="relative">
-        <ForecastCalendar forecasts={filteredForecasts} filters={{}} />
+        <ForecastCalendar forecasts={filteredForecasts} />
       </div>
 
       {showNotify && <NotifyModal onClose={() => setShowNotify(false)} users={users} />}
