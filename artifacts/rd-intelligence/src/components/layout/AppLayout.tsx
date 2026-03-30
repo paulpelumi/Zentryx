@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Link, useLocation, useRouter } from "wouter";
+import { useState, useEffect, useRef } from "react";
+import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, FlaskConical, LineChart, Users, Bell, Activity,
   Search, LogOut, Menu, X, MessageSquare, Briefcase, Sun, Moon, Zap,
   ChevronDown, User, FlaskConical as Flask, CheckSquare, Building2,
-  ArrowRight, Loader2, CalendarDays, UserCircle, TrendingUp, ClipboardList
+  ArrowRight, Loader2, CalendarDays, UserCircle, TrendingUp, ClipboardList,
+  PanelLeftClose, PanelLeftOpen, Lock, Unlock
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -13,6 +14,9 @@ import { useGetCurrentUser, useListNotifications } from "@workspace/api-client-r
 import { motion, AnimatePresence } from "framer-motion";
 
 const BASE = import.meta.env.BASE_URL;
+
+const SIDEBAR_LOCK_KEY = "zentryx_sidebar_locked";
+const SIDEBAR_COLLAPSED_KEY = "zentryx_sidebar_collapsed";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -201,7 +205,6 @@ function GlobalSearch({ isLight }: { isLight: boolean }) {
               <span className="text-xs text-muted-foreground">{totalResults} result{totalResults !== 1 ? "s" : ""} for <span className="text-foreground font-medium">"{query}"</span></span>
               <button onClick={() => { setQuery(""); setOpen(false); }} className="text-muted-foreground hover:text-foreground p-0.5"><X className="w-3.5 h-3.5" /></button>
             </div>
-
             {Object.entries(CATEGORY_META).map(([key, meta]) => {
               const items: any[] = results[key] || [];
               if (items.length === 0) return null;
@@ -263,10 +266,41 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [chatUnread, setChatUnread] = useState(false);
 
+  const [sidebarLocked, setSidebarLocked] = useState<boolean>(() => {
+    const stored = localStorage.getItem(SIDEBAR_LOCK_KEY);
+    return stored === null ? true : stored === "true";
+  });
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true";
+  });
+
   const { data: user } = useGetCurrentUser();
   const { data: notifications } = useListNotifications();
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
   const isLight = theme === "light";
+
+  const isCollapsed = !sidebarLocked && sidebarCollapsed;
+
+  const toggleCollapse = () => {
+    if (sidebarLocked) return;
+    setSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(next));
+      return next;
+    });
+  };
+
+  const toggleLock = () => {
+    setSidebarLocked(prev => {
+      const next = !prev;
+      localStorage.setItem(SIDEBAR_LOCK_KEY, String(next));
+      if (next) {
+        setSidebarCollapsed(false);
+        localStorage.setItem(SIDEBAR_COLLAPSED_KEY, "false");
+      }
+      return next;
+    });
+  };
 
   useEffect(() => {
     const check = () => setChatUnread(!!localStorage.getItem("rd_chat_unread"));
@@ -280,77 +314,193 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   }, [location]);
 
   return (
-    <div className={cn("min-h-screen flex flex-col md:flex-row overflow-hidden", isLight ? "light-app-bg" : "bg-background")}>
-      {/* Sidebar */}
-      <aside className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 border-r transform transition-transform duration-300 ease-in-out md:relative md:translate-x-0 flex flex-col",
-        isMobileMenuOpen ? "translate-x-0" : "-translate-x-full",
-        isLight ? "light-sidebar" : "glass-panel border-white/5"
-      )}>
-        <div className={cn("h-16 flex items-center px-6 border-b", isLight ? "border-white/40" : "border-white/5")}>
-          <div className="flex items-center gap-2">
-            <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30", isLight && "logo-glow")}>
+    <div className={cn("h-screen flex overflow-hidden", isLight ? "light-app-bg" : "bg-background")}>
+
+      {/* ─── SIDEBAR ─────────────────────────────────────────────── */}
+      <aside
+        style={{ width: isCollapsed ? 64 : 256 }}
+        className={cn(
+          "flex-shrink-0 flex flex-col border-r z-50 overflow-hidden",
+          "transition-[width] duration-300 ease-in-out",
+          /* Mobile: slide in over content as fixed overlay */
+          "fixed inset-y-0 left-0",
+          "md:relative md:translate-x-0",
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          isLight ? "light-sidebar" : "glass-panel border-white/5"
+        )}
+      >
+        {/* Sidebar Header */}
+        <div className={cn(
+          "h-16 flex items-center border-b shrink-0 gap-1.5",
+          isCollapsed ? "justify-center px-2" : "px-4",
+          isLight ? "border-white/40" : "border-white/5"
+        )}>
+          <div className={cn("flex items-center gap-2", isCollapsed ? "" : "flex-1 min-w-0")}>
+            <div className={cn("w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30 shrink-0", isLight && "logo-glow")}>
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="font-display font-bold text-xl tracking-wide text-gradient">Zentryx</span>
+            {!isCollapsed && (
+              <span className="font-display font-bold text-xl tracking-wide text-gradient truncate">Zentryx</span>
+            )}
           </div>
-          <button className="md:hidden ml-auto text-muted-foreground hover:text-foreground" onClick={() => setIsMobileMenuOpen(false)}>
-            <X className="w-5 h-5" />
-          </button>
+
+          {/* Mobile close */}
+          {!isCollapsed && (
+            <button className="md:hidden text-muted-foreground hover:text-foreground shrink-0 ml-auto" onClick={() => setIsMobileMenuOpen(false)}>
+              <X className="w-5 h-5" />
+            </button>
+          )}
+
+          {/* Desktop collapse + lock controls */}
+          {!isCollapsed && (
+            <div className="hidden md:flex items-center gap-0.5 ml-auto shrink-0">
+              <button
+                onClick={toggleLock}
+                title={sidebarLocked ? "Unlock sidebar" : "Lock sidebar open"}
+                className={cn(
+                  "p-1.5 rounded-lg transition-colors",
+                  sidebarLocked
+                    ? "text-primary bg-primary/10 hover:bg-primary/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/10"
+                )}
+              >
+                {sidebarLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+              </button>
+              <button
+                onClick={toggleCollapse}
+                title="Collapse sidebar"
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+              >
+                <PanelLeftClose className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
-        <div className="flex-1 overflow-y-auto py-6 px-3 custom-scrollbar">
+        {/* Nav Items */}
+        <div className={cn("flex-1 overflow-y-auto custom-scrollbar py-4", isCollapsed ? "px-1.5" : "px-3")}>
           <div className="space-y-1">
             {navItems.map((item) => {
               const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
               const isChatWithUnread = item.href === "/chat" && chatUnread && !isActive;
-              return (
-                <Link key={item.href} href={item.href}
+
+              const navLink = (
+                <Link
+                  key={item.href}
+                  href={item.href}
                   className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group font-medium relative",
+                    "flex items-center rounded-xl transition-all duration-200 group font-medium relative",
+                    isCollapsed ? "justify-center p-2.5" : "gap-3 px-3 py-2.5",
                     isActive
                       ? isLight ? "light-nav-active" : "bg-primary/10 text-primary border border-primary/20 shadow-inner"
                       : isLight ? "light-nav-item" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
                   )}
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <div className="relative">
+                  <div className="relative shrink-0">
                     <item.icon className={cn(
                       "w-5 h-5 transition-transform group-hover:scale-110",
-                      isActive
-                        ? isLight ? "text-white" : "text-primary"
-                        : ""
+                      isActive ? (isLight ? "text-white" : "text-primary") : ""
                     )} />
-                    {isChatWithUnread && <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />}
+                    {isChatWithUnread && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+                    )}
                   </div>
-                  {item.label}
-                  {isChatWithUnread && <span className="ml-auto text-[9px] font-bold text-red-400 uppercase tracking-wider">New</span>}
+                  {!isCollapsed && (
+                    <>
+                      <span className="truncate">{item.label}</span>
+                      {isChatWithUnread && (
+                        <span className="ml-auto text-[9px] font-bold text-red-400 uppercase tracking-wider">New</span>
+                      )}
+                    </>
+                  )}
                 </Link>
               );
+
+              if (isCollapsed) {
+                return (
+                  <div key={item.href} className="relative group/tip">
+                    {navLink}
+                    {/* Tooltip */}
+                    <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150 z-[100]">
+                      <div className={cn(
+                        "text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-xl font-medium",
+                        isLight ? "bg-gray-900 text-white" : "bg-white text-gray-900"
+                      )}>
+                        {item.label}
+                        {isChatWithUnread && <span className="ml-1.5 text-red-400 font-bold">●</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return navLink;
             })}
           </div>
         </div>
+
+        {/* Collapsed footer: expand + lock buttons */}
+        {isCollapsed && (
+          <div className={cn("shrink-0 pb-3 px-1.5 flex flex-col gap-1 border-t pt-3", isLight ? "border-slate-200" : "border-white/5")}>
+            <div className="relative group/tip">
+              <button
+                onClick={toggleCollapse}
+                title="Expand sidebar"
+                className="w-full flex justify-center p-2.5 rounded-xl text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors"
+              >
+                <PanelLeftOpen className="w-4 h-4" />
+              </button>
+              <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover/tip:opacity-100 transition-opacity z-[100]">
+                <div className={cn("text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-xl font-medium", isLight ? "bg-gray-900 text-white" : "bg-white text-gray-900")}>
+                  Expand sidebar
+                </div>
+              </div>
+            </div>
+            <div className="relative group/tip">
+              <button
+                onClick={toggleLock}
+                className={cn(
+                  "w-full flex justify-center p-2.5 rounded-xl transition-colors",
+                  sidebarLocked ? "text-primary bg-primary/10 hover:bg-primary/20" : "text-muted-foreground hover:text-foreground hover:bg-white/10"
+                )}
+              >
+                {sidebarLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+              </button>
+              <div className="absolute left-full ml-2.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-0 group-hover/tip:opacity-100 transition-opacity z-[100]">
+                <div className={cn("text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-xl font-medium", isLight ? "bg-gray-900 text-white" : "bg-white text-gray-900")}>
+                  {sidebarLocked ? "Unlock sidebar" : "Lock sidebar open"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* ─── MAIN AREA ───────────────────────────────────────────── */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Top Header — fixed as part of flex column, never scrolls */}
         <header className={cn(
-          "h-16 flex items-center justify-between px-4 sm:px-6 z-40 sticky top-0 border-b gap-3",
+          "h-16 flex items-center justify-between px-4 sm:px-6 z-40 border-b gap-3 shrink-0",
           isLight ? "light-header" : "glass-panel border-white/5"
         )}>
           <div className="flex items-center gap-3 flex-1 min-w-0">
-            <button className="md:hidden p-2 text-muted-foreground hover:text-foreground shrink-0" onClick={() => setIsMobileMenuOpen(true)}>
+            {/* Mobile hamburger */}
+            <button
+              className="md:hidden p-2 text-muted-foreground hover:text-foreground shrink-0"
+              onClick={() => setIsMobileMenuOpen(true)}
+            >
               <Menu className="w-6 h-6" />
             </button>
 
-            {/* Welcome Greeting */}
+            {/* Greeting */}
             {user?.name && (
               <div className="hidden lg:flex flex-col leading-tight shrink-0">
                 <span className="text-[11px] text-muted-foreground">{getGreeting()},</span>
                 <span className="text-sm font-semibold text-foreground leading-tight">{user.name.split(" ")[0]} 👋</span>
               </div>
             )}
-
             {user?.name && <div className="hidden lg:block w-px h-6 bg-white/10 shrink-0" />}
 
             <div className="hidden sm:block flex-1 min-w-0">
@@ -359,9 +509,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button onClick={toggleTheme}
+            <button
+              onClick={toggleTheme}
               className={cn("p-2 rounded-full transition-colors", isLight ? "hover:bg-slate-100 text-slate-600" : "hover:bg-white/10 text-muted-foreground hover:text-foreground")}
-              title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}>
+              title={isLight ? "Switch to Dark Mode" : "Switch to Light Mode"}
+            >
               {isLight ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </button>
 
@@ -369,24 +521,38 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               isLight ? "hover:bg-slate-100 text-slate-600" : "hover:bg-white/10 text-muted-foreground hover:text-foreground"
             )}>
               <Bell className="w-5 h-5" />
-              {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_rgba(255,0,0,0.8)] animate-pulse" />}
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_rgba(255,0,0,0.8)] animate-pulse" />
+              )}
             </Link>
 
             <UserMenu user={user} logout={logout} isLight={isLight} />
           </div>
         </header>
 
+        {/* Scrollable Content — ONLY this div scrolls */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8 relative">
           <AnimatePresence mode="wait">
-            <motion.div key={location} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }} className="max-w-7xl mx-auto">
+            <motion.div
+              key={location}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.2 }}
+              className="max-w-7xl mx-auto"
+            >
               {children}
             </motion.div>
           </AnimatePresence>
         </div>
-      </main>
+      </div>
 
+      {/* Mobile overlay backdrop */}
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden" onClick={() => setIsMobileMenuOpen(false)} />
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
       )}
     </div>
   );

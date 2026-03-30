@@ -84,6 +84,11 @@
 @layer base {
   * { @apply border-border; }
 
+  html, body, #root {
+    height: 100%;
+    overflow: hidden;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased selection:bg-primary/20 selection:text-foreground;
     transition: background-color 0.4s ease, color 0.3s ease;
