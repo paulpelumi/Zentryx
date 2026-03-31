@@ -607,30 +607,31 @@ function EditBDModal({ item, users, onUpdate, onClose }: { item: any; users: any
   const { theme: _editTheme } = useTheme();
   const isLight = _editTheme === "light";
   const cls = cn("flex h-10 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20");
+  const lbl = cn("text-sm font-medium", isLight ? "text-gray-900" : "");
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className={cn("sm:max-w-[640px] max-h-[90vh] overflow-y-auto", isLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
+      <DialogContent className={cn("sm:max-w-[640px] max-h-[90vh] overflow-y-auto", isLight ? "bg-white border-gray-200 [&>button]:text-gray-900 [&>button]:opacity-100" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader><DialogTitle className="text-xl font-display">Edit BD Item — {item.name}</DialogTitle></DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Title *</label><input value={form.name} onChange={e => setF("name", e.target.value)} className={cls} /></div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} className={cn("flex min-h-[60px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20")} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Stage</label><select value={form.stage} onChange={e => setF("stage", e.target.value)} className={cls}>{STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Status</label><select value={form.status} onChange={e => setF("status", e.target.value)} className={cls}>{STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Priority</label><select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>{PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Product Type</label><select value={form.productType} onChange={e => setF("productType", e.target.value)} className={cls}><option value="" className="bg-card">Select...</option>{PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}</select></div>
-            <div className={cn("sm:col-span-2 border-t pt-2", isLight ? "border-gray-100" : "border-white/10")}><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer</p></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} className={cls} placeholder="Customer name" /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} className={cls} placeholder="email@example.com" /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} className={cls} placeholder="+27 xx xxx xxxx" /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Cost Target (USD $)</label><input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} className={cls} placeholder="0.00" /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Start Date</label><input type="date" value={form.startDate} onChange={e => setF("startDate", e.target.value)} className={cls} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Due Date</label><input type="date" value={form.targetDate} onChange={e => setF("targetDate", e.target.value)} className={cls} /></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className={lbl}>Title *</label><input value={form.name} onChange={e => setF("name", e.target.value)} className={cls} /></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className={lbl}>Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} className={cn("flex min-h-[60px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20")} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Stage</label><select value={form.stage} onChange={e => setF("stage", e.target.value)} className={cls}>{STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
+            <div className="space-y-1.5"><label className={lbl}>Status</label><select value={form.status} onChange={e => setF("status", e.target.value)} className={cls}>{STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
+            <div className="space-y-1.5"><label className={lbl}>Priority</label><select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>{PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}</select></div>
+            <div className="space-y-1.5"><label className={lbl}>Product Type</label><select value={form.productType} onChange={e => setF("productType", e.target.value)} className={cls}><option value="" className="bg-card">Select...</option>{PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}</select></div>
+            <div className={cn("sm:col-span-2 border-t pt-2", isLight ? "border-gray-100" : "border-white/10")}><p className={cn("text-xs font-semibold uppercase tracking-wide mb-2", isLight ? "text-gray-500" : "text-muted-foreground")}>Customer</p></div>
+            <div className="space-y-1.5"><label className={lbl}>Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} className={cls} placeholder="Customer name" /></div>
+            <div className="space-y-1.5"><label className={lbl}>Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} className={cls} placeholder="email@example.com" /></div>
+            <div className="space-y-1.5"><label className={lbl}>Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} className={cls} placeholder="+27 xx xxx xxxx" /></div>
+            <div className="space-y-1.5"><label className={lbl}>Cost Target (USD $)</label><input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} className={cls} placeholder="0.00" /></div>
+            <div className="space-y-1.5"><label className={lbl}>Start Date</label><input type="date" value={form.startDate} onChange={e => setF("startDate", e.target.value)} className={cls} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Due Date</label><input type="date" value={form.targetDate} onChange={e => setF("targetDate", e.target.value)} className={cls} /></div>
           </div>
           {users.length > 0 && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Assignees</label>
+              <label className={lbl}>Assignees</label>
               <div className={cn("flex flex-wrap gap-2 p-3 rounded-xl border max-h-28 overflow-y-auto", isLight ? "border-gray-200 bg-gray-50" : "border-white/10 bg-black/10")}>
                 {users.map(u => (
                   <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
@@ -678,31 +679,32 @@ function CreateBDModal({ users, onCreate }: { users: any[]; onCreate: (data: any
   const { theme: _createTheme } = useTheme();
   const isLight = _createTheme === "light";
   const cls = cn("flex h-10 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20");
+  const lbl = cn("text-sm font-medium", isLight ? "text-gray-900" : "");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button className="gap-2"><Plus className="w-4 h-4" /> New BD Item</Button></DialogTrigger>
-      <DialogContent className={cn("sm:max-w-[620px] max-h-[90vh] overflow-y-auto", isLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
+      <DialogContent className={cn("sm:max-w-[620px] max-h-[90vh] overflow-y-auto", isLight ? "bg-white border-gray-200 [&>button]:text-gray-900 [&>button]:opacity-100" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader><DialogTitle className="text-xl font-display">New Business Development</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Title *</label><input required value={form.name} onChange={e => setF("name", e.target.value)} placeholder="e.g. Seasoning Launch for Client X" className={cls} /></div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="BD opportunity details..." className={cn("flex min-h-[60px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20")} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Stage</label><select value={form.stage} onChange={e => setF("stage", e.target.value)} className={cls}>{STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Status</label><select value={form.status} onChange={e => setF("status", e.target.value)} className={cls}>{STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Priority</label><select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>{PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}</select></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Product Type</label><select value={form.productType} onChange={e => setF("productType", e.target.value)} className={cls}><option value="" className="bg-card">Select type...</option>{PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}</select></div>
-            <div className={cn("sm:col-span-2 border-t pt-2", isLight ? "border-gray-100" : "border-white/10")}><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer Info</p></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Customer Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} placeholder="Customer name" className={cls} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} placeholder="email@example.com" className={cls} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} placeholder="+27 xx xxx xxxx" className={cls} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Cost Target (USD $)</label><input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} placeholder="0.00" className={cls} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Start Date</label><input type="date" value={form.startDate} onChange={e => setF("startDate", e.target.value)} className={cls} /></div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Due Date</label><input type="date" value={form.targetDate} onChange={e => setF("targetDate", e.target.value)} className={cls} /></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className={lbl}>Title *</label><input required value={form.name} onChange={e => setF("name", e.target.value)} placeholder="e.g. Seasoning Launch for Client X" className={cls} /></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className={lbl}>Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="BD opportunity details..." className={cn("flex min-h-[60px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20")} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Stage</label><select value={form.stage} onChange={e => setF("stage", e.target.value)} className={cls}>{STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
+            <div className="space-y-1.5"><label className={lbl}>Status</label><select value={form.status} onChange={e => setF("status", e.target.value)} className={cls}>{STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
+            <div className="space-y-1.5"><label className={lbl}>Priority</label><select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>{PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}</select></div>
+            <div className="space-y-1.5"><label className={lbl}>Product Type</label><select value={form.productType} onChange={e => setF("productType", e.target.value)} className={cls}><option value="" className="bg-card">Select type...</option>{PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}</select></div>
+            <div className={cn("sm:col-span-2 border-t pt-2", isLight ? "border-gray-100" : "border-white/10")}><p className={cn("text-xs font-semibold uppercase tracking-wide mb-2", isLight ? "text-gray-500" : "text-muted-foreground")}>Customer Info</p></div>
+            <div className="space-y-1.5"><label className={lbl}>Customer Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} placeholder="Customer name" className={cls} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} placeholder="email@example.com" className={cls} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} placeholder="+27 xx xxx xxxx" className={cls} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Cost Target (USD $)</label><input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} placeholder="0.00" className={cls} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Start Date</label><input type="date" value={form.startDate} onChange={e => setF("startDate", e.target.value)} className={cls} /></div>
+            <div className="space-y-1.5"><label className={lbl}>Due Date</label><input type="date" value={form.targetDate} onChange={e => setF("targetDate", e.target.value)} className={cls} /></div>
           </div>
           {users.length > 0 && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Assignees</label>
+              <label className={lbl}>Assignees</label>
               <div className={cn("flex flex-wrap gap-2 p-3 rounded-xl border max-h-28 overflow-y-auto", isLight ? "border-gray-200 bg-gray-50" : "border-white/10 bg-black/10")}>
                 {users.map(u => (
                   <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}

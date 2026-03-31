@@ -100,10 +100,10 @@ function ResizeHandle({ onMouseDown, isLight }: { onMouseDown: (e: React.MouseEv
 function ExpandOverlay({ title, isLight, onClose, children }: { title: string; isLight: boolean; onClose: () => void; children: React.ReactNode }) {
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col p-6">
+      className={cn("fixed inset-0 z-50 backdrop-blur-sm flex flex-col p-6", isLight ? "bg-white/90" : "bg-black/90")}>
       <div className="flex items-center justify-between mb-6">
         <h2 className={cn("text-xl font-bold", isLight ? "text-gray-900" : "text-foreground")}>{title}</h2>
-        <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl text-muted-foreground hover:text-foreground">
+        <button onClick={onClose} className={cn("p-2 rounded-xl transition-colors", isLight ? "text-gray-800 hover:bg-gray-100 hover:text-gray-900" : "text-muted-foreground hover:bg-white/10 hover:text-foreground")}>
           <Minimize2 className="w-5 h-5" />
         </button>
       </div>

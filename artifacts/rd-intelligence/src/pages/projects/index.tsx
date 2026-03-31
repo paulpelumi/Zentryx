@@ -341,94 +341,95 @@ function CreateProjectModal({ users }: { users: any[] }) {
 
   const inputCls = `flex h-10 w-full rounded-xl border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground ${isCpmLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"}`;
   const selectCls = `flex h-10 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground ${isCpmLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"}`;
+  const labelCls = cn("text-sm font-medium", isCpmLight ? "text-gray-900" : "");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-2"><Plus className="w-4 h-4" /> New Project</Button>
       </DialogTrigger>
-      <DialogContent className={cn("sm:max-w-[650px] max-h-[90vh] overflow-y-auto", isCpmLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
+      <DialogContent className={cn("sm:max-w-[650px] max-h-[90vh] overflow-y-auto", isCpmLight ? "bg-white border-gray-200 [&>button]:text-gray-900 [&>button]:opacity-100" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader>
           <DialogTitle className="text-xl font-display">Create New Project</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium">Project Title *</label>
+              <label className={labelCls}>Project Title *</label>
               <input required value={form.name} onChange={e => setF("name", e.target.value)} placeholder="Project name..." className={inputCls} />
             </div>
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium">Description</label>
+              <label className={labelCls}>Description</label>
               <textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="Project objectives..." className={`flex min-h-[70px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground ${isCpmLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"}`} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Stage</label>
+              <label className={labelCls}>Stage</label>
               <select value={form.stage} onChange={e => setF("stage", e.target.value)} className={selectCls}>
                 {STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g, " ")}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Status</label>
+              <label className={labelCls}>Status</label>
               <select value={form.status} onChange={e => setF("status", e.target.value)} className={selectCls}>
                 {STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g, " ")}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Priority</label>
+              <label className={labelCls}>Priority</label>
               <select value={form.priority} onChange={e => setF("priority", e.target.value)} className={selectCls}>
                 {["low", "medium", "high", "critical"].map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Product Type</label>
+              <label className={labelCls}>Product Type</label>
               <select value={form.productType} onChange={e => setF("productType", e.target.value)} className={selectCls}>
                 <option value="" className="bg-card">Select type...</option>
                 {PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}
               </select>
             </div>
             <div className={`sm:col-span-2 border-t pt-3 ${isCpmLight ? "border-gray-200" : "border-white/10"}`}>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Customer Information</p>
+              <p className={cn("text-sm font-semibold uppercase tracking-wide mb-3", isCpmLight ? "text-gray-500" : "text-muted-foreground")}>Customer Information</p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Customer Name</label>
+              <label className={labelCls}>Customer Name</label>
               <input value={form.customerName} onChange={e => setF("customerName", e.target.value)} placeholder="Customer / Client name" className={inputCls} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Customer Email</label>
+              <label className={labelCls}>Customer Email</label>
               <input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} placeholder="customer@email.com" className={inputCls} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Customer Phone</label>
+              <label className={labelCls}>Customer Phone</label>
               <input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} placeholder="+1 234 567 8900" className={inputCls} />
             </div>
             <div className={`sm:col-span-2 border-t pt-3 ${isCpmLight ? "border-gray-200" : "border-white/10"}`}>
-              <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Financial Details</p>
+              <p className={cn("text-sm font-semibold uppercase tracking-wide mb-3", isCpmLight ? "text-gray-500" : "text-muted-foreground")}>Financial Details</p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Cost Target ($)</label>
+              <label className={labelCls}>Cost Target ($)</label>
               <input type="number" value={form.costTarget} onChange={e => setF("costTarget", e.target.value)} placeholder="0.00" className={inputCls} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Selling Price (USD $)</label>
+              <label className={labelCls}>Selling Price (USD $)</label>
               <input type="number" value={form.sellingPrice} onChange={e => setF("sellingPrice", e.target.value)} placeholder="0.00" className={inputCls} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Volume (kg/Month)</label>
+              <label className={labelCls}>Volume (kg/Month)</label>
               <input type="number" value={form.volumeKgPerMonth} onChange={e => setF("volumeKgPerMonth", e.target.value)} placeholder="0" className={inputCls} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Start Date</label>
+              <label className={labelCls}>Start Date</label>
               <input type="date" value={form.startDate} onChange={e => setF("startDate", e.target.value)} className={inputCls} />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Due Date</label>
+              <label className={labelCls}>Due Date</label>
               <input type="date" value={form.targetDate} onChange={e => setF("targetDate", e.target.value)} className={inputCls} />
             </div>
           </div>
 
           {users.length > 0 && (
             <div className="space-y-2">
-              <label className="text-sm font-medium">Assignees</label>
+              <label className={labelCls}>Assignees</label>
               <div className={`flex flex-wrap gap-2 p-3 rounded-xl border max-h-32 overflow-y-auto ${isCpmLight ? "border-gray-200 bg-gray-50" : "border-white/10 bg-black/10"}`}>
                 {users.map(u => (
                   <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}

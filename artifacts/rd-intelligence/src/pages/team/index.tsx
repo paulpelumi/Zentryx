@@ -336,28 +336,28 @@ function AddMemberModal({ departments, roles, onSuccess }: { departments: string
       <DialogTrigger asChild>
         <Button className="gap-2"><Plus className="w-4 h-4" /> Add Member</Button>
       </DialogTrigger>
-      <DialogContent className={cn("sm:max-w-[500px]", isLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
+      <DialogContent className={cn("sm:max-w-[500px]", isLight ? "bg-white border-gray-200 [&>button]:text-gray-900 [&>button]:opacity-100" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader><DialogTitle className="text-xl font-display">Add Team Member</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2 space-y-1.5"><label className="text-sm font-medium">Full Name *</label><input required value={form.name} onChange={e => setF("name", e.target.value)} placeholder="Jane Smith" className={cls} /></div>
-            <div className="col-span-2 space-y-1.5"><label className="text-sm font-medium">Email Address *</label><input required type="email" value={form.email} onChange={e => setF("email", e.target.value)} placeholder="jane@company.com" className={cls} /></div>
-            <div className="col-span-2 space-y-1.5"><label className="text-sm font-medium">Temporary Password *</label><input required type="password" value={form.password} onChange={e => setF("password", e.target.value)} placeholder="Minimum 6 characters" className={cls} /></div>
+            <div className="col-span-2 space-y-1.5"><label className={cn("text-sm font-medium", isLight ? "text-gray-900" : "")}>Full Name *</label><input required value={form.name} onChange={e => setF("name", e.target.value)} placeholder="Jane Smith" className={cls} /></div>
+            <div className="col-span-2 space-y-1.5"><label className={cn("text-sm font-medium", isLight ? "text-gray-900" : "")}>Email Address *</label><input required type="email" value={form.email} onChange={e => setF("email", e.target.value)} placeholder="jane@company.com" className={cls} /></div>
+            <div className="col-span-2 space-y-1.5"><label className={cn("text-sm font-medium", isLight ? "text-gray-900" : "")}>Temporary Password *</label><input required type="password" value={form.password} onChange={e => setF("password", e.target.value)} placeholder="Minimum 6 characters" className={cls} /></div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Role *</label>
+              <label className={cn("text-sm font-medium", isLight ? "text-gray-900" : "")}>Role *</label>
               <select required value={form.role} onChange={e => setF("role", e.target.value)} className={cls}>
                 {roles.map(r => <option key={r.value} value={r.value} className="bg-card">{r.label}</option>)}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Department</label>
+              <label className={cn("text-sm font-medium", isLight ? "text-gray-900" : "")}>Department</label>
               <select value={form.department} onChange={e => setF("department", e.target.value)} className={cls}>
                 <option value="" className="bg-card">No Department</option>
                 {departments.map(d => <option key={d} value={d} className="bg-card">{d}</option>)}
               </select>
             </div>
             <div className="col-span-2 space-y-1.5">
-              <label className="text-sm font-medium">Status</label>
+              <label className={cn("text-sm font-medium", isLight ? "text-gray-900" : "")}>Status</label>
               <select value={String(form.isActive)} onChange={e => setF("isActive", e.target.value === "true")} className={cls}>
                 <option value="true" className="bg-card">Active</option>
                 <option value="false" className="bg-card">Inactive</option>
