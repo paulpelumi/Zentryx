@@ -223,9 +223,9 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
 
   return (
     <>
-      <div className={`rounded-2xl border overflow-hidden ${isCalLight ? "border-gray-200 bg-gray-50" : "border-white/5 bg-white/3"}`}>
+      <div className={`rounded-2xl border overflow-hidden ${isCalLight ? "border-gray-200 bg-white" : "border-white/5 bg-white/3"}`}>
         {/* Header */}
-        <div className={`flex items-center justify-between px-5 py-4 border-b ${isCalLight ? "border-gray-200 bg-white" : "border-white/5 bg-white/2"}`}>
+        <div className={`flex items-center justify-between px-5 py-4 border-b ${isCalLight ? "border-gray-100 bg-white" : "border-white/5 bg-white/2"}`}>
           <h3 className="font-semibold text-foreground text-sm">Forecast Calendar</h3>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -245,7 +245,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCalDate(new Date(year, month - 1))}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors">
+                className={`p-1.5 rounded-lg transition-colors text-muted-foreground ${isCalLight ? "hover:bg-gray-100" : "hover:bg-white/10"}`}>
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <span className="text-sm font-semibold text-foreground w-32 text-center">
@@ -253,7 +253,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
               </span>
               <button
                 onClick={() => setCalDate(new Date(year, month + 1))}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground transition-colors">
+                className={`p-1.5 rounded-lg transition-colors text-muted-foreground ${isCalLight ? "hover:bg-gray-100" : "hover:bg-white/10"}`}>
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -280,7 +280,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
             return (
               <div
                 key={i}
-                className={`min-h-[96px] p-1.5 border-r border-b ${isCalLight ? "border-gray-100" : "border-white/5"} ${i % 7 === 6 ? "border-r-0" : ""} ${!day ? (isCalLight ? "bg-gray-100" : "bg-black/15") : (isCalLight ? "hover:bg-gray-50 transition-colors" : "hover:bg-white/3 transition-colors")}`}
+                className={`min-h-[96px] p-1.5 border-r border-b ${isCalLight ? "border-gray-100" : "border-white/5"} ${i % 7 === 6 ? "border-r-0" : ""} ${!day ? (isCalLight ? "bg-gray-50" : "bg-black/15") : (isCalLight ? "hover:bg-blue-50/40 transition-colors" : "hover:bg-white/3 transition-colors")}`}
               >
                 {day && (
                   <>

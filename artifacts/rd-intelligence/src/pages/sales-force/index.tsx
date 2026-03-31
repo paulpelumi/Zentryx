@@ -213,7 +213,9 @@ function AddAccountModal({ onSuccess }: { onSuccess: () => void }) {
     competitorReference: "",
   });
   const setF = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
-  const iCls = "w-full h-10 rounded-xl border border-white/10 bg-black/30 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+  const { theme: _aaTheme } = useTheme();
+  const isLight = _aaTheme === "light";
+  const iCls = cn("w-full h-10 rounded-xl border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/30");
   const lCls = "text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1 block";
 
   const toggleManager = (id: number) => {
@@ -258,13 +260,13 @@ function AddAccountModal({ onSuccess }: { onSuccess: () => void }) {
         {open && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="glass-panel border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
-              <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+              className={cn("border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col", isLight ? "bg-white border-gray-200" : "glass-panel border-white/10")}>
+              <div className={cn("flex items-center justify-between px-6 py-4 border-b", isLight ? "border-gray-100" : "border-white/5")}>
                 <div>
                   <h2 className="text-lg font-bold text-foreground">Sales Request Form</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">Create a new account record</p>
                 </div>
-                <button onClick={() => setOpen(false)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"><X className="w-5 h-5" /></button>
+                <button onClick={() => setOpen(false)} className={cn("p-1.5 rounded-lg transition-colors", isLight ? "hover:bg-gray-100 text-gray-500" : "hover:bg-white/10")}><X className="w-5 h-5" /></button>
               </div>
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar">
                 <div className="p-6 space-y-5">
@@ -321,7 +323,7 @@ function AddAccountModal({ onSuccess }: { onSuccess: () => void }) {
                       <div className="flex gap-2 flex-wrap">
                         {URGENCY.map(u => (
                           <button key={u.value} type="button" onClick={() => setF("urgencyLevel", u.value)}
-                            className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all", form.urgencyLevel === u.value ? cn(u.bg, u.color) : "border-white/10 text-muted-foreground hover:border-white/20")}>
+                            className={cn("flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-medium transition-all", form.urgencyLevel === u.value ? cn(u.bg, u.color) : isLight ? "border-gray-200 text-gray-500 hover:border-gray-300" : "border-white/10 text-muted-foreground hover:border-white/20")}>
                             <span className={cn("w-2 h-2 rounded-full", u.dot)} />{u.label}
                           </button>
                         ))}
@@ -338,7 +340,7 @@ function AddAccountModal({ onSuccess }: { onSuccess: () => void }) {
                     <input value={manSearch} onChange={e => setManSearch(e.target.value)} placeholder="Search staff…" className={iCls + " mb-2"} />
                     <div className="max-h-36 overflow-y-auto space-y-1 custom-scrollbar pr-1">
                       {filteredUsers.map((u: any) => (
-                        <label key={u.id} className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl border cursor-pointer text-sm transition-all", form.accountManagers.includes(u.id) ? "border-primary/30 bg-primary/10 text-foreground" : "border-white/5 text-muted-foreground hover:border-white/10")}>
+                        <label key={u.id} className={cn("flex items-center gap-2.5 px-3 py-2 rounded-xl border cursor-pointer text-sm transition-all", form.accountManagers.includes(u.id) ? "border-primary/30 bg-primary/10 text-foreground" : isLight ? "border-gray-100 text-gray-600 hover:bg-gray-50" : "border-white/5 text-muted-foreground hover:border-white/10")}>
                           <input type="checkbox" checked={form.accountManagers.includes(u.id)} onChange={() => toggleManager(u.id)} className="accent-primary" />
                           <span className="flex-1">{u.name}</span>
                           <span className="text-[10px] text-muted-foreground/60">{u.department || u.role?.replace(/_/g, " ")}</span>
@@ -351,13 +353,13 @@ function AddAccountModal({ onSuccess }: { onSuccess: () => void }) {
                   </div>
                 </div>
               </form>
-              <div className="px-6 py-4 border-t border-white/5 flex gap-3">
+              <div className={cn("px-6 py-4 border-t flex gap-3", isLight ? "border-gray-100" : "border-white/5")}>
                 <button type="submit" onClick={handleSubmit} disabled={loading}
                   className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 disabled:opacity-60">
                   {loading ? "Saving…" : "Save Account"}
                 </button>
                 <button type="button" onClick={() => setOpen(false)}
-                  className="px-5 py-2.5 border border-white/10 text-muted-foreground rounded-xl text-sm hover:text-foreground">
+                  className={cn("px-5 py-2.5 border rounded-xl text-sm transition-colors", isLight ? "border-gray-200 text-gray-600 hover:bg-gray-50" : "border-white/10 text-muted-foreground hover:text-foreground")}>
                   Cancel
                 </button>
               </div>

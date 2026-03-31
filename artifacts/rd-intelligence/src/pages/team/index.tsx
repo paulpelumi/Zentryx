@@ -9,6 +9,7 @@ import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, Filter, Phone, Gl
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/lib/theme";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -307,7 +308,9 @@ function AddMemberModal({ departments, roles, onSuccess }: { departments: string
   const { toast } = useToast();
   const [form, setForm] = useState({ name: "", email: "", password: "temp1234", role: "viewer", department: "", isActive: true });
   const setF = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }));
-  const cls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+  const { theme: _amTheme } = useTheme();
+  const isLight = _amTheme === "light";
+  const cls = cn("flex h-10 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -333,7 +336,7 @@ function AddMemberModal({ departments, roles, onSuccess }: { departments: string
       <DialogTrigger asChild>
         <Button className="gap-2"><Plus className="w-4 h-4" /> Add Member</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px] glass-panel border-white/10 bg-card/95">
+      <DialogContent className={cn("sm:max-w-[500px]", isLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader><DialogTitle className="text-xl font-display">Add Team Member</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
@@ -385,15 +388,18 @@ function AddDepartmentModal({ onAdd }: { onAdd: (name: string) => void }) {
     setName("");
   };
 
+  const { theme: _deptTheme } = useTheme();
+  const isDeptLight = _deptTheme === "light";
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-2"><Building className="w-4 h-4" /> New Department</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[360px] glass-panel border-white/10">
+      <DialogContent className={cn("sm:max-w-[360px]", isDeptLight ? "bg-white border-gray-200" : "glass-panel border-white/10")}>
         <DialogHeader><DialogTitle>Create Department</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <Input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Quality Assurance" autoFocus />
+          <Input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Quality Assurance" autoFocus className={isDeptLight ? "border-gray-200 bg-white" : ""} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit">Create</Button>
@@ -418,15 +424,18 @@ function AddRoleModal({ onAdd }: { onAdd: (label: string) => void }) {
     setName("");
   };
 
+  const { theme: _roleTheme } = useTheme();
+  const isRoleLight = _roleTheme === "light";
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button className="gap-2"><Tag className="w-4 h-4" /> New Role</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[360px] glass-panel border-white/10">
+      <DialogContent className={cn("sm:max-w-[360px]", isRoleLight ? "bg-white border-gray-200" : "glass-panel border-white/10")}>
         <DialogHeader><DialogTitle>Create New Role</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <Input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Data Scientist" autoFocus />
+          <Input required value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Data Scientist" autoFocus className={isRoleLight ? "border-gray-200 bg-white" : ""} />
           <div className="flex justify-end gap-2">
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit">Create Role</Button>

@@ -604,21 +604,23 @@ function EditBDModal({ item, users, onUpdate, onClose }: { item: any; users: any
     finally { setSaving(false); }
   };
 
-  const cls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+  const { theme: _editTheme } = useTheme();
+  const isLight = _editTheme === "light";
+  const cls = cn("flex h-10 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20");
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[640px] glass-panel border-white/10 bg-card/95 max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn("sm:max-w-[640px] max-h-[90vh] overflow-y-auto", isLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader><DialogTitle className="text-xl font-display">Edit BD Item — {item.name}</DialogTitle></DialogHeader>
         <div className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Title *</label><input value={form.name} onChange={e => setF("name", e.target.value)} className={cls} /></div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} className="flex min-h-[60px] w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground" /></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} className={cn("flex min-h-[60px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20")} /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Stage</label><select value={form.stage} onChange={e => setF("stage", e.target.value)} className={cls}>{STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Status</label><select value={form.status} onChange={e => setF("status", e.target.value)} className={cls}>{STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Priority</label><select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>{PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Product Type</label><select value={form.productType} onChange={e => setF("productType", e.target.value)} className={cls}><option value="" className="bg-card">Select...</option>{PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}</select></div>
-            <div className="sm:col-span-2 border-t border-white/10 pt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer</p></div>
+            <div className={cn("sm:col-span-2 border-t pt-2", isLight ? "border-gray-100" : "border-white/10")}><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer</p></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} className={cls} placeholder="Customer name" /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} className={cls} placeholder="email@example.com" /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} className={cls} placeholder="+27 xx xxx xxxx" /></div>
@@ -629,11 +631,11 @@ function EditBDModal({ item, users, onUpdate, onClose }: { item: any; users: any
           {users.length > 0 && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Assignees</label>
-              <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-white/10 bg-black/10 max-h-28 overflow-y-auto">
+              <div className={cn("flex flex-wrap gap-2 p-3 rounded-xl border max-h-28 overflow-y-auto", isLight ? "border-gray-200 bg-gray-50" : "border-white/10 bg-black/10")}>
                 {users.map(u => (
                   <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${form.assigneeIds.includes(u.id) ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground"}`}>
-                    <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[10px]">{u.name.charAt(0)}</span>
+                    className={cn("flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all", form.assigneeIds.includes(u.id) ? "bg-primary text-white border-primary" : isLight ? "border-gray-200 text-gray-600 hover:bg-gray-50" : "border-white/10 text-muted-foreground hover:text-foreground")}>
+                    <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-[10px]", isLight ? "bg-gray-100 text-gray-700" : "bg-white/10")}>{u.name.charAt(0)}</span>
                     {u.name}
                   </button>
                 ))}
@@ -673,22 +675,24 @@ function CreateBDModal({ users, onCreate }: { users: any[]; onCreate: (data: any
     finally { setLoading(false); }
   };
 
-  const cls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+  const { theme: _createTheme } = useTheme();
+  const isLight = _createTheme === "light";
+  const cls = cn("flex h-10 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20");
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild><Button className="gap-2"><Plus className="w-4 h-4" /> New BD Item</Button></DialogTrigger>
-      <DialogContent className="sm:max-w-[620px] glass-panel border-white/10 bg-card/95 max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn("sm:max-w-[620px] max-h-[90vh] overflow-y-auto", isLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader><DialogTitle className="text-xl font-display">New Business Development</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Title *</label><input required value={form.name} onChange={e => setF("name", e.target.value)} placeholder="e.g. Seasoning Launch for Client X" className={cls} /></div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="BD opportunity details..." className="flex min-h-[60px] w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground" /></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Description</label><textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="BD opportunity details..." className={cn("flex min-h-[60px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground", isLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20")} /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Stage</label><select value={form.stage} onChange={e => setF("stage", e.target.value)} className={cls}>{STAGES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Status</label><select value={form.status} onChange={e => setF("status", e.target.value)} className={cls}>{STATUSES.map(s => <option key={s} value={s} className="bg-card capitalize">{s.replace(/_/g,' ')}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Priority</label><select value={form.priority} onChange={e => setF("priority", e.target.value)} className={cls}>{PRIORITIES.map(p => <option key={p} value={p} className="bg-card capitalize">{p}</option>)}</select></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Product Type</label><select value={form.productType} onChange={e => setF("productType", e.target.value)} className={cls}><option value="" className="bg-card">Select type...</option>{PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}</select></div>
-            <div className="sm:col-span-2 border-t border-white/10 pt-2"><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer Info</p></div>
+            <div className={cn("sm:col-span-2 border-t pt-2", isLight ? "border-gray-100" : "border-white/10")}><p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Customer Info</p></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Customer Name</label><input value={form.customerName} onChange={e => setF("customerName", e.target.value)} placeholder="Customer name" className={cls} /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Email</label><input type="email" value={form.customerEmail} onChange={e => setF("customerEmail", e.target.value)} placeholder="email@example.com" className={cls} /></div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Phone</label><input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} placeholder="+27 xx xxx xxxx" className={cls} /></div>
@@ -699,18 +703,18 @@ function CreateBDModal({ users, onCreate }: { users: any[]; onCreate: (data: any
           {users.length > 0 && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Assignees</label>
-              <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-white/10 bg-black/10 max-h-28 overflow-y-auto">
+              <div className={cn("flex flex-wrap gap-2 p-3 rounded-xl border max-h-28 overflow-y-auto", isLight ? "border-gray-200 bg-gray-50" : "border-white/10 bg-black/10")}>
                 {users.map(u => (
                   <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all ${form.assigneeIds.includes(u.id) ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground"}`}>
-                    <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[10px]">{u.name.charAt(0)}</span>
+                    className={cn("flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-all", form.assigneeIds.includes(u.id) ? "bg-primary text-white border-primary" : isLight ? "border-gray-200 text-gray-600 hover:bg-gray-50" : "border-white/10 text-muted-foreground hover:text-foreground")}>
+                    <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-[10px]", isLight ? "bg-gray-100 text-gray-700" : "bg-white/10")}>{u.name.charAt(0)}</span>
                     {u.name}
                   </button>
                 ))}
               </div>
             </div>
           )}
-          <div className="flex justify-end gap-3 pt-2 border-t border-white/10">
+          <div className={cn("flex justify-end gap-3 pt-2 border-t", isLight ? "border-gray-100" : "border-white/10")}>
             <Button type="button" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
             <Button type="submit" disabled={loading}>{loading ? "Creating..." : "Create BD Item"}</Button>
           </div>

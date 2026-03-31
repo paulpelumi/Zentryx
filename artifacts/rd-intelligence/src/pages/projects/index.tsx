@@ -14,6 +14,7 @@ import { PortfolioView } from "./views/PortfolioView";
 import { MatrixView } from "./views/MatrixView";
 import { ListView } from "./views/ListView";
 import { useTheme } from "@/lib/theme";
+import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
 const STAGES = ["testing", "reformulation", "innovation", "cost_optimization", "modification"] as const;
@@ -346,7 +347,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
       <DialogTrigger asChild>
         <Button className="gap-2"><Plus className="w-4 h-4" /> New Project</Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[650px] glass-panel border-white/10 bg-card/95 max-h-[90vh] overflow-y-auto">
+      <DialogContent className={cn("sm:max-w-[650px] max-h-[90vh] overflow-y-auto", isCpmLight ? "bg-white border-gray-200" : "glass-panel border-white/10 bg-card/95")}>
         <DialogHeader>
           <DialogTitle className="text-xl font-display">Create New Project</DialogTitle>
         </DialogHeader>
@@ -431,8 +432,8 @@ function CreateProjectModal({ users }: { users: any[] }) {
               <div className={`flex flex-wrap gap-2 p-3 rounded-xl border max-h-32 overflow-y-auto ${isCpmLight ? "border-gray-200 bg-gray-50" : "border-white/10 bg-black/10"}`}>
                 {users.map(u => (
                   <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${form.assigneeIds.includes(u.id) ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>
-                    <span className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center text-[10px]">{u.name.charAt(0)}</span>
+                    className={cn("flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border", form.assigneeIds.includes(u.id) ? "bg-primary text-white border-primary" : isCpmLight ? "border-gray-200 text-gray-600 hover:bg-gray-50" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5")}>
+                    <span className={cn("w-4 h-4 rounded-full flex items-center justify-center text-[10px]", isCpmLight ? "bg-gray-100 text-gray-700" : "bg-white/10")}>{u.name.charAt(0)}</span>
                     {u.name}
                   </button>
                 ))}
