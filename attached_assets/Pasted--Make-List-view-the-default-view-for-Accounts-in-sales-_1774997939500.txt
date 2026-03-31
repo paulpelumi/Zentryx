@@ -1,0 +1,18 @@
+-Make “List” view the default view for Accounts in (sales force) -Make “List” View the default view for “Project Portfolio”
+-In the “Matrix View” for Project portfolio, the “starred project” should not be stared, and the project should not be pre-selected, hence remove the “Star” button. 
+
+-Under Sales Force - Chart page, the chart of “Accounts by Account Manager”, on click of bar representing the “Account manager”, it should list out the Accounts handled by the Manager, and it should be able to link me directly to the specific “Account” details.
+
+-on Light mode only, all the charts in the Under Sales Force (Chart), when enlarge chart button is clicked, the chart should have a lightly transparent white background(same transparent level as the for the dark mode), the colour for all text in the chart should be bold and clearly visible on a white background, with perfect realdability 
+ 
+-when “exporting projects” in the “Project portfolio” section, do not add “Tags”, “leads” to the list of options and metadata that is been exported 
+-In the project portfolio, in the “Export Data” page, the “export summary” details (total projects, Columns) should have a black and bold text format when the theme is on light mode - 
+
+-On light mode only: For Each form page such as “+New Project” “+New BD Item” “+Add Account” “New Role” “New Department” “New Event”- Use white for the form’s background, Use Black Text colour for the questions in the form, Use black text colour for the typed in response
+
+On light mode/theme only: the “Profile” page, the metadata response box each should have a colour, and text in it should be black, the “update password: should use a purple colour as used for “New Role”
+
+-on light mode/theme only:  the forecasts calendar , the calendar background should be “white”, the calendar cell lines should be “black”, the text for forecasted dates on the calendar should be bold and dark and visible.
+-Enable notification alerts feature that alerts Accounts manager on the forecasted date… it should show up as a pop up with a dismiss button, and it should also be visible in the ”Live activity tracker”
+-The notify procurement button should also have the feature to send email to external mail like gmail, yahoomail etc on all there
+-In light mode/theme, the “Notify procurement button” the pop up box that this shows when Clicked, should background of the box should be “white”,  and the text for the other informations including assigns would be “black”

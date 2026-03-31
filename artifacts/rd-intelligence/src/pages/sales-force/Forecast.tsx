@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import {
   TrendingUp, DollarSign, Package, Download, Bell, ChevronLeft, ChevronRight,
-  Filter, Star, AlertTriangle, CheckCircle, Clock, X, Search, Send,
+  Filter, Star, AlertTriangle, CheckCircle, Clock, X, Search, Send, Mail,
   BarChart2, PieChartIcon, Donut,
 } from "lucide-react";
 import * as XLSX from "xlsx";
@@ -55,7 +55,12 @@ function getConfidenceColor(confidence: number) {
   return "text-red-400";
 }
 
-function getCalColor(confidence: number) {
+function getCalColor(confidence: number, isLight = false) {
+  if (isLight) {
+    if (confidence >= 75) return "bg-emerald-50 border-emerald-300 text-emerald-700";
+    if (confidence >= 50) return "bg-amber-50 border-amber-300 text-amber-700";
+    return "bg-red-50 border-red-300 text-red-700";
+  }
   if (confidence >= 75) return "bg-emerald-500/20 border-emerald-500/30 text-emerald-300";
   if (confidence >= 50) return "bg-amber-500/20 border-amber-500/30 text-amber-300";
   return "bg-red-500/20 border-red-500/30 text-red-300";
@@ -70,6 +75,8 @@ const STATUS_CONFIG: Record<ForecastStatus, { label: string; dot: string; badge:
 function StatusBadge({ status, onChange }: { status: ForecastStatus; onChange?: (s: ForecastStatus) => void }) {
   const [open, setOpen] = useState(false);
   const cfg = STATUS_CONFIG[status];
+  const { theme: _sbt } = useTheme();
+  const isSbLight = _sbt === "light";
   return (
     <div className="relative">
       <button
@@ -80,10 +87,10 @@ function StatusBadge({ status, onChange }: { status: ForecastStatus; onChange?: 
         {cfg.label}
       </button>
       {open && onChange && (
-        <div className="absolute z-50 top-full mt-1 left-0 bg-[#1e1e2e] border border-white/10 rounded-xl shadow-xl py-1 min-w-[130px]">
+        <div className={`absolute z-50 top-full mt-1 left-0 border rounded-xl shadow-xl py-1 min-w-[130px] ${isSbLight ? "bg-white border-gray-200" : "bg-[#1e1e2e] border-white/10"}`}>
           {(["pending", "confirmed", "probable"] as ForecastStatus[]).map(s => (
             <button key={s} onClick={() => { onChange(s); setOpen(false); }}
-              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs hover:bg-white/5 text-left ${STATUS_CONFIG[s].badge.split(" ")[1]}`}>
+              className={`w-full flex items-center gap-2 px-3 py-1.5 text-xs text-left ${STATUS_CONFIG[s].badge.split(" ")[1]} ${isSbLight ? "hover:bg-gray-50" : "hover:bg-white/5"}`}>
               <span className={`w-2 h-2 rounded-full ${STATUS_CONFIG[s].dot}`} />
               {STATUS_CONFIG[s].label}
             </button>
@@ -179,6 +186,8 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
   const [calDate, setCalDate] = useState(today);
   const [tooltip, setTooltip] = useState<CalendarTooltip | null>(null);
   const [selected, setSelected] = useState<Forecast | null>(null);
+  const { theme: _calTheme } = useTheme();
+  const isCalLight = _calTheme === "light";
 
   const year = calDate.getFullYear();
   const month = calDate.getMonth();
@@ -214,9 +223,9 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
 
   return (
     <>
-      <div className="rounded-2xl border border-white/5 bg-white/3 overflow-hidden">
+      <div className={`rounded-2xl border overflow-hidden ${isCalLight ? "border-gray-200 bg-gray-50" : "border-white/5 bg-white/3"}`}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-white/5 bg-white/2">
+        <div className={`flex items-center justify-between px-5 py-4 border-b ${isCalLight ? "border-gray-200 bg-white" : "border-white/5 bg-white/2"}`}>
           <h3 className="font-semibold text-foreground text-sm">Forecast Calendar</h3>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
@@ -252,7 +261,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 border-b border-white/5">
+        <div className={`grid grid-cols-7 border-b ${isCalLight ? "border-gray-200" : "border-white/5"}`}>
           {DAYS.map(d => (
             <div key={d} className="px-2 py-2 text-center text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
               {d}
@@ -271,7 +280,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
             return (
               <div
                 key={i}
-                className={`min-h-[96px] p-1.5 border-r border-b border-white/5 ${i % 7 === 6 ? "border-r-0" : ""} ${!day ? "bg-black/15" : "hover:bg-white/3 transition-colors"}`}
+                className={`min-h-[96px] p-1.5 border-r border-b ${isCalLight ? "border-gray-100" : "border-white/5"} ${i % 7 === 6 ? "border-r-0" : ""} ${!day ? (isCalLight ? "bg-gray-100" : "bg-black/15") : (isCalLight ? "hover:bg-gray-50 transition-colors" : "hover:bg-white/3 transition-colors")}`}
               >
                 {day && (
                   <>
@@ -282,7 +291,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
                       {visible.map((f, fi) => (
                         <div
                           key={fi}
-                          className={`text-[9px] px-1.5 py-0.5 rounded border cursor-pointer truncate leading-tight select-none ${getCalColor(f.confidence)}`}
+                          className={`text-[9px] px-1.5 py-0.5 rounded border cursor-pointer truncate leading-tight select-none ${getCalColor(f.confidence, isCalLight)}`}
                           onMouseEnter={e => handleEventEnter(e, f)}
                           onMouseLeave={handleEventLeave}
                           onMouseMove={e => setTooltip(t => t ? { ...t, clientX: e.clientX, clientY: e.clientY } : null)}
@@ -314,7 +323,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
             top: tooltip.clientY + 16,
           }}
         >
-          <div className="bg-[#1a1a2e] border border-white/20 rounded-xl p-3 shadow-2xl text-xs min-w-[200px]">
+          <div className={`border rounded-xl p-3 shadow-2xl text-xs min-w-[200px] ${isCalLight ? "bg-white border-gray-200" : "bg-[#1a1a2e] border-white/20"}`}>
             <p className="font-semibold text-foreground">{tooltip.forecast.company}</p>
             <p className="text-muted-foreground mt-0.5">{tooltip.forecast.productName}</p>
             {tooltip.forecast.productType && (
@@ -322,7 +331,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
                 {tooltip.forecast.productType.replace(/_/g, " ")}
               </p>
             )}
-            <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/10">
+            <div className={`flex items-center gap-3 mt-2 pt-2 border-t ${isCalLight ? "border-gray-100" : "border-white/10"}`}>
               <span className="text-foreground font-medium">
                 {tooltip.forecast.forecastVolume ? Number(tooltip.forecast.forecastVolume).toLocaleString() : "—"} kg
               </span>
@@ -347,7 +356,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
           onClick={() => setSelected(null)}
         >
           <div
-            className="bg-[#1a1a2e] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl mx-4"
+            className={`border rounded-2xl p-6 w-full max-w-md shadow-2xl mx-4 ${isCalLight ? "bg-white border-gray-200" : "bg-[#1a1a2e] border-white/10"}`}
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-5">
@@ -370,7 +379,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
                 ["Last Order Date", selected.lastOrderDate ?? "—"],
                 ["Last Order Volume", selected.lastOrderVolume ? `${Number(selected.lastOrderVolume).toLocaleString()} kg` : "—"],
               ] as [string, string][]).map(([k, v]) => (
-                <div key={k} className="flex justify-between items-center gap-4 py-1.5 border-b border-white/5 last:border-0">
+                <div key={k} className={`flex justify-between items-center gap-4 py-1.5 border-b last:border-0 ${isCalLight ? "border-gray-100" : "border-white/5"}`}>
                   <dt className="text-muted-foreground shrink-0">{k}</dt>
                   <dd className="font-medium text-foreground capitalize text-right">{v}</dd>
                 </div>
@@ -378,7 +387,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
               <div className="flex justify-between items-center py-1.5">
                 <dt className="text-muted-foreground">Confidence</dt>
                 <dd className="flex items-center gap-2">
-                  <div className="w-20 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                  <div className={`w-20 h-1.5 rounded-full overflow-hidden ${isCalLight ? "bg-gray-200" : "bg-white/10"}`}>
                     <div
                       className={`h-full rounded-full ${selected.confidence >= 75 ? "bg-emerald-500" : selected.confidence >= 50 ? "bg-amber-500" : "bg-red-500"}`}
                       style={{ width: `${selected.confidence}%` }}
@@ -401,7 +410,7 @@ function ForecastCalendar({ forecasts }: { forecasts: Forecast[] }) {
             </dl>
             <button
               onClick={() => setSelected(null)}
-              className="mt-5 w-full px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/8 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              className={`mt-5 w-full px-4 py-2.5 rounded-xl text-sm transition-colors ${isCalLight ? "bg-gray-50 hover:bg-gray-100 border border-gray-200 text-gray-600 hover:text-gray-900" : "bg-white/5 hover:bg-white/10 border border-white/8 text-muted-foreground hover:text-foreground"}`}>
               Close
             </button>
           </div>
@@ -418,6 +427,10 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
+  const { theme: _nmt } = useTheme();
+  const isNmLight = _nmt === "light";
+
+  const inputCls = `w-full border rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors ${isNmLight ? "bg-white border-gray-200" : "bg-white/5 border-white/10"}`;
 
   const filtered = users.filter(u =>
     u.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -442,15 +455,24 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
     } finally { setSending(false); }
   };
 
+  const handleSendEmail = () => {
+    const selectedUsers = users.filter(u => selected.includes(u.id));
+    const emails = selectedUsers.map(u => u.email).filter(Boolean).join(",");
+    if (!emails) return;
+    const subject = encodeURIComponent(title);
+    const body = encodeURIComponent(message);
+    window.open(`mailto:${emails}?subject=${subject}&body=${body}`, "_blank");
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-[#1e1e2e] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-5 border-b border-white/8">
+      <div className={`border rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh] ${isNmLight ? "bg-white border-gray-200" : "bg-[#1e1e2e] border-white/10"}`}>
+        <div className={`flex items-center justify-between p-5 border-b ${isNmLight ? "border-gray-100" : "border-white/8"}`}>
           <div>
             <h3 className="font-bold text-foreground">Notify Procurement</h3>
             <p className="text-xs text-muted-foreground mt-0.5">Select staff and compose your message</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-muted-foreground">
+          <button onClick={onClose} className={`p-1.5 rounded-lg text-muted-foreground ${isNmLight ? "hover:bg-gray-100" : "hover:bg-white/10"}`}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -467,8 +489,7 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
                 <label className="block text-xs font-medium text-muted-foreground mb-2 uppercase tracking-wide">
                   Notification Title
                 </label>
-                <input value={title} onChange={e => setTitle(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors" />
+                <input value={title} onChange={e => setTitle(e.target.value)} className={inputCls} />
               </div>
 
               <div>
@@ -477,7 +498,7 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
                 </label>
                 <textarea rows={4} value={message} onChange={e => setMessage(e.target.value)}
                   placeholder="Enter notification message..."
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors resize-none" />
+                  className={inputCls + " resize-none"} style={{ height: "auto" }} />
               </div>
 
               <div>
@@ -488,11 +509,11 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <input value={search} onChange={e => setSearch(e.target.value)}
                     placeholder="Search staff..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50 transition-colors" />
+                    className={`${inputCls} pl-9`} />
                 </div>
                 <div className="space-y-1 max-h-48 overflow-y-auto">
                   {filtered.map(u => (
-                    <label key={u.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/5 cursor-pointer transition-colors">
+                    <label key={u.id} className={`flex items-center gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${isNmLight ? "hover:bg-gray-50" : "hover:bg-white/5"}`}>
                       <input type="checkbox" checked={selected.includes(u.id)} onChange={() => toggle(u.id)}
                         className="rounded border-white/20 accent-primary" />
                       <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center text-xs font-bold text-white shrink-0">
@@ -511,15 +532,21 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
               </div>
             </div>
 
-            <div className="p-5 border-t border-white/8 flex gap-3">
-              <button onClick={onClose}
-                className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-muted-foreground hover:bg-white/5 text-sm transition-colors">
-                Cancel
-              </button>
-              <button onClick={handleSend} disabled={!selected.length || !message.trim() || sending}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                {sending ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                Send to {selected.length} Staff
+            <div className={`p-5 border-t ${isNmLight ? "border-gray-100" : "border-white/8"} space-y-2`}>
+              <div className="flex gap-3">
+                <button onClick={onClose}
+                  className={`flex-1 px-4 py-2.5 rounded-xl border text-sm transition-colors ${isNmLight ? "border-gray-200 text-gray-600 hover:bg-gray-50" : "border-white/10 text-muted-foreground hover:bg-white/5"}`}>
+                  Cancel
+                </button>
+                <button onClick={handleSend} disabled={!selected.length || !message.trim() || sending}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary hover:bg-primary/90 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                  {sending ? <Clock className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  Send to {selected.length} Staff
+                </button>
+              </div>
+              <button onClick={handleSendEmail} disabled={!selected.length || !message.trim()}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isNmLight ? "border-blue-200 text-blue-600 hover:bg-blue-50" : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"}`}>
+                <Mail className="w-4 h-4" /> Send via Email Client
               </button>
             </div>
           </>

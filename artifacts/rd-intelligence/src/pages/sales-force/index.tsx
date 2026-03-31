@@ -517,7 +517,7 @@ const SORT_OPTIONS = [
 function AccountsPage() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
-  const [view, setView] = useState<"list" | "portfolio" | "matrix">("portfolio");
+  const [view, setView] = useState<"list" | "portfolio" | "matrix">("list");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("priority");
   const [filterPt, setFilterPt] = useState("all");

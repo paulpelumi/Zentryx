@@ -71,8 +71,9 @@ artifacts-monorepo/
 - **Revenue tab**: digital-screen display showing selling price × volume = monthly/annual revenue
 - **Project Info**: Cost Target (USD with currency converter), Selling Price (USD with Naira equivalent), Volume (kg/Month)
 - **Template Tasks star button**: creates 13 standard R&D workflow tasks; second click undoes them
-- **Matrix view**: clickable rows → project detail, interactive sensory score bars, $ currency
-- **Export tab**: CSV (`project_export_[date].csv`) + real Excel XLSX (`projects_export_[date].xlsx`) with 20 columns including financial data
+- **Default view**: List view (was Portfolio)
+- **Matrix view**: clickable rows → project detail, interactive sensory score bars, $ currency; star badge removed from best-score row
+- **Export tab**: CSV (`project_export_[date].csv`) + real Excel XLSX (`projects_export_[date].xlsx`) with 18 columns (Tags & Lead columns removed from headers, data, and "What's Included" list)
 
 ### 3. Analytics
 - Title: "Analytics" with subtitle "Insights, metric and powered analysis for R&D pipeline"
@@ -103,20 +104,20 @@ artifacts-monorepo/
 ### 7. Sales Force Module (`/sales-force`)
 3 tabs: **Accounts**, **Charts**, **Forecast**
 
-**Accounts tab**: List/Portfolio/Matrix views, search, filter, sort, CSV/XLSX export, Add Account modal. Click row → Account Detail page.
+**Accounts tab**: List/Portfolio/Matrix views (default: List), search, filter, sort, CSV/XLSX export, Add Account modal. Click row → Account Detail page.
 
 **Account Detail** (`/sales-force/:id`): 4 sub-tabs — Tasks (Kanban DnD + **Load Template toggle**: click to add 13 template tasks, click again to remove them), Status Report (threaded posts with **@ mention** system: type @name → live dropdown → rendered as purple highlighted text), Production Orders (editable table + 5 charts + resizable split pane), Account Info (full edit form).
 
-**Charts tab**: 4 drilldown charts with bar/pie/list toggle, priority scoring.
+**Charts tab**: 4 drilldown charts with bar/pie/list toggle, priority scoring. Bar click on "Accounts by Account Manager" expands inline list of that manager's accounts with navigation links. Fullscreen overlay respects light/dark theme.
 
 **Forecast tab** (full rebuild):
 - 3 existing KPI cards (Active Accounts, Monthly Revenue, Total Volume) + 4 new summary cards (Upcoming Orders 30d, Forecast Volume KG, High Confidence Orders, Strategic Customers)
 - Filters bar: Company, Product Name, Product Type, Customer Type, Confidence level, Time Range (7/30/90 days), Strategic Only toggle — all filters update table + charts + calendar
 - Forecast Table: Company, Product, Last Order Date, Last Order Volume, Forecast Date, Forecast Volume, Confidence (bar + %), Status (click to change: Pending/Confirmed/Probable); row color by confidence (green ≥75%, yellow 50-74%, red <50%)
 - Export Forecast button: CSV + XLSX with click-triggered dropdown
-- Notify Procurement button: modal with real-time staff search, multi-select, notification title + message input, sends via Zentryx notification system
+- Notify Procurement button: modal with real-time staff search, multi-select, notification title + message input, sends via Zentryx notification system + "Send via Email Client" button opens mailto: with all selected recipients pre-filled. Modal is fully light-mode aware.
 - 3 chart panels (Forecast Volume by Month bar/donut/pie, Forecast by Customer pie/bar, Forecast by Product Type donut/pie/bar) — all respect filters
-- Forecast Calendar: monthly grid view, events per day color-coded by confidence, prev/next navigation, tooltip on hover, click → detail modal, "+N more" overflow, auto-seeded from accounts
+- Forecast Calendar: monthly grid view, events per day color-coded by confidence, prev/next navigation, tooltip on hover, click → detail modal, "+N more" overflow, auto-seeded from accounts. Fully light-mode aware (borders, backgrounds, event chips, tooltip, detail modal).
 
 ### 8. Events
 - Monthly calendar view + mini sidebar calendar

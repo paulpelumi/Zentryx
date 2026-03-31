@@ -80,15 +80,18 @@ function FieldRow({ label, icon, children }: { label: string; icon: React.ReactN
   );
 }
 
-const inputCls = "w-full h-10 rounded-xl border border-white/10 bg-black/30 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
-const selectCls = inputCls + " cursor-pointer";
-
 export default function ProfilePage() {
   const { data: currentUser, isLoading } = useGetCurrentUser();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { theme } = useTheme();
   const isLight = theme === "light";
+
+  const inputCls = cn(
+    "w-full h-10 rounded-xl border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground",
+    isLight ? "border-gray-200 bg-white text-gray-900" : "border-white/10 bg-black/30 text-foreground"
+  );
+  const selectCls = inputCls + " cursor-pointer";
 
   const [form, setForm] = useState({ name: "", department: "", jobPosition: "", phone: "", country: "", avatar: null as string | null });
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
@@ -185,7 +188,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="glass-card rounded-2xl p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-center border-b border-white/5 pb-6">
+        <div className={`flex flex-col sm:flex-row gap-6 items-start sm:items-center border-b pb-6 ${isLight ? "border-gray-200" : "border-white/5"}`}>
           <AvatarUploader avatar={form.avatar} name={form.name} onChange={v => setF("avatar", v)} />
           <div className="flex-1 min-w-0">
             <p className="text-xl font-bold text-foreground">{u.name}</p>
@@ -236,7 +239,7 @@ export default function ProfilePage() {
               <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save Changes"}
             </button>
             <button onClick={handleCancel} disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 border border-white/10 text-muted-foreground rounded-xl text-sm font-medium hover:text-foreground hover:border-white/20 transition-colors">
+              className={`flex items-center gap-2 px-5 py-2.5 border rounded-xl text-sm font-medium transition-colors ${isLight ? "border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300" : "border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20"}`}>
               <X className="w-4 h-4" /> Cancel
             </button>
           </div>
@@ -244,7 +247,7 @@ export default function ProfilePage() {
       </div>
 
       <div className="glass-card rounded-2xl p-6 space-y-5">
-        <div className="flex items-center gap-2 border-b border-white/5 pb-4">
+        <div className={`flex items-center gap-2 border-b pb-4 ${isLight ? "border-gray-200" : "border-white/5"}`}>
           <div className="p-2 rounded-lg bg-amber-500/10">
             <Shield className="w-4 h-4 text-amber-400" />
           </div>

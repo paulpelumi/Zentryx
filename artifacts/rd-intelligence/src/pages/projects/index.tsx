@@ -13,6 +13,7 @@ import { ViewSwitcher, type ViewType } from "./views/ViewSwitcher";
 import { PortfolioView } from "./views/PortfolioView";
 import { MatrixView } from "./views/MatrixView";
 import { ListView } from "./views/ListView";
+import { useTheme } from "@/lib/theme";
 import * as XLSX from "xlsx";
 
 const STAGES = ["testing", "reformulation", "innovation", "cost_optimization", "modification"] as const;
@@ -22,7 +23,7 @@ const PRODUCT_TYPES = ["Seasoning", "Snack Dusting", "Bread & Dough Premix", "Da
 export default function ProjectsList() {
   const [searchTerm, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"projects" | "export">("projects");
-  const [view, setView] = useState<ViewType>("portfolio");
+  const [view, setView] = useState<ViewType>("list");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [productTypeFilter, setProductTypeFilter] = useState<string>("all");
   const [groupByType, setGroupByType] = useState(false);
@@ -65,7 +66,7 @@ export default function ProjectsList() {
   };
 
   const buildExportRows = (projs: any[]) => {
-    const headers = ["ID", "Name", "Stage", "Status", "Product Type", "Customer Name", "Customer Email", "Customer Phone", "Cost Target ($)", "Selling Price ($)", "Volume (kg/Month)", "Revenue/Month ($)", "Start Date", "Due Date", "Lead", "Assignees", "Tasks", "Progress %", "Tags", "Created At"];
+    const headers = ["ID", "Name", "Stage", "Status", "Product Type", "Customer Name", "Customer Email", "Customer Phone", "Cost Target ($)", "Selling Price ($)", "Volume (kg/Month)", "Revenue/Month ($)", "Start Date", "Due Date", "Assignees", "Tasks", "Progress %", "Created At"];
     const rows = projs.map(p => {
       const sp = p.sellingPrice ? parseFloat(p.sellingPrice) : null;
       const vol = p.volumeKgPerMonth ? parseFloat(p.volumeKgPerMonth) : null;
@@ -77,11 +78,9 @@ export default function ProjectsList() {
         (p as any).costTarget || "", sp || "", vol || "", revenue,
         p.startDate ? format(new Date(p.startDate), "yyyy-MM-dd") : "",
         p.targetDate ? format(new Date(p.targetDate), "yyyy-MM-dd") : "",
-        (p as any).lead?.name || "",
         ((p as any).assignees || []).map((a: any) => a.name).join("; "),
         p.taskCount,
         p.taskCount > 0 ? Math.round((p.completedTaskCount / p.taskCount) * 100) : 0,
-        (p.tags || []).join("; "),
         format(new Date(p.createdAt), "yyyy-MM-dd"),
       ];
     });
@@ -240,6 +239,8 @@ export default function ProjectsList() {
 }
 
 function ExportTab({ projects, onExportCSV, onExportXLSX }: { projects: any[]; onExportCSV: () => void; onExportXLSX: () => void }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
   const totalRevenue = projects.reduce((acc, p) => {
     const sp = p.sellingPrice ? parseFloat(p.sellingPrice) : 0;
     const vol = p.volumeKgPerMonth ? parseFloat(p.volumeKgPerMonth) : 0;
@@ -251,20 +252,20 @@ function ExportTab({ projects, onExportCSV, onExportXLSX }: { projects: any[]; o
       <h2 className="text-xl font-display font-bold mb-2">Export Project Data</h2>
       <p className="text-muted-foreground text-sm mb-6">Export all structured project data for reporting and analysis. Includes all project metadata, financial data, and progress metrics.</p>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-        <div className="border border-white/10 rounded-xl p-5">
+        <div className={`border rounded-xl p-5 ${isLight ? "border-gray-200" : "border-white/10"}`}>
           <h3 className="font-semibold mb-3">What's Included</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            {["Product metadata & type", "Customer name, email, phone", "Project stage & status", "Start date & due date", "Cost targets & selling prices", "Volume & monthly revenue", "Assignee information", "Task progress metrics", "Tags & categories"].map(item => (
+            {["Product metadata & type", "Customer name, email, phone", "Project stage & status", "Start date & due date", "Cost targets & selling prices", "Volume & monthly revenue", "Assignee information", "Task progress metrics"].map(item => (
               <li key={item} className="flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-primary" />{item}</li>
             ))}
           </ul>
         </div>
-        <div className="border border-white/10 rounded-xl p-5">
+        <div className={`border rounded-xl p-5 ${isLight ? "border-gray-200" : "border-white/10"}`}>
           <h3 className="font-semibold mb-3">Export Summary</h3>
           <div className="space-y-3 text-sm">
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Projects:</span><span className="font-medium">{projects.length}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Columns:</span><span className="font-medium">20</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Total Monthly Revenue:</span><span className="font-medium text-green-400">${totalRevenue.toLocaleString()}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Projects:</span><span className={`font-medium ${isLight ? "text-gray-900" : ""}`}>{projects.length}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Columns:</span><span className={`font-medium ${isLight ? "text-gray-900" : ""}`}>18</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Total Monthly Revenue:</span><span className="font-medium text-green-500">${totalRevenue.toLocaleString()}</span></div>
           </div>
           <div className="mt-4 space-y-2">
             <div className="flex items-center justify-between text-xs">
@@ -291,6 +292,8 @@ function CreateProjectModal({ users }: { users: any[] }) {
   const queryClient = useQueryClient();
   const createMutation = useCreateProject();
   const { toast } = useToast();
+  const { theme: _cpm } = useTheme();
+  const isCpmLight = _cpm === "light";
 
   const [form, setForm] = useState({
     name: "", description: "", stage: "innovation" as any, status: "in_progress" as any,
@@ -335,8 +338,8 @@ function CreateProjectModal({ users }: { users: any[] }) {
     });
   };
 
-  const selectCls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground";
-  const inputCls = "flex h-10 w-full rounded-xl border border-white/10 bg-black/20 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground";
+  const inputCls = `flex h-10 w-full rounded-xl border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground ${isCpmLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"}`;
+  const selectCls = `flex h-10 w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground ${isCpmLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"}`;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -355,7 +358,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
             </div>
             <div className="sm:col-span-2 space-y-1.5">
               <label className="text-sm font-medium">Description</label>
-              <textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="Project objectives..." className="flex min-h-[70px] w-full rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground" />
+              <textarea value={form.description} onChange={e => setF("description", e.target.value)} placeholder="Project objectives..." className={`flex min-h-[70px] w-full rounded-xl border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground ${isCpmLight ? "border-gray-200 bg-white" : "border-white/10 bg-black/20"}`} />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Stage</label>
@@ -382,7 +385,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
                 {PRODUCT_TYPES.map(p => <option key={p} value={p} className="bg-card">{p}</option>)}
               </select>
             </div>
-            <div className="sm:col-span-2 border-t border-white/10 pt-3">
+            <div className={`sm:col-span-2 border-t pt-3 ${isCpmLight ? "border-gray-200" : "border-white/10"}`}>
               <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Customer Information</p>
             </div>
             <div className="space-y-1.5">
@@ -397,7 +400,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
               <label className="text-sm font-medium">Customer Phone</label>
               <input value={form.customerPhone} onChange={e => setF("customerPhone", e.target.value)} placeholder="+1 234 567 8900" className={inputCls} />
             </div>
-            <div className="sm:col-span-2 border-t border-white/10 pt-3">
+            <div className={`sm:col-span-2 border-t pt-3 ${isCpmLight ? "border-gray-200" : "border-white/10"}`}>
               <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">Financial Details</p>
             </div>
             <div className="space-y-1.5">
@@ -425,7 +428,7 @@ function CreateProjectModal({ users }: { users: any[] }) {
           {users.length > 0 && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Assignees</label>
-              <div className="flex flex-wrap gap-2 p-3 rounded-xl border border-white/10 bg-black/10 max-h-32 overflow-y-auto">
+              <div className={`flex flex-wrap gap-2 p-3 rounded-xl border max-h-32 overflow-y-auto ${isCpmLight ? "border-gray-200 bg-gray-50" : "border-white/10 bg-black/10"}`}>
                 {users.map(u => (
                   <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
                     className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${form.assigneeIds.includes(u.id) ? "bg-primary text-white border-primary" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}>

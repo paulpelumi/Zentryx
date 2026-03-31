@@ -35,6 +35,7 @@ function FullScreenBtn({ full, setFull }: { full: boolean; setFull: (v: boolean)
 function ChartCard({ title, children, height = 320 }: { title: string; children: (full: boolean) => React.ReactNode; height?: number }) {
   const [full, setFull] = useState(false);
   const { theme } = useTheme();
+  const isL = theme === "light";
 
   return (
     <>
@@ -48,7 +49,7 @@ function ChartCard({ title, children, height = 320 }: { title: string; children:
 
       <AnimatePresence>
         {full && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col p-6">
+          <div className={`fixed inset-0 z-50 backdrop-blur-sm flex flex-col p-6 ${isL ? "bg-white/95" : "bg-black/90"}`}>
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-foreground">{title}</h2>
               <button onClick={() => setFull(false)} className="p-2 hover:bg-white/10 rounded-xl text-muted-foreground hover:text-foreground">
@@ -78,7 +79,7 @@ function ChartViewToggle({ view, setView }: { view: ChartView; setView: (v: Char
   );
 }
 
-function FlexChart({ data, nameKey, valueKey, label }: { data: any[]; nameKey: string; valueKey: string; label: string }) {
+function FlexChart({ data, nameKey, valueKey, label, onBarClick }: { data: any[]; nameKey: string; valueKey: string; label: string; onBarClick?: (name: string) => void }) {
   const [view, setView] = useState<ChartView>("bar");
   const [full, setFull] = useState(false);
   const { theme } = useTheme();
@@ -87,15 +88,22 @@ function FlexChart({ data, nameKey, valueKey, label }: { data: any[]; nameKey: s
   const gridStroke = isL ? "#E5E7EB" : "rgba(255,255,255,0.05)";
   const tipStyle = { background: isL ? "#FFFFFF" : "#1e1e2e", border: isL ? "1px solid #E5E7EB" : "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 12, color: isL ? "#111827" : undefined };
 
+  const handleChartClick = (d: any) => {
+    if (onBarClick && d?.activePayload?.[0]?.payload?.[nameKey]) {
+      onBarClick(d.activePayload[0].payload[nameKey]);
+    }
+  };
+
   const renderContent = (h: number) => (
     view === "bar" ? (
       <ResponsiveContainer width="100%" height={h}>
-        <BarChart data={data} layout="vertical" margin={{ left: 12, right: 24, top: 4, bottom: 4 }}>
+        <BarChart data={data} layout="vertical" margin={{ left: 12, right: 24, top: 4, bottom: 4 }}
+          onClick={onBarClick ? handleChartClick : undefined}>
           <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
           <XAxis type="number" tick={{ fill: axisColor, fontSize: 11 }} />
           <YAxis type="category" dataKey={nameKey} tick={{ fill: axisColor, fontSize: 11 }} width={140} />
-          <Tooltip contentStyle={tipStyle} />
-          <Bar dataKey={valueKey} fill="#8b5cf6" radius={[0, 6, 6, 0]} />
+          <Tooltip contentStyle={tipStyle} cursor={onBarClick ? { fill: isL ? "rgba(79,70,229,0.05)" : "rgba(139,92,246,0.1)" } : undefined} />
+          <Bar dataKey={valueKey} fill="#8b5cf6" radius={[0, 6, 6, 0]} cursor={onBarClick ? "pointer" : undefined} />
         </BarChart>
       </ResponsiveContainer>
     ) : view === "pie" ? (
@@ -117,7 +125,8 @@ function FlexChart({ data, nameKey, valueKey, label }: { data: any[]; nameKey: s
           </tr></thead>
           <tbody>
             {data.map((d, i) => (
-              <tr key={i} className="border-t border-white/5">
+              <tr key={i} className={`border-t border-white/5 ${onBarClick ? "cursor-pointer hover:bg-primary/5" : ""}`}
+                onClick={onBarClick ? () => onBarClick(d[nameKey]) : undefined}>
                 <td className="px-2 py-2 text-foreground text-sm">{d[nameKey]}</td>
                 <td className="px-2 py-2 text-right font-semibold text-primary">{d[valueKey]}</td>
               </tr>
@@ -142,7 +151,7 @@ function FlexChart({ data, nameKey, valueKey, label }: { data: any[]; nameKey: s
       </div>
       <AnimatePresence>
         {full && (
-          <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm flex flex-col p-6">
+          <div className={`fixed inset-0 z-50 backdrop-blur-sm flex flex-col p-6 ${isL ? "bg-white/95" : "bg-black/90"}`}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-foreground">{label}</h2>
               <button onClick={() => setFull(false)} className="p-2 hover:bg-white/10 rounded-xl text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
@@ -160,6 +169,7 @@ export default function SalesChartsPage() {
   const [, navigate] = useLocation();
   const [companyExpand, setCompanyExpand] = useState<string | null>(null);
   const [volumeExpand, setVolumeExpand] = useState<string | null>(null);
+  const [managerExpand, setManagerExpand] = useState<string | null>(null);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["/api/accounts"],
@@ -200,6 +210,11 @@ export default function SalesChartsPage() {
 
   const companyAccounts = companyExpand ? acc.filter(a => a.company === companyExpand) : [];
   const volumeAccounts = volumeExpand ? acc.filter(a => VOLUME_BANDS.find(b => b.key === volumeExpand)?.test(parseFloat(a.volume || 0))) : [];
+  const managerAccounts = managerExpand && managerExpand !== "Unassigned"
+    ? acc.filter(a => (a.accountManagerNames || []).includes(managerExpand))
+    : managerExpand === "Unassigned"
+    ? acc.filter(a => !a.accountManagerNames?.length)
+    : [];
 
   const { theme: _ct } = useTheme();
   const isLC = _ct === "light";
@@ -250,7 +265,30 @@ export default function SalesChartsPage() {
         </div>
 
         <div>
-          <FlexChart data={managerData} nameKey="manager" valueKey="count" label="Accounts by Account Manager" />
+          <FlexChart data={managerData} nameKey="manager" valueKey="count" label="Accounts by Account Manager"
+            onBarClick={(name) => setManagerExpand(prev => prev === name ? null : name)} />
+          {managerExpand && (
+            <div className="mt-3 glass-card rounded-xl p-4 border border-primary/20">
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-semibold text-sm text-foreground">{managerExpand} — Accounts</p>
+                <button onClick={() => setManagerExpand(null)} className="p-1 hover:bg-white/10 rounded-lg"><X className="w-3.5 h-3.5" /></button>
+              </div>
+              <div className="space-y-1.5">
+                {managerAccounts.length === 0
+                  ? <p className="text-xs text-muted-foreground text-center py-2">No accounts found</p>
+                  : managerAccounts.map((a: any) => (
+                    <button key={a.id} onClick={() => navigate(`/sales-force/${a.id}`)}
+                      className="w-full text-left px-3 py-2 rounded-xl bg-white/5 hover:bg-primary/10 border border-white/5 hover:border-primary/20 transition-all flex items-center justify-between group">
+                      <div>
+                        <p className="text-sm font-medium text-foreground group-hover:text-primary">{a.company} — {a.productName}</p>
+                        <p className="text-xs text-muted-foreground">{PRODUCT_TYPE_LABELS[a.productType] || a.productType}</p>
+                      </div>
+                      <TrendingUp className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <FlexChart data={productTypeData} nameKey="type" valueKey="count" label="Accounts by Product Category" />

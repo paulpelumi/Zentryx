@@ -1,6 +1,6 @@
 import { useState, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ArrowUpDown, ArrowUp, ArrowDown, Star } from "lucide-react";
+import { ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { useLocation } from "wouter";
 
 type SortKey = "name" | "productType" | "costTarget" | "sensory" | "progress" | "status";
@@ -190,7 +190,6 @@ export function MatrixView({ projects }: Props) {
                     <td className="px-4 py-3.5 text-xs text-muted-foreground">{i + 1}</td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-2">
-                        {isBest && <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400 shrink-0" />}
                         <div>
                           <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">{p.name}</p>
                           {p.customerName && <p className="text-[11px] text-muted-foreground">{p.customerName}</p>}
