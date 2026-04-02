@@ -265,6 +265,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [chatUnread, setChatUnread] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const [sidebarLocked, setSidebarLocked] = useState<boolean>(() => {
     const stored = localStorage.getItem(SIDEBAR_LOCK_KEY);
@@ -303,14 +304,25 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const check = () => setChatUnread(!!localStorage.getItem("rd_chat_unread"));
-    check();
-    const interval = setInterval(check, 3000);
+    if (location === "/chat") {
+      setChatUnread(false);
+      setChatUnreadCount(0);
+      return;
+    }
+    const checkUnread = async () => {
+      try {
+        const res = await fetch(`${BASE}api/chat/rooms`, { credentials: "include" });
+        if (!res.ok) return;
+        const rooms = await res.json();
+        if (!Array.isArray(rooms)) return;
+        const count = rooms.filter((r: any) => r.hasUnread).length;
+        setChatUnread(count > 0);
+        setChatUnreadCount(count);
+      } catch { /* silent */ }
+    };
+    checkUnread();
+    const interval = setInterval(checkUnread, 8000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (location === "/chat") { localStorage.removeItem("rd_chat_unread"); setChatUnread(false); }
   }, [location]);
 
   return (
@@ -403,14 +415,20 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       isActive ? (isLight ? "text-white" : "text-primary") : ""
                     )} />
                     {isChatWithUnread && (
-                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.9)] animate-pulse leading-none">
+                        {chatUnreadCount > 9 ? "9+" : chatUnreadCount}
+                      </span>
                     )}
                   </div>
                   {!isCollapsed && (
                     <>
                       <span className="truncate">{item.label}</span>
                       {isChatWithUnread && (
-                        <span className="ml-auto text-[9px] font-bold text-red-400 uppercase tracking-wider">New</span>
+                        <span className="ml-auto flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none animate-pulse">
+                            {chatUnreadCount > 9 ? "9+" : chatUnreadCount} new
+                          </span>
+                        </span>
                       )}
                     </>
                   )}
@@ -428,7 +446,11 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                         isLight ? "bg-gray-900 text-white" : "bg-white text-gray-900"
                       )}>
                         {item.label}
-                        {isChatWithUnread && <span className="ml-1.5 text-red-400 font-bold">●</span>}
+                        {isChatWithUnread && (
+                          <span className="ml-1.5 bg-red-500 text-white text-[8px] font-bold rounded-full px-1 py-0.5 leading-none">
+                            {chatUnreadCount > 9 ? "9+" : chatUnreadCount}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
