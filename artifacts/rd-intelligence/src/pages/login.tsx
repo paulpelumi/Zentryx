@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useAuthStore } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Zap, Lock, Mail, User, AlertCircle, Phone, Eye, EyeOff, ArrowLeft, KeyRound, CheckCircle } from "lucide-react";
+import { Zap, Lock, Mail, User, AlertCircle, Phone, Eye, EyeOff, ArrowLeft, KeyRound, CheckCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +29,11 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { setToken } = useAuthStore();
   const { toast } = useToast();
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollBy = (amount: number) => {
+    scrollRef.current?.scrollBy({ top: amount, behavior: "smooth" });
+  };
 
   // login fields
   const [email, setEmail] = useState("");
@@ -199,12 +204,32 @@ export default function Login() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start py-8 relative overflow-y-auto bg-background">
-      <div className="absolute inset-0 z-0">
+    <div ref={scrollRef} className="min-h-screen flex flex-col items-center justify-start py-8 relative overflow-y-auto bg-background">
+      <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10" />
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
       </div>
+
+      {/* Manual scroll buttons — only shown on the signup form */}
+      {mode === "signup" && (
+        <div className="fixed right-4 bottom-6 z-50 flex flex-col gap-2">
+          <button
+            onClick={() => scrollBy(-160)}
+            className="w-10 h-10 rounded-full bg-primary/80 hover:bg-primary text-white flex items-center justify-center shadow-lg transition-all active:scale-95"
+            title="Scroll up"
+          >
+            <ChevronUp className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => scrollBy(160)}
+            className="w-10 h-10 rounded-full bg-primary/80 hover:bg-primary text-white flex items-center justify-center shadow-lg transition-all active:scale-95"
+            title="Scroll down"
+          >
+            <ChevronDown className="w-5 h-5" />
+          </button>
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
