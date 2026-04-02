@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { chatRoomsTable, chatRoomMembersTable, chatMessagesTable, chatReadReceiptsTable, usersTable } from "@workspace/db";
-import { eq, and, inArray, desc, sql } from "drizzle-orm";
+import { eq, and, inArray, desc, sql, ne } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
+import { SUPERADMIN_EMAIL } from "./auth";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -90,7 +91,14 @@ router.post("/rooms", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { name, isGroup, memberIds } = req.body;
     const userId = req.user!.userId;
-    const allMemberIds = [...new Set([userId, ...(memberIds || [])])];
+
+    // Resolve superadmin DB id so we can strip them from any member list
+    const [sa] = await db.select({ id: usersTable.id }).from(usersTable)
+      .where(eq(usersTable.email, SUPERADMIN_EMAIL)).limit(1);
+    const saId = sa?.id;
+
+    const rawIds = [...new Set([userId, ...(memberIds || [])])];
+    const allMemberIds = saId ? rawIds.filter(id => id !== saId) : rawIds;
 
     if (isGroup === false && allMemberIds.length === 2) {
       const otherId = allMemberIds.find(id => id !== userId)!;
@@ -261,11 +269,12 @@ router.get("/uploads/:filename", (req, res) => {
   });
 });
 
-// Get all users for private chat
+// Get all users for private chat (superadmin always excluded)
 router.get("/users", requireAuth, async (_req, res) => {
   try {
     const users = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, isActive: usersTable.isActive })
-      .from(usersTable);
+      .from(usersTable)
+      .where(ne(usersTable.email, SUPERADMIN_EMAIL));
     res.json(users);
   } catch { res.status(500).json({ error: "InternalServerError" }); }
 });
