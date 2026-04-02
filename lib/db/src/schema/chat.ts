@@ -33,6 +33,14 @@ export const chatMessagesTable = pgTable("chat_messages", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const chatReadReceiptsTable = pgTable("chat_read_receipts", {
+  id: serial("id").primaryKey(),
+  roomId: integer("room_id").notNull().references(() => chatRoomsTable.id, { onDelete: "cascade" }),
+  userId: integer("user_id").notNull().references(() => usersTable.id),
+  lastReadMessageId: integer("last_read_message_id"),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export const insertChatRoomSchema = createInsertSchema(chatRoomsTable).omit({ id: true, createdAt: true });
 export const insertChatMessageSchema = createInsertSchema(chatMessagesTable).omit({ id: true, createdAt: true });
 export type InsertChatRoom = z.infer<typeof insertChatRoomSchema>;

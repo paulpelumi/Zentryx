@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { chatRoomsTable, chatRoomMembersTable, chatMessagesTable, usersTable } from "@workspace/db";
-import { eq, and, inArray, desc } from "drizzle-orm";
+import { chatRoomsTable, chatRoomMembersTable, chatMessagesTable, chatReadReceiptsTable, usersTable } from "@workspace/db";
+import { eq, and, inArray, desc, sql } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
 import multer from "multer";
 import path from "path";
@@ -12,7 +12,34 @@ const upload = multer({ dest: "uploads/chat/", limits: { fileSize: 50 * 1024 * 1
 
 if (!fs.existsSync("uploads/chat")) fs.mkdirSync("uploads/chat", { recursive: true });
 
-// Get all rooms for current user (only rooms they are a member of)
+const MSG_SELECT = {
+  id: chatMessagesTable.id,
+  roomId: chatMessagesTable.roomId,
+  messageType: chatMessagesTable.messageType,
+  content: chatMessagesTable.content,
+  fileUrl: chatMessagesTable.fileUrl,
+  fileName: chatMessagesTable.fileName,
+  createdAt: chatMessagesTable.createdAt,
+  senderId: chatMessagesTable.senderId,
+  senderName: usersTable.name,
+  senderRole: usersTable.role,
+};
+
+// Helper: update read receipt for user in room
+async function markRead(userId: number, roomId: number, messageId: number) {
+  const existing = await db.select().from(chatReadReceiptsTable)
+    .where(and(eq(chatReadReceiptsTable.userId, userId), eq(chatReadReceiptsTable.roomId, roomId)))
+    .limit(1);
+  if (existing.length > 0) {
+    await db.update(chatReadReceiptsTable)
+      .set({ lastReadMessageId: messageId, updatedAt: new Date() })
+      .where(and(eq(chatReadReceiptsTable.userId, userId), eq(chatReadReceiptsTable.roomId, roomId)));
+  } else {
+    await db.insert(chatReadReceiptsTable).values({ userId, roomId, lastReadMessageId: messageId }).catch(() => {});
+  }
+}
+
+// Get all rooms for current user with last message preview + unread count
 router.get("/rooms", requireAuth, async (req: AuthRequest, res) => {
   try {
     const userId = req.user!.userId;
@@ -20,10 +47,38 @@ router.get("/rooms", requireAuth, async (req: AuthRequest, res) => {
       .from(chatRoomMembersTable).where(eq(chatRoomMembersTable.userId, userId));
     if (memberships.length === 0) { res.json([]); return; }
     const roomIds = memberships.map(m => m.roomId);
-    const rooms = await db.select().from(chatRoomsTable)
-      .where(inArray(chatRoomsTable.id, roomIds))
-      .orderBy(chatRoomsTable.createdAt);
-    res.json(rooms);
+    const rooms = await db.select().from(chatRoomsTable).where(inArray(chatRoomsTable.id, roomIds));
+
+    // For each room, get last message info
+    const enriched = await Promise.all(rooms.map(async (room) => {
+      const [lastMsg] = await db.select(MSG_SELECT)
+        .from(chatMessagesTable)
+        .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
+        .where(eq(chatMessagesTable.roomId, room.id))
+        .orderBy(desc(chatMessagesTable.createdAt))
+        .limit(1);
+
+      const [receipt] = await db.select().from(chatReadReceiptsTable)
+        .where(and(eq(chatReadReceiptsTable.userId, userId), eq(chatReadReceiptsTable.roomId, room.id)))
+        .limit(1);
+
+      const lastReadId = receipt?.lastReadMessageId ?? 0;
+      const lastMsgId = lastMsg?.id ?? 0;
+      const hasUnread = lastMsg && lastMsg.senderId !== userId && lastMsgId > lastReadId;
+
+      return {
+        ...room,
+        lastMessageAt: lastMsg?.createdAt ?? room.createdAt,
+        lastMessagePreview: lastMsg?.content ?? null,
+        lastMessageSender: lastMsg?.senderName ?? null,
+        lastMessageType: lastMsg?.messageType ?? null,
+        hasUnread: !!hasUnread,
+      };
+    }));
+
+    // Sort by most recent message
+    enriched.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+    res.json(enriched);
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
@@ -34,10 +89,8 @@ router.post("/rooms", requireAuth, async (req: AuthRequest, res) => {
     const userId = req.user!.userId;
     const allMemberIds = [...new Set([userId, ...(memberIds || [])])];
 
-    // For DMs (isGroup=false, 2 members), find existing room
     if (isGroup === false && allMemberIds.length === 2) {
       const otherId = allMemberIds.find(id => id !== userId)!;
-      // Find rooms where both users are members and room is not a group
       const myRooms = await db.select({ roomId: chatRoomMembersTable.roomId })
         .from(chatRoomMembersTable).where(eq(chatRoomMembersTable.userId, userId));
       const otherRooms = await db.select({ roomId: chatRoomMembersTable.roomId })
@@ -82,30 +135,54 @@ router.delete("/rooms/:roomId", requireAuth, async (req: AuthRequest, res) => {
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
-// Get messages for a room
-router.get("/rooms/:roomId/messages", requireAuth, async (req, res) => {
+// Get messages for a room + mark as read
+router.get("/rooms/:roomId/messages", requireAuth, async (req: AuthRequest, res) => {
   try {
     const roomId = parseInt(req.params.roomId);
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
-    const messages = await db.select({
-      id: chatMessagesTable.id,
-      roomId: chatMessagesTable.roomId,
-      messageType: chatMessagesTable.messageType,
-      content: chatMessagesTable.content,
-      fileUrl: chatMessagesTable.fileUrl,
-      fileName: chatMessagesTable.fileName,
-      createdAt: chatMessagesTable.createdAt,
-      senderId: chatMessagesTable.senderId,
-      senderName: usersTable.name,
-      senderRole: usersTable.role,
-    })
-    .from(chatMessagesTable)
-    .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
-    .where(eq(chatMessagesTable.roomId, roomId))
-    .orderBy(chatMessagesTable.createdAt)
-    .limit(limit);
-    res.json(messages);
-  } catch { res.status(500).json({ error: "InternalServerError" }); }
+    const userId = req.user!.userId;
+    const limit = Math.min(parseInt(req.query.limit as string) || 100, 200);
+    const messages = await db.select(MSG_SELECT)
+      .from(chatMessagesTable)
+      .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
+      .where(eq(chatMessagesTable.roomId, roomId))
+      .orderBy(chatMessagesTable.createdAt)
+      .limit(limit);
+
+    // Get read receipts for all members in this room (for seen indicators)
+    const members = await db.select({ userId: chatRoomMembersTable.userId })
+      .from(chatRoomMembersTable).where(eq(chatRoomMembersTable.roomId, roomId));
+    const memberIds = members.map(m => m.userId).filter(id => id !== userId);
+    const receipts = memberIds.length > 0
+      ? await db.select().from(chatReadReceiptsTable)
+          .where(and(eq(chatReadReceiptsTable.roomId, roomId), inArray(chatReadReceiptsTable.userId, memberIds)))
+      : [];
+
+    // Auto mark-as-read: update receipt for current user to last message
+    if (messages.length > 0) {
+      const lastId = messages[messages.length - 1].id;
+      await markRead(userId, roomId, lastId).catch(() => {});
+    }
+
+    // Attach seenByOthers flag to each message
+    const seenMap = new Map(receipts.map(r => [r.userId, r.lastReadMessageId ?? 0]));
+    const enriched = messages.map(m => ({
+      ...m,
+      seenBy: memberIds.filter(uid => (seenMap.get(uid) ?? 0) >= m.id),
+    }));
+
+    res.json(enriched);
+  } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
+});
+
+// Mark room as read (explicit)
+router.post("/rooms/:roomId/read", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const roomId = parseInt(req.params.roomId);
+    const userId = req.user!.userId;
+    const { messageId } = req.body;
+    await markRead(userId, roomId, messageId);
+    res.json({ ok: true });
+  } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
 // Send a text message
@@ -118,21 +195,17 @@ router.post("/rooms/:roomId/messages", requireAuth, async (req: AuthRequest, res
       messageType: messageType || "text",
       content,
     }).returning();
-    const [withSender] = await db.select({
-      id: chatMessagesTable.id, roomId: chatMessagesTable.roomId,
-      messageType: chatMessagesTable.messageType, content: chatMessagesTable.content,
-      fileUrl: chatMessagesTable.fileUrl, fileName: chatMessagesTable.fileName,
-      createdAt: chatMessagesTable.createdAt, senderId: chatMessagesTable.senderId,
-      senderName: usersTable.name, senderRole: usersTable.role,
-    })
-    .from(chatMessagesTable)
-    .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
-    .where(eq(chatMessagesTable.id, msg.id));
-    res.status(201).json(withSender);
+    const [withSender] = await db.select(MSG_SELECT)
+      .from(chatMessagesTable)
+      .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
+      .where(eq(chatMessagesTable.id, msg.id));
+    // Auto-mark sender as read
+    await markRead(req.user!.userId, roomId, msg.id).catch(() => {});
+    res.status(201).json({ ...withSender, seenBy: [] });
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
-// Delete a message (sender or admin)
+// Delete a message (sender only)
 router.delete("/rooms/:roomId/messages/:messageId", requireAuth, async (req: AuthRequest, res) => {
   try {
     const messageId = parseInt(req.params.messageId);
@@ -156,17 +229,12 @@ router.post("/rooms/:roomId/upload", requireAuth, upload.single("file"), async (
       roomId, senderId: req.user!.userId, messageType,
       fileUrl, fileName: req.file.originalname,
     }).returning();
-    const [withSender] = await db.select({
-      id: chatMessagesTable.id, roomId: chatMessagesTable.roomId,
-      messageType: chatMessagesTable.messageType, content: chatMessagesTable.content,
-      fileUrl: chatMessagesTable.fileUrl, fileName: chatMessagesTable.fileName,
-      createdAt: chatMessagesTable.createdAt, senderId: chatMessagesTable.senderId,
-      senderName: usersTable.name, senderRole: usersTable.role,
-    })
-    .from(chatMessagesTable)
-    .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
-    .where(eq(chatMessagesTable.id, msg.id));
-    res.status(201).json(withSender);
+    const [withSender] = await db.select(MSG_SELECT)
+      .from(chatMessagesTable)
+      .leftJoin(usersTable, eq(chatMessagesTable.senderId, usersTable.id))
+      .where(eq(chatMessagesTable.id, msg.id));
+    await markRead(req.user!.userId, roomId, msg.id).catch(() => {});
+    res.status(201).json({ ...withSender, seenBy: [] });
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
@@ -182,7 +250,7 @@ router.get("/uploads/:filename", (req, res) => {
 router.get("/users", requireAuth, async (_req, res) => {
   try {
     const users = await db.select({ id: usersTable.id, name: usersTable.name, email: usersTable.email, role: usersTable.role, isActive: usersTable.isActive })
-      .from(usersTable).where(eq(usersTable.isActive, true));
+      .from(usersTable);
     res.json(users);
   } catch { res.status(500).json({ error: "InternalServerError" }); }
 });

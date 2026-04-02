@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Send, Plus, ImageIcon, Mic, MicOff, Users, Lock, Video, Hash,
   MoreVertical, StopCircle, Trash2, Pin, PinOff, LogOut, X,
-  MessageSquare, AtSign, ChevronRight, FileText, Download, ZoomIn, Paperclip, ArrowDown
+  MessageSquare, AtSign, ChevronRight, FileText, Download, ZoomIn, Paperclip, ArrowDown,
+  Check, CheckCheck, Clock, Search
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -176,6 +177,8 @@ export default function ChatRoom() {
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [mentionStart, setMentionStart] = useState<number>(-1);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [sidebarSearch, setSidebarSearch] = useState("");
+  const [roomMeta, setRoomMeta] = useState<Record<number, { lastMessageAt: string; lastMessagePreview: string | null; lastMessageType: string | null; hasUnread: boolean }>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -203,13 +206,42 @@ export default function ChatRoom() {
     try { return JSON.parse(atob(localStorage.getItem("rd_token")?.split(".")[1] || "")).userId; } catch { return null; }
   })();
 
+  const refreshRooms = useCallback(() => {
+    api.get("/chat/rooms").then((r: any[]) => {
+      const list = Array.isArray(r) ? r : [];
+      setRooms(list);
+      const meta: typeof roomMeta = {};
+      list.forEach((room: any) => {
+        meta[room.id] = {
+          lastMessageAt: room.lastMessageAt,
+          lastMessagePreview: room.lastMessagePreview,
+          lastMessageType: room.lastMessageType,
+          hasUnread: room.hasUnread,
+        };
+      });
+      setRoomMeta(meta);
+    });
+  }, []);
+
   useEffect(() => {
     localStorage.removeItem("rd_chat_unread");
     Promise.all([api.get("/chat/rooms"), api.get("/chat/users")]).then(([r, u]) => {
-      setRooms(Array.isArray(r) ? r : []);
+      const list = Array.isArray(r) ? r : [];
+      setRooms(list);
       setUsers(Array.isArray(u) ? u : []);
-      const allRooms = Array.isArray(r) ? r : [];
-      if (allRooms.length > 0) selectRoom(allRooms[0]);
+      const meta: typeof roomMeta = {};
+      list.forEach((room: any) => {
+        meta[room.id] = {
+          lastMessageAt: room.lastMessageAt,
+          lastMessagePreview: room.lastMessagePreview,
+          lastMessageType: room.lastMessageType,
+          hasUnread: room.hasUnread,
+        };
+      });
+      setRoomMeta(meta);
+      const channels = list.filter((room: any) => room.isGroup);
+      if (channels.length > 0) selectRoom(channels[0]);
+      else if (list.length > 0) selectRoom(list[0]);
       else setLoading(false);
     });
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
@@ -219,18 +251,15 @@ export default function ChatRoom() {
     api.get(`/chat/rooms/${roomId}/messages?limit=100`).then((msgs: any[]) => {
       const msgList = Array.isArray(msgs) ? msgs : [];
       setMessages(prev => {
-        const prevLatest = prev.length > 0 ? prev[prev.length - 1]?.createdAt : null;
-        const newLatest = msgList.length > 0 ? msgList[msgList.length - 1]?.createdAt : null;
-        if (prevLatest && newLatest && newLatest > prevLatest) {
-          const latest = msgList[msgList.length - 1];
-          if (latest.senderId !== currentUserId) {
-            localStorage.setItem("rd_chat_unread", "1");
-          }
-        }
-        return msgList;
+        // Keep optimistic (temp) messages that haven't been confirmed yet
+        const optimistic = prev.filter((m: any) => m._sending);
+        const merged = [...msgList, ...optimistic.filter((o: any) => !msgList.find((m: any) => m.content === o.content))];
+        return merged;
       });
+      // Refresh room list to update previews and unread indicators
+      refreshRooms();
     });
-  }, [currentUserId]);
+  }, [currentUserId, refreshRooms]);
 
   const selectRoom = (room: any) => {
     setActiveRoom(room);
@@ -238,17 +267,26 @@ export default function ChatRoom() {
     setShowPinnedMsgs(false);
     if (pollRef.current) clearInterval(pollRef.current);
     loadMessages(room.id);
-    pollRef.current = setInterval(() => loadMessages(room.id), 3000);
+    pollRef.current = setInterval(() => loadMessages(room.id), 1500);
     setLoading(false);
   };
 
   const sendMessage = async () => {
     if (!newMsg.trim() || !activeRoom) return;
+    const content = newMsg;
+    const tempId = `temp_${Date.now()}`;
+    const optimistic = { _tempId: tempId, _sending: true, id: tempId, roomId: activeRoom.id, content, messageType: "text", senderId: currentUserId, senderName: "You", createdAt: new Date().toISOString(), seenBy: [] };
+    setMessages(prev => [...prev, optimistic]);
+    setNewMsg("");
     setSending(true);
     try {
-      const msg = await api.post(`/chat/rooms/${activeRoom.id}/messages`, { content: newMsg, messageType: "text" });
-      setMessages(prev => [...prev.filter((m: any) => m.id !== msg.id), msg]);
-      setNewMsg("");
+      const msg = await api.post(`/chat/rooms/${activeRoom.id}/messages`, { content, messageType: "text" });
+      setMessages(prev => prev.map((m: any) => m._tempId === tempId ? { ...msg, seenBy: msg.seenBy || [] } : m));
+      refreshRooms();
+    } catch {
+      setMessages(prev => prev.filter((m: any) => m._tempId !== tempId));
+      setNewMsg(content);
+      toast({ title: "Failed to send message", variant: "destructive" });
     } finally { setSending(false); }
   };
 
@@ -380,7 +418,24 @@ export default function ChatRoom() {
   };
 
   const channels = sortRooms(rooms.filter((r: any) => r.isGroup));
-  const dmRooms = sortRooms(rooms.filter((r: any) => !r.isGroup));
+  const dmRooms = rooms.filter((r: any) => !r.isGroup);
+
+  // Build people list: all users with DM room info, sorted by most recent DM then alphabetically
+  const peopleList = users.filter((u: any) => u.id !== currentUserId).map((u: any) => {
+    const dmRoom = dmRooms.find((r: any) => r.name === u.name || r.name === u.name.split(" ")[0]);
+    const meta = dmRoom ? roomMeta[dmRoom.id] : null;
+    return { ...u, dmRoom, lastMessageAt: meta?.lastMessageAt ?? null, lastPreview: meta?.lastMessagePreview ?? null, lastPreviewType: meta?.lastMessageType ?? null, hasUnread: meta?.hasUnread ?? false };
+  }).sort((a, b) => {
+    if (a.lastMessageAt && b.lastMessageAt) return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+    if (a.lastMessageAt) return -1;
+    if (b.lastMessageAt) return 1;
+    return a.name.localeCompare(b.name);
+  });
+
+  const searchLower = sidebarSearch.toLowerCase();
+  const filteredChannels = searchLower ? channels.filter((r: any) => r.name.toLowerCase().includes(searchLower)) : channels;
+  const filteredPeople = searchLower ? peopleList.filter((u: any) => u.name.toLowerCase().includes(searchLower)) : peopleList;
+
   const pinnedMessages = visibleMessages.filter((m: any) => isMsgPinned(m.id));
 
   if (loading && rooms.length === 0) return <PageLoader />;
@@ -435,85 +490,97 @@ export default function ChatRoom() {
 
     <div className="flex h-[calc(100vh-10rem)] gap-0 rounded-2xl overflow-hidden glass-card border border-white/5">
       {/* Sidebar */}
-      <div className="w-64 shrink-0 border-r border-white/5 flex flex-col bg-white/[0.02]">
-        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+      <div className="w-72 shrink-0 border-r border-white/5 flex flex-col bg-white/[0.02]">
+        <div className="p-3 border-b border-white/5 flex items-center justify-between gap-2">
           <h2 className="font-display font-bold text-foreground">Chat</h2>
           <CreateGroupModal users={users} onCreate={createGroupRoom} />
         </div>
 
+        {/* Search */}
+        <div className="px-3 py-2 border-b border-white/5">
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+            <input
+              value={sidebarSearch}
+              onChange={e => setSidebarSearch(e.target.value)}
+              placeholder="Search people or channels…"
+              className="w-full bg-white/5 border border-white/10 rounded-lg pl-7 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 text-foreground placeholder:text-muted-foreground"
+            />
+          </div>
+        </div>
+
         <div className="flex-1 overflow-y-auto custom-scrollbar py-2">
           {/* Channels */}
-          <div className="px-3 mb-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Channels</p>
-          </div>
-          {channels.length === 0 && (
-            <p className="px-4 text-xs text-muted-foreground italic py-1">No channels yet</p>
-          )}
-          {channels.map((room: any) => (
-            <div key={room.id} className={`group/room flex items-center gap-0.5 mx-1 rounded-xl transition-colors ${activeRoom?.id === room.id ? "bg-primary/10" : "hover:bg-white/5"}`}>
-              <button onClick={() => selectRoom(room)}
-                className={`flex-1 flex items-center gap-2 px-2.5 py-2 text-sm text-left transition-colors ${activeRoom?.id === room.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                <div className="relative shrink-0">
-                  <Hash className="w-4 h-4" />
-                  {isRoomPinned(room.id) && <Pin className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1" />}
-                </div>
-                <span className="truncate flex-1">{room.name}</span>
-              </button>
-              <RoomContextMenu
-                room={room}
-                isPinned={isRoomPinned(room.id)}
-                onPin={() => toggleRoomPin(room.id)}
-                onDelete={() => deleteRoom(room)}
-                onLeave={() => deleteRoom(room)}
-                isCreator={room.createdById === currentUserId}
-              />
-            </div>
-          ))}
-
-          {/* Direct Messages */}
-          <div className="px-3 mt-4 mb-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Direct Messages</p>
-          </div>
-          {dmRooms.length === 0 && (
-            <p className="px-4 text-xs text-muted-foreground italic py-1">Click a team member to start a DM</p>
-          )}
-          {dmRooms.map((room: any) => (
-            <div key={room.id} className={`group/room flex items-center gap-0.5 mx-1 rounded-xl transition-colors ${activeRoom?.id === room.id ? "bg-primary/10" : "hover:bg-white/5"}`}>
-              <button onClick={() => selectRoom(room)}
-                className={`flex-1 flex items-center gap-2 px-2.5 py-2 text-sm text-left transition-colors ${activeRoom?.id === room.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                <div className="relative shrink-0">
-                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[9px] font-bold">
-                    {room.name.charAt(0)}
-                  </div>
-                  {isRoomPinned(room.id) && <Pin className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1" />}
-                </div>
-                <span className="truncate flex-1">{room.name}</span>
-              </button>
-              <RoomContextMenu
-                room={room}
-                isPinned={isRoomPinned(room.id)}
-                onPin={() => toggleRoomPin(room.id)}
-                onDelete={() => deleteRoom(room)}
-                onLeave={() => deleteRoom(room)}
-                isCreator={room.createdById === currentUserId}
-              />
-            </div>
-          ))}
-
-          {/* Team Members — click to open/start DM */}
-          <div className="px-3 mt-4 mb-1">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Team Members</p>
-          </div>
-          {users.filter((u: any) => u.id !== currentUserId).map((user: any) => (
-            <button key={user.id} onClick={() => createPrivateRoom(user.id, user.name)}
-              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left text-muted-foreground hover:bg-white/5 hover:text-foreground transition-colors">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[10px] font-bold shrink-0">
-                {user.name.charAt(0)}
+          {filteredChannels.length > 0 && (
+            <>
+              <div className="px-3 mb-1 mt-1">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Channels</p>
               </div>
-              <span className="truncate flex-1">{user.name}</span>
-              <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${user.isActive ? "bg-green-400" : "bg-muted"}`} />
-            </button>
-          ))}
+              {filteredChannels.map((room: any) => (
+                <div key={room.id} className={`group/room flex items-center gap-0.5 mx-1 rounded-xl transition-colors ${activeRoom?.id === room.id ? "bg-primary/10" : "hover:bg-white/5"}`}>
+                  <button onClick={() => selectRoom(room)}
+                    className={`flex-1 flex items-center gap-2 px-2.5 py-2 text-sm text-left transition-colors ${activeRoom?.id === room.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                    <div className="relative shrink-0">
+                      <Hash className="w-4 h-4" />
+                      {isRoomPinned(room.id) && <Pin className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="truncate text-sm">{room.name}</span>
+                        {roomMeta[room.id]?.hasUnread && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                      </div>
+                      {roomMeta[room.id]?.lastMessagePreview && (
+                        <p className="text-[10px] text-muted-foreground truncate">{roomMeta[room.id].lastMessagePreview}</p>
+                      )}
+                    </div>
+                  </button>
+                  <RoomContextMenu room={room} isPinned={isRoomPinned(room.id)} onPin={() => toggleRoomPin(room.id)} onDelete={() => deleteRoom(room)} onLeave={() => deleteRoom(room)} isCreator={room.createdById === currentUserId} />
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* People — all org members sorted by recent DM activity */}
+          <div className="px-3 mb-1 mt-3">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">People</p>
+          </div>
+          {filteredPeople.length === 0 && (
+            <p className="px-4 text-xs text-muted-foreground italic py-1">No users found</p>
+          )}
+          {filteredPeople.map((person: any) => {
+            const isActive = activeRoom && person.dmRoom && activeRoom.id === person.dmRoom.id;
+            return (
+              <button key={person.id}
+                onClick={() => createPrivateRoom(person.id, person.name)}
+                className={`w-[calc(100%-8px)] mx-1 flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-sm text-left transition-colors ${isActive ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}
+              >
+                <div className="relative shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[11px] font-bold">
+                    {person.name.charAt(0)}
+                  </div>
+                  <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-background ${person.isActive ? "bg-green-400" : "bg-slate-500"}`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    <span className="truncate text-sm font-medium">{person.name}</span>
+                    {person.hasUnread && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                  </div>
+                  {person.lastPreview ? (
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {person.lastPreviewType === "image" ? "📷 Image" : person.lastPreviewType === "voice_note" ? "🎤 Voice note" : person.lastPreview}
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-muted-foreground">Tap to message</p>
+                  )}
+                </div>
+                {person.lastMessageAt && (
+                  <span className="text-[9px] text-muted-foreground shrink-0">
+                    {format(new Date(person.lastMessageAt), "h:mm a")}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -604,6 +671,16 @@ export default function ChatRoom() {
                       </div>
                       <div className={`flex items-center gap-1 px-1 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>
                         <span className="text-[10px] text-muted-foreground">{format(new Date(msg.createdAt), "h:mm a")}</span>
+                        {isOwn && (
+                          <span className="flex items-center">
+                            {msg._sending
+                              ? <Clock className="w-3 h-3 text-muted-foreground animate-pulse" />
+                              : (msg.seenBy?.length > 0)
+                                ? <CheckCheck className="w-3.5 h-3.5 text-blue-400" title="Seen" />
+                                : <Check className="w-3 h-3 text-muted-foreground" title="Sent" />
+                            }
+                          </span>
+                        )}
                         <MessageContextMenu
                           msg={msg}
                           isOwn={isOwn}
