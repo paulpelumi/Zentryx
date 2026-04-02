@@ -32,18 +32,21 @@ const ALL_NAV_ITEMS = [
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
 
+const RESTRICTED_PATHS = ["/sales-force", "/projects", "/weekly-activities", "/business-dev"];
+
 function getBlockedPaths(role: string, jobPos: string): string[] {
   const r = (role || "viewer").toLowerCase();
   const jp = (jobPos || "").toLowerCase();
-  // Full access: admin, manager, ceo, any "head" role, or jobPosition containing privileged keywords
+  // Full access: admin, manager, ceo, any "head" role
   const privileged = ["admin", "manager", "ceo"].includes(r) || r.includes("head") ||
     jp.includes("head") || jp.includes("ceo") || jp.includes("admin") || jp.includes("manager");
   if (privileged) return [];
-  if (r === "viewer") return ["/sales-force", "/projects", "/weekly-activities", "/business-dev"];
+  // NPD technologist can see everything except Sales Force
   if (r === "npd_technologist") return ["/sales-force"];
-  if (["key_account_manager", "senior_key_account_manager", "procurement"].includes(r)) return ["/projects", "/weekly-activities", "/business-dev"];
-  if (jp.includes("procurement")) return ["/projects", "/weekly-activities", "/business-dev"];
-  return [];
+  // All other roles (viewer, KAM, SKAM, procurement, graphics_designer, hr, quality_control,
+  // head_of_department variants not already caught, and any unknown/future role)
+  // hide all four restricted sections
+  return RESTRICTED_PATHS;
 }
 
 function useAvatarColor(name: string) {
