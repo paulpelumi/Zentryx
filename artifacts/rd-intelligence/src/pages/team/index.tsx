@@ -5,7 +5,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, Filter, Phone, Globe, Briefcase, Tag } from "lucide-react";
+import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, Filter, Phone, Globe, Briefcase, Tag, ShieldCheck } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -104,8 +104,22 @@ export default function Team() {
     },
   });
 
-  const isAdmin = me?.role === "admin";
+  const myRole: string = me?.role || "";
+  const isAdmin = myRole === "admin";
+  const isPrivileged = isAdmin || ["manager", "ceo"].includes(myRole) || myRole.includes("head");
   const myId = me?.id;
+
+  const makeAdmin = async (id: number, name: string) => {
+    if (!isPrivileged) return;
+    try {
+      const res = await fetch(`${BASE}api/users/${id}/make-admin`, { method: "POST", headers });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed"); }
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Promoted to Admin", description: `${name} is now an Admin.` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
 
   const filtered = (users || []).filter(u => {
     const matchDept = deptFilter === "all" || u.department === deptFilter;
@@ -274,6 +288,15 @@ export default function Team() {
                           {canEdit(user) && (
                             <button onClick={() => startEdit(user)} className="p-1.5 hover:bg-white/10 rounded-lg text-muted-foreground hover:text-foreground transition-colors" title="Edit">
                               <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {isPrivileged && user.role !== "admin" && user.id !== myId && (
+                            <button
+                              onClick={() => makeAdmin(user.id, user.name)}
+                              className="p-1.5 hover:bg-amber-500/10 rounded-lg text-muted-foreground hover:text-amber-400 transition-colors"
+                              title="Make Admin"
+                            >
+                              <ShieldCheck className="w-4 h-4" />
                             </button>
                           )}
                           {isAdmin && (

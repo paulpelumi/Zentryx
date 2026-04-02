@@ -18,7 +18,7 @@ const BASE = import.meta.env.BASE_URL;
 const SIDEBAR_LOCK_KEY = "zentryx_sidebar_locked";
 const SIDEBAR_COLLAPSED_KEY = "zentryx_sidebar_collapsed";
 
-const navItems = [
+const ALL_NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Project Portfolio", icon: FlaskConical },
   { href: "/analytics", label: "Analytics", icon: LineChart },
@@ -31,6 +31,20 @@ const navItems = [
   { href: "/chat", label: "Chat Room", icon: MessageSquare },
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
+
+function getBlockedPaths(role: string, jobPos: string): string[] {
+  const r = (role || "viewer").toLowerCase();
+  const jp = (jobPos || "").toLowerCase();
+  // Full access: admin, manager, ceo, any "head" role, or jobPosition containing privileged keywords
+  const privileged = ["admin", "manager", "ceo"].includes(r) || r.includes("head") ||
+    jp.includes("head") || jp.includes("ceo") || jp.includes("admin") || jp.includes("manager");
+  if (privileged) return [];
+  if (r === "viewer") return ["/sales-force", "/projects", "/weekly-activities", "/business-dev"];
+  if (r === "npd_technologist") return ["/sales-force"];
+  if (["key_account_manager", "senior_key_account_manager", "procurement"].includes(r)) return ["/projects", "/weekly-activities", "/business-dev"];
+  if (jp.includes("procurement")) return ["/projects", "/weekly-activities", "/business-dev"];
+  return [];
+}
 
 function useAvatarColor(name: string) {
   const colors = [
@@ -280,6 +294,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const unreadCount = notifications?.filter(n => !n.isRead).length || 0;
   const isLight = theme === "light";
 
+  const blockedPaths = getBlockedPaths(user?.role || "viewer", (user as any)?.jobPosition || "");
+  const navItems = ALL_NAV_ITEMS.filter(item => !blockedPaths.includes(item.href));
+
   const isCollapsed = !sidebarLocked && sidebarCollapsed;
 
   const toggleCollapse = () => {
@@ -415,20 +432,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       isActive ? (isLight ? "text-white" : "text-primary") : ""
                     )} />
                     {isChatWithUnread && (
-                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-[0_0_8px_rgba(239,68,68,0.9)] animate-pulse leading-none">
-                        {chatUnreadCount > 9 ? "9+" : chatUnreadCount}
-                      </span>
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_6px_rgba(239,68,68,0.8)] animate-pulse" />
                     )}
                   </div>
                   {!isCollapsed && (
                     <>
                       <span className="truncate">{item.label}</span>
                       {isChatWithUnread && (
-                        <span className="ml-auto flex items-center gap-1">
-                          <span className="text-[9px] font-bold text-white bg-red-500 rounded-full px-1.5 py-0.5 leading-none animate-pulse">
-                            {chatUnreadCount > 9 ? "9+" : chatUnreadCount} new
-                          </span>
-                        </span>
+                        <span className="ml-auto text-[9px] font-bold text-red-400 bg-red-500/15 rounded-full px-2 py-0.5 leading-none animate-pulse uppercase tracking-wide">New</span>
                       )}
                     </>
                   )}
@@ -447,9 +458,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                       )}>
                         {item.label}
                         {isChatWithUnread && (
-                          <span className="ml-1.5 bg-red-500 text-white text-[8px] font-bold rounded-full px-1 py-0.5 leading-none">
-                            {chatUnreadCount > 9 ? "9+" : chatUnreadCount}
-                          </span>
+                          <span className="ml-1.5 text-red-400 font-bold">●</span>
                         )}
                       </div>
                     </div>

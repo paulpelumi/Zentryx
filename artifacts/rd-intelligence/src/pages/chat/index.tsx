@@ -185,6 +185,7 @@ export default function ChatRoom() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const textareaRef = useRef<HTMLInputElement>(null);
+  const justSwitchedRoomRef = useRef(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
   const handleMessagesScroll = () => {
@@ -251,17 +252,23 @@ export default function ChatRoom() {
     api.get(`/chat/rooms/${roomId}/messages?limit=100`).then((msgs: any[]) => {
       const msgList = Array.isArray(msgs) ? msgs : [];
       setMessages(prev => {
-        // Keep optimistic (temp) messages that haven't been confirmed yet
         const optimistic = prev.filter((m: any) => m._sending);
         const merged = [...msgList, ...optimistic.filter((o: any) => !msgList.find((m: any) => m.content === o.content))];
         return merged;
       });
-      // Refresh room list to update previews and unread indicators
+      // On first load after switching rooms, scroll to bottom (resume last position)
+      if (justSwitchedRoomRef.current) {
+        justSwitchedRoomRef.current = false;
+        requestAnimationFrame(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
+        });
+      }
       refreshRooms();
     });
   }, [currentUserId, refreshRooms]);
 
   const selectRoom = (room: any) => {
+    justSwitchedRoomRef.current = true;
     setActiveRoom(room);
     setMessages([]);
     setShowPinnedMsgs(false);

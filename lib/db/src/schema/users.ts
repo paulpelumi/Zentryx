@@ -5,13 +5,19 @@ import { z } from "zod/v4";
 export const userRoleEnum = pgEnum("user_role", [
   "admin",
   "manager",
+  "ceo",
   "npd_technologist",
   "head_of_product_development",
+  "head_of_department",
   "key_account_manager",
   "senior_key_account_manager",
   "project_manager",
+  "procurement",
   "scientist",
   "analyst",
+  "hr",
+  "quality_control",
+  "graphics_designer",
   "viewer"
 ]);
 

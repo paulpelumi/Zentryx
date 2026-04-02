@@ -7,6 +7,12 @@ import { logActivity } from "../lib/activity";
 
 const router = Router();
 
+const PRIVILEGED_ROLES = ["admin", "manager", "ceo", "head_of_product_development", "head_of_department"];
+const isPrivileged = (role: string) =>
+  PRIVILEGED_ROLES.includes(role) || role.includes("head") || role.includes("manager") || role === "ceo" || role === "admin";
+
+const RESTRICTED_ROLES = ["key_account_manager", "senior_key_account_manager", "procurement"];
+
 const formatAccount = (a: typeof accountsTable.$inferSelect) => ({
   id: a.id,
   company: a.company,
@@ -27,15 +33,29 @@ const formatAccount = (a: typeof accountsTable.$inferSelect) => ({
   approvalStatus: a.approvalStatus,
   isActive: a.isActive,
   status: a.status ?? "active",
+  createdById: a.createdById,
   createdAt: a.createdAt,
   updatedAt: a.updatedAt,
 });
 
-router.get("/", requireAuth, async (_req, res) => {
+router.get("/", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const accounts = await db.select().from(accountsTable).orderBy(desc(accountsTable.createdAt));
+    const allAccounts = await db.select().from(accountsTable).orderBy(desc(accountsTable.createdAt));
     const users = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
     const userMap = Object.fromEntries(users.map(u => [u.id, u.name]));
+
+    const userRole = req.user!.role;
+    const userId = req.user!.userId;
+
+    // Restricted roles: KAM, SKAM, Procurement — only see accounts they manage or created
+    let accounts = allAccounts;
+    if (RESTRICTED_ROLES.includes(userRole) && !isPrivileged(userRole)) {
+      accounts = allAccounts.filter(a => {
+        const managers = (a.accountManagers || []) as number[];
+        return managers.includes(userId) || a.createdById === userId;
+      });
+    }
+
     const result = accounts.map(a => ({
       ...formatAccount(a),
       accountManagerNames: ((a.accountManagers || []) as number[]).map((id: number) => userMap[id] || "Unknown"),
@@ -47,11 +67,23 @@ router.get("/", requireAuth, async (_req, res) => {
   }
 });
 
-router.get("/:id", requireAuth, async (req, res) => {
+router.get("/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
     const id = parseInt(req.params.id);
     const [account] = await db.select().from(accountsTable).where(eq(accountsTable.id, id)).limit(1);
     if (!account) { res.status(404).json({ error: "NotFound" }); return; }
+
+    // Apply same restricted-role visibility as the list endpoint
+    const userRole = req.user!.role;
+    const userId = req.user!.userId;
+    if (RESTRICTED_ROLES.includes(userRole) && !isPrivileged(userRole)) {
+      const managers = (account.accountManagers || []) as number[];
+      if (!managers.includes(userId) && account.createdById !== userId) {
+        res.status(403).json({ error: "Forbidden", message: "You don't have access to this account" });
+        return;
+      }
+    }
+
     const users = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
     const userMap = Object.fromEntries(users.map(u => [u.id, u.name]));
     res.json({
@@ -68,13 +100,18 @@ router.post("/", requireAuth, async (req: AuthRequest, res) => {
     const { company, productName, accountManagers, contactPerson, cpPhone, cpEmail,
       customerType, productType, application, targetPrice, volume,
       urgencyLevel, competitorReference, sellingPrice, margin } = req.body;
+    const creatorId = req.user!.userId;
+    // Ensure creator is always in the accountManagers list
+    const mgrs: number[] = accountManagers || [];
+    if (!mgrs.includes(creatorId)) mgrs.unshift(creatorId);
     const [account] = await db.insert(accountsTable).values({
-      company, productName, accountManagers: accountManagers || [],
+      company, productName, accountManagers: mgrs,
       contactPerson: contactPerson || null, cpPhone: cpPhone || null, cpEmail: cpEmail || null,
       customerType: customerType || "new", productType, application: application || null,
       targetPrice: targetPrice || null, volume: volume || null,
       urgencyLevel: urgencyLevel || "normal", competitorReference: competitorReference || null,
       sellingPrice: sellingPrice || null, margin: margin || null,
+      createdById: creatorId,
     }).returning();
     if (req.user?.userId) {
       await logActivity(req.user.userId, "created_account", "account", account.id, `Created account: ${company} – ${productName}`);

@@ -96,12 +96,37 @@ router.post("/", requireAuth, requireRole("admin"), async (req: AuthRequest, res
   }
 });
 
-router.put("/:id", requireAuth, requireRole("admin", "manager"), async (req, res) => {
+const canManageUsers = (role: string) =>
+  ["admin", "manager", "ceo"].includes(role) || role.includes("head");
+
+router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
   try {
+    if (!canManageUsers(req.user!.role)) {
+      res.status(403).json({ error: "Forbidden", message: "Insufficient permissions" });
+      return;
+    }
     const id = parseInt(req.params.id);
     const { name, role, department, jobPosition, phone, country, avatar, isActive } = req.body;
     const [user] = await db.update(usersTable)
       .set({ name, role, department, jobPosition, phone, country, avatar, isActive, updatedAt: new Date() })
+      .where(eq(usersTable.id, id)).returning();
+    if (!user) { res.status(404).json({ error: "NotFound" }); return; }
+    res.json(formatUser(user));
+  } catch {
+    res.status(500).json({ error: "InternalServerError" });
+  }
+});
+
+// Promote user to admin — available to admins, managers, CEOs, heads
+router.post("/:id/make-admin", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    if (!canManageUsers(req.user!.role)) {
+      res.status(403).json({ error: "Forbidden", message: "Insufficient permissions" });
+      return;
+    }
+    const id = parseInt(req.params.id);
+    const [user] = await db.update(usersTable)
+      .set({ role: "admin", updatedAt: new Date() })
       .where(eq(usersTable.id, id)).returning();
     if (!user) { res.status(404).json({ error: "NotFound" }); return; }
     res.json(formatUser(user));

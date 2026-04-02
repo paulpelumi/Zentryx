@@ -30,6 +30,7 @@ export const accountsTable = pgTable("accounts", {
   approvalStatus: approvalStatusSfEnum("approval_status").default("not_yet_approved"),
   isActive: boolean("is_active").notNull().default(true),
   status: accountActiveStatusEnum("status").notNull().default("active"),
+  createdById: integer("created_by_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
