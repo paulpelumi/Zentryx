@@ -5,7 +5,7 @@ import { PageLoader } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, Filter, Phone, Globe, Briefcase, Tag, ShieldCheck } from "lucide-react";
+import { Users, Mail, Building, Plus, Edit3, Trash2, X, Check, Filter, Phone, Globe, Briefcase, Tag, ShieldCheck, KeyRound, Eye, EyeOff } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -92,6 +92,9 @@ export default function Team() {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingUser, setEditingUser] = useState<any>(null);
   const [editForm, setEditForm] = useState<any>({});
+  const [resetPwTarget, setResetPwTarget] = useState<{ id: number; name: string } | null>(null);
+  const [resetPwInput, setResetPwInput] = useState("");
+  const [resetPwLoading, setResetPwLoading] = useState(false);
 
   const token = localStorage.getItem("rd_token");
   const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
@@ -119,6 +122,22 @@ export default function Team() {
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
+  };
+
+  const handleResetPw = async () => {
+    if (!resetPwTarget || resetPwInput.length < 6) return;
+    setResetPwLoading(true);
+    try {
+      const res = await fetch(`${BASE}api/users/${resetPwTarget.id}/reset-password`, {
+        method: "POST", headers, body: JSON.stringify({ newPassword: resetPwInput }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || "Failed"); }
+      toast({ title: "Password reset", description: `${resetPwTarget.name}'s password has been updated.` });
+      setResetPwTarget(null);
+      setResetPwInput("");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally { setResetPwLoading(false); }
   };
 
   const filtered = (users || []).filter(u => {
@@ -299,6 +318,15 @@ export default function Team() {
                               <ShieldCheck className="w-4 h-4" />
                             </button>
                           )}
+                          {isPrivileged && user.id !== myId && (
+                            <button
+                              onClick={() => { setResetPwTarget({ id: user.id, name: user.name }); setResetPwInput(""); }}
+                              className="p-1.5 hover:bg-blue-500/10 rounded-lg text-muted-foreground hover:text-blue-400 transition-colors"
+                              title="Reset Password"
+                            >
+                              <KeyRound className="w-4 h-4" />
+                            </button>
+                          )}
                           {isAdmin && (
                             <button onClick={() => handleDelete(user.id, user.name)} className="p-1.5 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive transition-colors" title="Remove">
                               <Trash2 className="w-4 h-4" />
@@ -320,6 +348,49 @@ export default function Team() {
           )}
         </div>
       </div>
+
+      {/* Reset Password Modal */}
+      {resetPwTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={e => { if (e.target === e.currentTarget) setResetPwTarget(null); }}>
+          <div className="glass-panel rounded-2xl p-6 w-full max-w-sm mx-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-blue-500/10"><KeyRound className="w-5 h-5 text-blue-400" /></div>
+              <div>
+                <p className="font-semibold text-foreground">Reset Password</p>
+                <p className="text-xs text-muted-foreground">Set new password for <span className="text-foreground font-medium">{resetPwTarget.name}</span></p>
+              </div>
+            </div>
+            <ResetPwField value={resetPwInput} onChange={setResetPwInput} />
+            {resetPwInput && resetPwInput.length < 6 && <p className="text-xs text-destructive">Password must be at least 6 characters</p>}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={handleResetPw}
+                disabled={resetPwLoading || resetPwInput.length < 6}
+                className="flex-1 py-2.5 text-sm font-semibold rounded-xl bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
+              >
+                {resetPwLoading ? "Saving…" : "Set New Password"}
+              </button>
+              <button onClick={() => setResetPwTarget(null)} className="px-4 py-2.5 text-sm rounded-xl border border-white/10 text-muted-foreground hover:text-foreground transition-colors">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResetPwField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input type={show ? "text" : "password"} value={value} onChange={e => onChange(e.target.value)}
+        placeholder="New password (min. 6 chars)" autoFocus
+        className="w-full h-10 rounded-xl border border-white/10 bg-black/30 px-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
+      <button type="button" onClick={() => setShow(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+        {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+      </button>
     </div>
   );
 }

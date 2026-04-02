@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useGetCurrentUser } from "@workspace/api-client-react";
 import { PageLoader } from "@/components/ui/spinner";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, User, Mail, Phone, Globe, Building2, Briefcase, Lock, Save, X, Eye, EyeOff, Shield } from "lucide-react";
+import { Camera, User, Mail, Phone, Globe, Building2, Briefcase, Lock, Save, X, Eye, EyeOff, Shield, KeyRound, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
 
@@ -31,17 +31,18 @@ const DEFAULT_ROLE_LABELS = [
 function getJobTitles(): string[] {
   try {
     const custom = JSON.parse(localStorage.getItem("zentryx_custom_roles") || "[]");
-    const customLabels = custom.map((r: any) => r.label).filter((l: string) => !DEFAULT_ROLE_LABELS.includes(l));
-    return [...DEFAULT_ROLE_LABELS, ...customLabels];
+    return [...DEFAULT_ROLE_LABELS, ...custom.map((r: any) => r.label).filter((l: string) => !DEFAULT_ROLE_LABELS.includes(l))];
   } catch { return DEFAULT_ROLE_LABELS; }
+}
+
+function canManageUsers(role: string) {
+  return ["admin", "manager", "ceo"].includes(role) || role.includes("head");
 }
 
 function AvatarUploader({ avatar, name, onChange }: { avatar: string | null; name: string; onChange: (v: string | null) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const gradient = (() => {
-    const colors = ["from-violet-500 to-purple-600", "from-blue-500 to-cyan-600", "from-emerald-500 to-teal-600", "from-rose-500 to-pink-600", "from-amber-500 to-orange-600"];
-    return colors[name ? name.charCodeAt(0) % colors.length : 0];
-  })();
+  const colors = ["from-violet-500 to-purple-600", "from-blue-500 to-cyan-600", "from-emerald-500 to-teal-600", "from-rose-500 to-pink-600", "from-amber-500 to-orange-600"];
+  const gradient = colors[name ? name.charCodeAt(0) % colors.length : 0];
   const initials = name?.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase() || "?";
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -57,27 +58,15 @@ function AvatarUploader({ avatar, name, onChange }: { avatar: string | null; nam
     <div className="flex flex-col items-center gap-3">
       <div className="relative group cursor-pointer" onClick={() => inputRef.current?.click()}>
         <div className={`w-24 h-24 rounded-2xl overflow-hidden shadow-xl ring-4 ring-white/10 ${!avatar ? `bg-gradient-to-br ${gradient}` : ""} flex items-center justify-center`}>
-          {avatar ? (
-            <img src={avatar} alt={name} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-white font-bold text-3xl">{initials}</span>
-          )}
+          {avatar ? <img src={avatar} alt={name} className="w-full h-full object-cover" /> : <span className="text-white font-bold text-3xl">{initials}</span>}
         </div>
         <div className="absolute inset-0 rounded-2xl bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <Camera className="w-6 h-6 text-white" />
         </div>
       </div>
       <div className="flex gap-2">
-        <button type="button" onClick={() => inputRef.current?.click()}
-          className="text-xs text-primary hover:text-primary/80 underline">
-          Upload photo
-        </button>
-        {avatar && (
-          <button type="button" onClick={() => onChange(null)}
-            className="text-xs text-destructive hover:text-destructive/80 underline">
-            Remove
-          </button>
-        )}
+        <button type="button" onClick={() => inputRef.current?.click()} className="text-xs text-primary hover:text-primary/80 underline">Upload photo</button>
+        {avatar && <button type="button" onClick={() => onChange(null)} className="text-xs text-destructive hover:text-destructive/80 underline">Remove</button>}
       </div>
       <p className="text-[11px] text-muted-foreground">JPG, PNG — max 2MB</p>
       <input ref={inputRef} type="file" accept="image/*" onChange={handleFile} className="hidden" />
@@ -88,9 +77,7 @@ function AvatarUploader({ avatar, name, onChange }: { avatar: string | null; nam
 function FieldRow({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        {icon} {label}
-      </label>
+      <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">{icon} {label}</label>
       {children}
     </div>
   );
@@ -102,6 +89,8 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const { theme } = useTheme();
   const isLight = theme === "light";
+  const token = localStorage.getItem("rd_token");
+  const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
   const inputCls = cn(
     "w-full h-10 rounded-xl border px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 placeholder:text-muted-foreground",
@@ -109,63 +98,42 @@ export default function ProfilePage() {
   );
   const selectCls = inputCls + " cursor-pointer";
 
-  const [form, setForm] = useState({ name: "", department: "", jobPosition: "", phone: "", country: "", avatar: null as string | null });
+  const [form, setForm] = useState({ name: "", department: "", jobPosition: "", country: "", avatar: null as string | null });
   const [pwForm, setPwForm] = useState({ current: "", next: "", confirm: "" });
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNext, setShowNext] = useState(false);
   const [saving, setSaving] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [autoSaving, setAutoSaving] = useState(false);
-  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const jobTitles = getJobTitles();
+
+  // Phone change OTP flow
+  const [phoneMode, setPhoneMode] = useState<"view" | "edit" | "otp">("view");
+  const [newPhone, setNewPhone] = useState("");
+  const [phoneOtp, setPhoneOtp] = useState("");
+  const [phoneSending, setPhoneSending] = useState(false);
+  const [phoneSaving, setPhoneSaving] = useState(false);
+  const [devPhoneOtp, setDevPhoneOtp] = useState("");
 
   useEffect(() => {
     if (currentUser) {
       const u = currentUser as any;
-      setForm({
-        name: u.name || "",
-        department: u.department || "",
-        jobPosition: u.jobPosition || "",
-        phone: u.phone || "",
-        country: u.country || "",
-        avatar: u.avatar || null,
-      });
+      setForm({ name: u.name || "", department: u.department || "", jobPosition: u.jobPosition || "", country: u.country || "", avatar: u.avatar || null });
+      setNewPhone(u.phone || "");
     }
   }, [currentUser]);
 
-  const doAutoSave = useCallback(async (updatedForm: typeof form) => {
-    try {
-      setAutoSaving(true);
-      const token = localStorage.getItem("rd_token");
-      await fetch(`${BASE}api/users/me`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(updatedForm),
-      });
-      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
-      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
-    } catch {} finally { setAutoSaving(false); }
-  }, [queryClient]);
-
   const setF = (field: string, value: any) => {
-    const updated = { ...form, [field]: value };
-    setForm(updated);
+    setForm(f => ({ ...f, [field]: value }));
     setDirty(true);
-    if (["jobPosition", "phone", "country"].includes(field)) {
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-      autoSaveTimer.current = setTimeout(() => doAutoSave(updated), 1200);
-    }
   };
 
   const handleSave = async () => {
     if (!form.name.trim()) { toast({ title: "Name is required", variant: "destructive" }); return; }
     setSaving(true);
     try {
-      const token = localStorage.getItem("rd_token");
       const res = await fetch(`${BASE}api/users/me`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        method: "PUT", headers,
         body: JSON.stringify(form),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -175,15 +143,13 @@ export default function ProfilePage() {
       toast({ title: "Profile updated", description: "Your changes have been saved." });
     } catch {
       toast({ title: "Failed to save", variant: "destructive" });
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleCancel = () => {
     if (currentUser) {
       const u = currentUser as any;
-      setForm({ name: u.name || "", department: u.department || "", jobPosition: u.jobPosition || "", phone: u.phone || "", country: u.country || "", avatar: u.avatar || null });
+      setForm({ name: u.name || "", department: u.department || "", jobPosition: u.jobPosition || "", country: u.country || "", avatar: u.avatar || null });
       setDirty(false);
     }
   };
@@ -194,10 +160,8 @@ export default function ProfilePage() {
     if (pwForm.next !== pwForm.confirm) { toast({ title: "New passwords do not match", variant: "destructive" }); return; }
     setSavingPw(true);
     try {
-      const token = localStorage.getItem("rd_token");
       const res = await fetch(`${BASE}api/users/me`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        method: "PUT", headers,
         body: JSON.stringify({ currentPassword: pwForm.current, newPassword: pwForm.next }),
       });
       const data = await res.json();
@@ -206,15 +170,55 @@ export default function ProfilePage() {
       toast({ title: "Password changed", description: "Your password has been updated." });
     } catch {
       toast({ title: "Failed to change password", variant: "destructive" });
-    } finally {
-      setSavingPw(false);
-    }
+    } finally { setSavingPw(false); }
+  };
+
+  // Phone OTP flow
+  const requestPhoneOtp = async () => {
+    if (!newPhone.trim()) { toast({ title: "Enter a phone number", variant: "destructive" }); return; }
+    setPhoneSending(true);
+    try {
+      const res = await fetch(`${BASE}api/users/me/request-phone-otp`, {
+        method: "POST", headers, body: JSON.stringify({ newPhone }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed");
+      if (data.devMode && data.code) {
+        setDevPhoneOtp(data.code);
+        toast({ title: "Dev mode — OTP shown below" });
+      } else {
+        toast({ title: "Code sent", description: "Check your email for the verification code." });
+      }
+      setPhoneMode("otp");
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    } finally { setPhoneSending(false); }
+  };
+
+  const confirmPhoneOtp = async () => {
+    if (phoneOtp.length !== 6) { toast({ title: "Enter the 6-digit code", variant: "destructive" }); return; }
+    setPhoneSaving(true);
+    try {
+      const res = await fetch(`${BASE}api/users/me/confirm-phone`, {
+        method: "POST", headers, body: JSON.stringify({ otpCode: phoneOtp, newPhone }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed");
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "Phone number updated" });
+      setPhoneMode("view");
+      setPhoneOtp("");
+      setDevPhoneOtp("");
+    } catch (err: any) {
+      toast({ title: err.message, variant: "destructive" });
+    } finally { setPhoneSaving(false); }
   };
 
   if (isLoading) return <PageLoader />;
   if (!currentUser) return null;
-
   const u = currentUser as any;
+  const isPrivileged = canManageUsers(u.role || "");
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -225,6 +229,7 @@ export default function ProfilePage() {
         <p className="text-muted-foreground mt-1">Manage your personal information and account settings.</p>
       </div>
 
+      {/* ── Info card ─────────────────────────────────────────────────────── */}
       <div className="glass-card rounded-2xl p-6 space-y-6">
         <div className={`flex flex-col sm:flex-row gap-6 items-start sm:items-center border-b pb-6 ${isLight ? "border-gray-200" : "border-white/5"}`}>
           <AvatarUploader avatar={form.avatar} name={form.name} onChange={v => setF("avatar", v)} />
@@ -255,18 +260,17 @@ export default function ProfilePage() {
           </FieldRow>
 
           <FieldRow label="Job Position / Title" icon={<Briefcase className="w-3.5 h-3.5" />}>
-            <select value={form.jobPosition} onChange={e => setF("jobPosition", e.target.value)} className={selectCls}>
-              <option value="">Select job title…</option>
-              {form.jobPosition && !jobTitles.includes(form.jobPosition) && (
-                <option value={form.jobPosition}>{form.jobPosition}</option>
-              )}
-              {jobTitles.map(t => <option key={t} value={t} className="bg-card">{t}</option>)}
-            </select>
-            {autoSaving && <p className="text-[10px] text-primary mt-1 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> Auto-saving…</p>}
-          </FieldRow>
-
-          <FieldRow label="Phone Number" icon={<Phone className="w-3.5 h-3.5" />}>
-            <input value={form.phone} onChange={e => setF("phone", e.target.value)} placeholder="+234 xxx xxxx xxxx" className={inputCls} type="tel" />
+            {isPrivileged ? (
+              <select value={form.jobPosition} onChange={e => setF("jobPosition", e.target.value)} className={selectCls}>
+                <option value="">Select job title…</option>
+                {form.jobPosition && !jobTitles.includes(form.jobPosition) && (
+                  <option value={form.jobPosition}>{form.jobPosition}</option>
+                )}
+                {jobTitles.map(t => <option key={t} value={t} className="bg-card">{t}</option>)}
+              </select>
+            ) : (
+              <input value={form.jobPosition || "—"} readOnly className={inputCls + " opacity-60 cursor-not-allowed"} title="Only managers and above can change job position" />
+            )}
           </FieldRow>
 
           <FieldRow label="Country" icon={<Globe className="w-3.5 h-3.5" />}>
@@ -275,22 +279,72 @@ export default function ProfilePage() {
               {COUNTRIES.map(c => <option key={c} value={c} className="bg-card">{c}</option>)}
             </select>
           </FieldRow>
+
+          {/* Phone — OTP-gated change */}
+          <FieldRow label="Phone Number" icon={<Phone className="w-3.5 h-3.5" />}>
+            {phoneMode === "view" && (
+              <div className="flex gap-2">
+                <input value={u.phone || ""} readOnly className={inputCls + " flex-1 opacity-70 cursor-not-allowed"} placeholder="Not set" />
+                <button onClick={() => { setNewPhone(u.phone || ""); setPhoneMode("edit"); }} className="px-3 py-1 text-xs font-medium rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors whitespace-nowrap">
+                  Change
+                </button>
+              </div>
+            )}
+            {phoneMode === "edit" && (
+              <div className="space-y-2">
+                <input value={newPhone} onChange={e => setNewPhone(e.target.value)} type="tel" placeholder="+234 xxx xxxx xxxx" className={inputCls} autoFocus />
+                <div className="flex gap-2">
+                  <button onClick={requestPhoneOtp} disabled={phoneSending || !newPhone.trim()} className="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors">
+                    {phoneSending ? "Sending…" : "Send Verification Code"}
+                  </button>
+                  <button onClick={() => setPhoneMode("view")} className="px-3 py-1.5 text-xs rounded-lg border border-white/10 text-muted-foreground hover:text-foreground transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+            {phoneMode === "otp" && (
+              <div className="space-y-2">
+                {devPhoneOtp && (
+                  <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                    <KeyRound className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    <div>
+                      <p className="text-[10px] text-amber-300">Dev OTP:</p>
+                      <p className="font-mono font-bold text-lg tracking-[0.3em] text-amber-200">{devPhoneOtp}</p>
+                    </div>
+                  </div>
+                )}
+                <input
+                  value={phoneOtp} onChange={e => setPhoneOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  maxLength={6} placeholder="000000" autoFocus
+                  className={inputCls + " text-center text-xl font-mono tracking-[0.5em]"}
+                />
+                <div className="flex gap-2">
+                  <button onClick={confirmPhoneOtp} disabled={phoneSaving || phoneOtp.length !== 6} className="flex-1 py-1.5 text-xs font-semibold rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5">
+                    <CheckCircle className="w-3.5 h-3.5" /> {phoneSaving ? "Confirming…" : "Confirm"}
+                  </button>
+                  <button onClick={() => { setPhoneMode("view"); setPhoneOtp(""); setDevPhoneOtp(""); }} className="px-3 py-1.5 text-xs rounded-lg border border-white/10 text-muted-foreground hover:text-foreground transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </FieldRow>
         </div>
 
         {dirty && (
           <div className="flex items-center gap-3 pt-2">
-            <button onClick={handleSave} disabled={saving}
-              className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60">
+            <button onClick={handleSave} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-60">
               <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save Changes"}
             </button>
-            <button onClick={handleCancel} disabled={saving}
-              className={`flex items-center gap-2 px-5 py-2.5 border rounded-xl text-sm font-medium transition-colors ${isLight ? "border-gray-200 text-gray-600 hover:text-gray-900 hover:border-gray-300" : "border-white/10 text-muted-foreground hover:text-foreground hover:border-white/20"}`}>
+            <button onClick={handleCancel} disabled={saving} className={`flex items-center gap-2 px-5 py-2.5 border rounded-xl text-sm font-medium transition-colors ${isLight ? "border-gray-200 text-gray-600 hover:text-gray-900" : "border-white/10 text-muted-foreground hover:text-foreground"}`}>
               <X className="w-4 h-4" /> Cancel
             </button>
           </div>
         )}
       </div>
 
+      {/* ── Change Password ────────────────────────────────────────────────── */}
       <div className="glass-card rounded-2xl p-6 space-y-5">
         <div className={`flex items-center gap-2 border-b pb-4 ${isLight ? "border-gray-200" : "border-white/5"}`}>
           <div className="p-2 rounded-lg bg-amber-500/10">
@@ -324,10 +378,8 @@ export default function ProfilePage() {
 
             <FieldRow label="Confirm New Password" icon={<Lock className="w-3.5 h-3.5" />}>
               <div className="relative">
-                <input type="password" value={pwForm.confirm} onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))} placeholder="Repeat new password" className={cn(inputCls, pwForm.confirm && pwForm.next !== pwForm.confirm ? "border-destructive/50 ring-destructive/30" : "")} />
-                {pwForm.confirm && pwForm.next !== pwForm.confirm && (
-                  <p className="text-[11px] text-destructive mt-1">Passwords do not match</p>
-                )}
+                <input type="password" value={pwForm.confirm} onChange={e => setPwForm(p => ({ ...p, confirm: e.target.value }))} placeholder="Repeat new password" className={cn(inputCls, pwForm.confirm && pwForm.next !== pwForm.confirm ? "border-destructive/50" : "")} />
+                {pwForm.confirm && pwForm.next !== pwForm.confirm && <p className="text-[11px] text-destructive mt-1">Passwords do not match</p>}
               </div>
             </FieldRow>
           </div>

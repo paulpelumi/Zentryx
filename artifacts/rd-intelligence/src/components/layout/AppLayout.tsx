@@ -41,10 +41,11 @@ function getBlockedPaths(role: string, jobPos: string): string[] {
   const privileged = ["admin", "manager", "ceo"].includes(r) || r.includes("head") ||
     jp.includes("head") || jp.includes("ceo") || jp.includes("admin") || jp.includes("manager");
   if (privileged) return [];
-  // NPD technologist can see everything except Sales Force
+  // NPD technologist sees everything except Sales Force
   if (r === "npd_technologist") return ["/sales-force"];
-  // All other roles (viewer, KAM, SKAM, procurement, graphics_designer, hr, quality_control,
-  // head_of_department variants not already caught, and any unknown/future role)
+  // KAM / SKAM — can see Sales Force, but not the others
+  if (["key_account_manager", "senior_key_account_manager"].includes(r)) return ["/projects", "/weekly-activities", "/business-dev"];
+  // All other roles (viewer, procurement, graphics_designer, hr, quality_control, and any unknown)
   // hide all four restricted sections
   return RESTRICTED_PATHS;
 }
