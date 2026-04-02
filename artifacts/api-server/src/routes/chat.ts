@@ -12,22 +12,50 @@ const upload = multer({ dest: "uploads/chat/", limits: { fileSize: 50 * 1024 * 1
 
 if (!fs.existsSync("uploads/chat")) fs.mkdirSync("uploads/chat", { recursive: true });
 
-// Get all rooms for current user
+// Get all rooms for current user (only rooms they are a member of)
 router.get("/rooms", requireAuth, async (req: AuthRequest, res) => {
   try {
-    const rooms = await db.select().from(chatRoomsTable).orderBy(chatRoomsTable.createdAt);
+    const userId = req.user!.userId;
+    const memberships = await db.select({ roomId: chatRoomMembersTable.roomId })
+      .from(chatRoomMembersTable).where(eq(chatRoomMembersTable.userId, userId));
+    if (memberships.length === 0) { res.json([]); return; }
+    const roomIds = memberships.map(m => m.roomId);
+    const rooms = await db.select().from(chatRoomsTable)
+      .where(inArray(chatRoomsTable.id, roomIds))
+      .orderBy(chatRoomsTable.createdAt);
     res.json(rooms);
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
-// Create a room
+// Create a room (or return existing DM between two users)
 router.post("/rooms", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { name, isGroup, memberIds } = req.body;
+    const userId = req.user!.userId;
+    const allMemberIds = [...new Set([userId, ...(memberIds || [])])];
+
+    // For DMs (isGroup=false, 2 members), find existing room
+    if (isGroup === false && allMemberIds.length === 2) {
+      const otherId = allMemberIds.find(id => id !== userId)!;
+      // Find rooms where both users are members and room is not a group
+      const myRooms = await db.select({ roomId: chatRoomMembersTable.roomId })
+        .from(chatRoomMembersTable).where(eq(chatRoomMembersTable.userId, userId));
+      const otherRooms = await db.select({ roomId: chatRoomMembersTable.roomId })
+        .from(chatRoomMembersTable).where(eq(chatRoomMembersTable.userId, otherId));
+      const myRoomIds = myRooms.map(r => r.roomId);
+      const otherRoomIds = new Set(otherRooms.map(r => r.roomId));
+      const sharedIds = myRoomIds.filter(id => otherRoomIds.has(id));
+      if (sharedIds.length > 0) {
+        const existing = await db.select().from(chatRoomsTable)
+          .where(and(inArray(chatRoomsTable.id, sharedIds), eq(chatRoomsTable.isGroup, false)))
+          .limit(1);
+        if (existing.length > 0) { res.status(201).json(existing[0]); return; }
+      }
+    }
+
     const [room] = await db.insert(chatRoomsTable).values({
-      name, isGroup: isGroup !== false, createdById: req.user!.userId,
+      name, isGroup: isGroup !== false, createdById: userId,
     }).returning();
-    const allMemberIds = [...new Set([req.user!.userId, ...(memberIds || [])])];
     for (const uid of allMemberIds) {
       await db.insert(chatRoomMembersTable).values({ roomId: room.id, userId: uid }).catch(() => {});
     }

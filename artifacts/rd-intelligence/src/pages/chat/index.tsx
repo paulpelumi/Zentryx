@@ -380,6 +380,7 @@ export default function ChatRoom() {
   };
 
   const channels = sortRooms(rooms.filter((r: any) => r.isGroup));
+  const dmRooms = sortRooms(rooms.filter((r: any) => !r.isGroup));
   const pinnedMessages = visibleMessages.filter((m: any) => isMsgPinned(m.id));
 
   if (loading && rooms.length === 0) return <PageLoader />;
@@ -469,7 +470,37 @@ export default function ChatRoom() {
             </div>
           ))}
 
-          {/* Team Members — only source for DMs */}
+          {/* Direct Messages */}
+          <div className="px-3 mt-4 mb-1">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Direct Messages</p>
+          </div>
+          {dmRooms.length === 0 && (
+            <p className="px-4 text-xs text-muted-foreground italic py-1">Click a team member to start a DM</p>
+          )}
+          {dmRooms.map((room: any) => (
+            <div key={room.id} className={`group/room flex items-center gap-0.5 mx-1 rounded-xl transition-colors ${activeRoom?.id === room.id ? "bg-primary/10" : "hover:bg-white/5"}`}>
+              <button onClick={() => selectRoom(room)}
+                className={`flex-1 flex items-center gap-2 px-2.5 py-2 text-sm text-left transition-colors ${activeRoom?.id === room.id ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                <div className="relative shrink-0">
+                  <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-secondary/50 to-primary/50 flex items-center justify-center text-white text-[9px] font-bold">
+                    {room.name.charAt(0)}
+                  </div>
+                  {isRoomPinned(room.id) && <Pin className="w-2.5 h-2.5 text-amber-400 absolute -top-1 -right-1" />}
+                </div>
+                <span className="truncate flex-1">{room.name}</span>
+              </button>
+              <RoomContextMenu
+                room={room}
+                isPinned={isRoomPinned(room.id)}
+                onPin={() => toggleRoomPin(room.id)}
+                onDelete={() => deleteRoom(room)}
+                onLeave={() => deleteRoom(room)}
+                isCreator={room.createdById === currentUserId}
+              />
+            </div>
+          ))}
+
+          {/* Team Members — click to open/start DM */}
           <div className="px-3 mt-4 mb-1">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Team Members</p>
           </div>

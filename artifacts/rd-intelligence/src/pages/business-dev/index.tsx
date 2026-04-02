@@ -109,7 +109,7 @@ export default function BusinessDev() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [editingCard, setEditingCard] = useState<any | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>("portfolio");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
   const { toast } = useToast();
   const { theme } = useTheme();
   const isLight = theme === "light";
