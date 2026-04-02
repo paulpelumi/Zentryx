@@ -88,7 +88,7 @@ export default function Login() {
       const data = await apiFetch("api/auth/send-otp", { email, purpose: "signup" });
       if (data.devMode && data.code) {
         setDevOtp(data.code);
-        toast({ title: "Dev mode — OTP code shown below", description: "Configure SMTP to send real emails." });
+        toast({ title: "One-Time OTP generated", description: "Your OTP code is shown below." });
       } else {
         toast({ title: "Check your email", description: `A 6-digit code was sent to ${email}` });
       }
@@ -129,7 +129,7 @@ export default function Login() {
       const data = await apiFetch("api/auth/forgot-password", { email: forgotEmail });
       if (data.devMode && data.code) {
         setDevForgotOtp(data.code);
-        toast({ title: "Dev mode — OTP shown below" });
+        toast({ title: "One-Time OTP generated", description: "Your OTP code is shown below." });
       } else {
         toast({ title: "Check your email", description: "A code was sent if that email is registered." });
       }
@@ -180,7 +180,7 @@ export default function Login() {
     <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3">
       <KeyRound className="w-4 h-4 text-amber-400 shrink-0" />
       <div>
-        <p className="text-xs text-amber-300 font-medium">Dev mode — your OTP code:</p>
+        <p className="text-xs text-amber-300 font-medium">One-Time OTP:</p>
         <p className="text-xl font-mono font-bold tracking-[0.3em] text-amber-200 mt-0.5">{code}</p>
       </div>
     </div>
