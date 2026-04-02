@@ -385,8 +385,11 @@ function ResetPwField({ value, onChange }: { value: string; onChange: (v: string
   const [show, setShow] = useState(false);
   return (
     <div className="relative">
+      {/* Hidden username field stops browsers from auto-filling stored credentials */}
+      <input type="text" autoComplete="username" aria-hidden="true" tabIndex={-1} readOnly
+        style={{ position: "absolute", opacity: 0, height: 0, width: 0, pointerEvents: "none" }} />
       <input type={show ? "text" : "password"} value={value} onChange={e => onChange(e.target.value)}
-        placeholder="New password (min. 6 chars)" autoFocus
+        placeholder="New password (min. 6 chars)" autoFocus autoComplete="new-password"
         className="w-full h-10 rounded-xl border border-white/10 bg-black/30 px-3 pr-10 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50" />
       <button type="button" onClick={() => setShow(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
         {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
