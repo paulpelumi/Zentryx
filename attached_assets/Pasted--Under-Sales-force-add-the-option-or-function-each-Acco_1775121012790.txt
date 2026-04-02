@@ -1,0 +1,25 @@
+
+-Under Sales force, add the option or function each “Account” to be added to be permanently Deleted.
+The delete button must be visible on “List view” “Portfolio view”
+
+Just like “Project Portfolio”, add the filter options of “Active”,“On hold” to each project, and I should be able to sort all “Accounts” based on “Active” “On hold”. 
+Condition: On Forecast page, once an “Account” is tagged as “On Hold” , it must not be included in the count for “Active Accounts”
+
+-add the filter option of “Recently updated” in the “Accounts”… whereby any change in an account, make is it the most recently updated account.
+
+Ensure that all “Notify Button” actually works, and send the messages directly via chatroom “Privately”, with the option of sending via actual mails like”Outlook” “Gmail” “Yahoo mail” etc
+
+In the Dashboard, the “Team Overview”, the only department for the chart view should be “NPD”.
+-Remove the “Line” View from the “Pipleline” Chart 
+
+In the “project portfolio”, the filter by “Product type” should be a drop-down button.
+
+On addition of New Role in Team Directory, when the new role/department is selected, it doesn’t change from its previous state. Ensure it changes immediately when “saved”.. when adding a New Member, with a New Role and New department, it failed to save. Please fix. 
+-For light mode only: The “New Role” “New Department Button” “Add Member” button that pop ups, the UI for the “Cancel button” should be “Dark Red”, and cancel text should be Bold White colour.
+-on delete of a Team member, from the Team directory, it must not ask for confirmation before deleting and effect must be immediate 
+
+-the Chat history with Team member in the “Chat Room”, always get cleared.. avoid clearing chat, add function where I can clear chat history with each user.
+-Whenever an Assignee is tagged in any section of the Zetrynx app, it must notify the User as a pop up above any section, also notify the “assigned” in the Chat Room “Privately”. And on Click of the Message from the Chat Room, it must take the user directly to where user was tagged.
+
+In the “My Profile” section of the sidebar, Each user’s Job title should be selectable from the List of “Job Role” used in “Team Directory”.
+-For every user, on selection of country in the “my profile” section.. once Job position, phone number and country, the changes made must be effective immediately.

@@ -455,6 +455,42 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
     } finally { setSending(false); }
   };
 
+  const handleSendChat = async () => {
+    if (!selected.length || !message.trim()) return;
+    setSending(true);
+    try {
+      const fullMsg = `**${title}**\n\n${message}`;
+      for (const uid of selected) {
+        const user = users.find(u => u.id === uid);
+        if (!user) continue;
+        const roomName = `Procurement – ${user.name}`;
+        let room: any;
+        const existing = await fetch(`${BASE}api/chat/rooms`, { headers: authHeaders() }).then(r => r.json());
+        const found = Array.isArray(existing) && existing.find((r: any) => r.name === roomName && r.type === "direct");
+        if (found) {
+          room = found;
+        } else {
+          room = await fetch(`${BASE}api/chat/rooms`, {
+            method: "POST",
+            headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ name: roomName, type: "direct", memberIds: [uid] }),
+          }).then(r => r.json());
+        }
+        if (room?.id) {
+          await fetch(`${BASE}api/chat/rooms/${room.id}/messages`, {
+            method: "POST",
+            headers: { ...authHeaders(), "Content-Type": "application/json" },
+            body: JSON.stringify({ content: fullMsg, messageType: "text" }),
+          });
+        }
+      }
+      setSent(true);
+      setTimeout(onClose, 1500);
+    } catch {
+      setSending(false);
+    }
+  };
+
   const handleSendEmail = () => {
     const selectedUsers = users.filter(u => selected.includes(u.id));
     const emails = selectedUsers.map(u => u.email).filter(Boolean).join(",");
@@ -544,6 +580,10 @@ function NotifyModal({ onClose, users }: { onClose: () => void; users: any[] }) 
                   Send to {selected.length} Staff
                 </button>
               </div>
+              <button onClick={handleSendChat} disabled={!selected.length || !message.trim() || sending}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isNmLight ? "border-violet-200 text-violet-600 hover:bg-violet-50" : "border-violet-500/30 text-violet-400 hover:bg-violet-500/10"}`}>
+                <Send className="w-4 h-4" /> Notify via App Chat
+              </button>
               <button onClick={handleSendEmail} disabled={!selected.length || !message.trim()}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl border text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${isNmLight ? "border-blue-200 text-blue-600 hover:bg-blue-50" : "border-blue-500/30 text-blue-400 hover:bg-blue-500/10"}`}>
                 <Mail className="w-4 h-4" /> Send via Email Client
@@ -628,7 +668,7 @@ export default function SalesForecastPage() {
   });
 
   const acc = accounts as any[];
-  const activeAcc = acc.filter(a => a.isActive);
+  const activeAcc = acc.filter(a => a.isActive && (a.status ?? "active") !== "on_hold");
   const totalMonthlyRevenue = activeAcc.reduce((sum, a) => sum + parseFloat(a.sellingPrice || 0) * parseFloat(a.volume || 0), 0);
   const totalVolume = activeAcc.reduce((sum, a) => sum + parseFloat(a.volume || 0), 0);
 

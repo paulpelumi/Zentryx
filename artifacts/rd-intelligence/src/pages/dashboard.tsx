@@ -35,7 +35,7 @@ const LIGHT_STATUS: Record<string, string> = {
   pushed_to_live: "bg-emerald-50 text-emerald-700 border-emerald-200",
 };
 
-type PipelineChartType = "pie" | "donut" | "bar" | "line";
+type PipelineChartType = "pie" | "donut" | "bar";
 type TeamView = "list" | "pie" | "donut" | "bar";
 type VelocityView = "weekly" | "monthly" | "yearly";
 
@@ -148,7 +148,7 @@ export default function Dashboard() {
   const [teamView, setTeamView] = useState<TeamView>("list");
   const [selectedMember, setSelectedMember] = useState<number | null>(null);
   const [velocityView, setVelocityView] = useState<VelocityView>("monthly");
-  const [deptFilter, setDeptFilter] = useState<string>("all");
+  const [deptFilter, setDeptFilter] = useState<string>("NPD");
   const [expandVelocity, setExpandVelocity] = useState(false);
   const [expandPipeline, setExpandPipeline] = useState(false);
 
@@ -233,17 +233,6 @@ export default function Dashboard() {
         </PieChart>
       </ResponsiveContainer>
     );
-    if (pipelineChartType === "line") return (
-      <ResponsiveContainer width="100%" height={height}>
-        <LineChart data={pipelineData} margin={{ top: 5, right: 5, bottom: 40, left: -20 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
-          <XAxis dataKey="stage" stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 10 }} angle={-30} textAnchor="end" tickLine={false} />
-          <YAxis stroke={axisStroke} tick={{ fill: axisTickFill, fontSize: 11 }} tickLine={false} axisLine={false} />
-          <RechartsTooltip {...TooltipStyle(isLight)} />
-          <Line type="monotone" dataKey="count" name="Projects" stroke={primaryAreaColor} strokeWidth={2} dot={{ fill: primaryAreaColor, r: 4 }} />
-        </LineChart>
-      </ResponsiveContainer>
-    );
     return (
       <ResponsiveContainer width="100%" height={height}>
         <BarChart data={pipelineData} margin={{ top: 5, right: 5, bottom: 40, left: -20 }}>
@@ -315,7 +304,7 @@ export default function Dashboard() {
             </button>
           </div>
           <div className="flex flex-wrap gap-1 mb-3">
-            {(["pie", "donut", "bar", "line"] as PipelineChartType[]).map(t => (
+            {(["pie", "donut", "bar"] as PipelineChartType[]).map(t => (
               <button key={t} onClick={() => setPipelineChartType(t)} className={chartTypeBtn(t, pipelineChartType === t)}>{t}</button>
             ))}
           </div>

@@ -26,6 +26,7 @@ const formatAccount = (a: typeof accountsTable.$inferSelect) => ({
   margin: a.margin,
   approvalStatus: a.approvalStatus,
   isActive: a.isActive,
+  status: a.status ?? "active",
   createdAt: a.createdAt,
   updatedAt: a.updatedAt,
 });
@@ -90,14 +91,15 @@ router.put("/:id", requireAuth, async (req: AuthRequest, res) => {
     const id = parseInt(req.params.id);
     const { company, productName, accountManagers, contactPerson, cpPhone, cpEmail,
       customerType, productType, application, targetPrice, volume, urgencyLevel,
-      competitorReference, sellingPrice, margin, approvalStatus, isActive } = req.body;
+      competitorReference, sellingPrice, margin, approvalStatus, isActive, status } = req.body;
     const [account] = await db.update(accountsTable).set({
       company, productName, accountManagers: accountManagers || [],
       contactPerson: contactPerson || null, cpPhone: cpPhone || null, cpEmail: cpEmail || null,
       customerType, productType, application: application || null,
       targetPrice: targetPrice || null, volume: volume || null, urgencyLevel,
       competitorReference: competitorReference || null, sellingPrice: sellingPrice || null,
-      margin: margin || null, approvalStatus, isActive, updatedAt: new Date(),
+      margin: margin || null, approvalStatus, isActive,
+      status: status || "active", updatedAt: new Date(),
     }).where(eq(accountsTable.id, id)).returning();
     if (!account) { res.status(404).json({ error: "NotFound" }); return; }
     if (req.user?.userId) {

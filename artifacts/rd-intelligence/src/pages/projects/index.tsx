@@ -35,6 +35,8 @@ export default function ProjectsList() {
   const deleteMutation = useDeleteProject();
   const updateMutation = useUpdateProject();
   const { toast } = useToast();
+  const { theme: _plTheme } = useTheme();
+  const isLight = _plTheme === "light";
 
   const handleDateChange = (id: number, date: string) => {
     updateMutation.mutate({ id, data: { targetDate: date || null } as any }, {
@@ -188,21 +190,16 @@ export default function ProjectsList() {
             <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
               <Layers className="w-3.5 h-3.5" /> Product Type:
             </div>
-            <button
-              onClick={() => setProductTypeFilter("all")}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all border ${productTypeFilter === "all" ? "bg-violet-600 text-white border-violet-500" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
+            <select
+              value={productTypeFilter}
+              onChange={e => setProductTypeFilter(e.target.value)}
+              className={cn("h-8 px-3 rounded-lg border text-xs focus:outline-none cursor-pointer",
+                isLight ? "bg-white border-slate-200 text-slate-700" : "bg-black/20 border-white/10 text-foreground"
+              )}
             >
-              All Types
-            </button>
-            {PRODUCT_TYPES.map(t => (
-              <button
-                key={t}
-                onClick={() => setProductTypeFilter(t === productTypeFilter ? "all" : t)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-all border ${productTypeFilter === t ? "bg-violet-600 text-white border-violet-500" : "border-white/10 text-muted-foreground hover:text-foreground hover:bg-white/5"}`}
-              >
-                {t}
-              </button>
-            ))}
+              <option value="all">All Types</option>
+              {PRODUCT_TYPES.map(t => <option key={t} value={t} className="bg-card">{t}</option>)}
+            </select>
             {view === "portfolio" && (
               <button
                 onClick={() => setGroupByType(g => !g)}

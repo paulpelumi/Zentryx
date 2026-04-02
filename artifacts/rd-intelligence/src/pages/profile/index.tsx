@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetCurrentUser } from "@workspace/api-client-react";
 import { PageLoader } from "@/components/ui/spinner";
@@ -19,6 +19,22 @@ const DEPARTMENTS = [
   "NPD", "Marketing & Sales", "Account Management", "Finance", "Procurement",
   "Quality Control", "Operations", "Research & Development", "Human Resources", "IT"
 ];
+
+const DEFAULT_ROLE_LABELS = [
+  "Admin", "Manager", "CEO", "HR", "Head of Department",
+  "NPD Technologist", "Head of Product Development",
+  "Key Account Manager", "Senior Key Account Manager",
+  "Project Manager", "Quality Control", "Graphics Designer",
+  "Scientist", "Analyst", "Viewer",
+];
+
+function getJobTitles(): string[] {
+  try {
+    const custom = JSON.parse(localStorage.getItem("zentryx_custom_roles") || "[]");
+    const customLabels = custom.map((r: any) => r.label).filter((l: string) => !DEFAULT_ROLE_LABELS.includes(l));
+    return [...DEFAULT_ROLE_LABELS, ...customLabels];
+  } catch { return DEFAULT_ROLE_LABELS; }
+}
 
 function AvatarUploader({ avatar, name, onChange }: { avatar: string | null; name: string; onChange: (v: string | null) => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -100,6 +116,9 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [savingPw, setSavingPw] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const jobTitles = getJobTitles();
 
   useEffect(() => {
     if (currentUser) {
@@ -115,9 +134,28 @@ export default function ProfilePage() {
     }
   }, [currentUser]);
 
+  const doAutoSave = useCallback(async (updatedForm: typeof form) => {
+    try {
+      setAutoSaving(true);
+      const token = localStorage.getItem("rd_token");
+      await fetch(`${BASE}api/users/me`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updatedForm),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    } catch {} finally { setAutoSaving(false); }
+  }, [queryClient]);
+
   const setF = (field: string, value: any) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+    const updated = { ...form, [field]: value };
+    setForm(updated);
     setDirty(true);
+    if (["jobPosition", "phone", "country"].includes(field)) {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = setTimeout(() => doAutoSave(updated), 1200);
+    }
   };
 
   const handleSave = async () => {
@@ -217,7 +255,14 @@ export default function ProfilePage() {
           </FieldRow>
 
           <FieldRow label="Job Position / Title" icon={<Briefcase className="w-3.5 h-3.5" />}>
-            <input value={form.jobPosition} onChange={e => setF("jobPosition", e.target.value)} placeholder="e.g. Senior NPD Technologist" className={inputCls} />
+            <select value={form.jobPosition} onChange={e => setF("jobPosition", e.target.value)} className={selectCls}>
+              <option value="">Select job title…</option>
+              {form.jobPosition && !jobTitles.includes(form.jobPosition) && (
+                <option value={form.jobPosition}>{form.jobPosition}</option>
+              )}
+              {jobTitles.map(t => <option key={t} value={t} className="bg-card">{t}</option>)}
+            </select>
+            {autoSaving && <p className="text-[10px] text-primary mt-1 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> Auto-saving…</p>}
           </FieldRow>
 
           <FieldRow label="Phone Number" icon={<Phone className="w-3.5 h-3.5" />}>

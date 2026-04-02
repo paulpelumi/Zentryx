@@ -117,7 +117,6 @@ export default function Team() {
 
   const handleDelete = async (id: number, name: string) => {
     if (!isAdmin) { toast({ title: "Permission denied", description: "Only admins can remove members.", variant: "destructive" }); return; }
-    if (!confirm(`Remove ${name} from the team?`)) return;
     await fetch(`${BASE}api/users/${id}`, { method: "DELETE", headers });
     queryClient.invalidateQueries({ queryKey: ["/api/users"] });
     toast({ title: "Member removed", description: `${name} has been removed from the team.` });
@@ -218,7 +217,7 @@ export default function Team() {
                         )}
                         <div className="flex gap-2">
                           <button onClick={() => saveEdit(user.id)} className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-400 rounded-lg"><Check className="w-4 h-4" /></button>
-                          <button onClick={() => setEditingUser(null)} className="p-1.5 bg-white/5 hover:bg-white/10 text-muted-foreground rounded-lg"><X className="w-4 h-4" /></button>
+                          <button onClick={() => setEditingUser(null)} className={cn("p-1.5 rounded-lg transition-colors", isAdmin ? "bg-red-500/10 hover:bg-red-500/20 text-red-400" : "bg-white/5 hover:bg-white/10 text-muted-foreground")}><X className="w-4 h-4" /></button>
                         </div>
                       </div>
                     </td>

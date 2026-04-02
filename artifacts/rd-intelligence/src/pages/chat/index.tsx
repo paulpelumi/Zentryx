@@ -356,6 +356,23 @@ export default function ChatRoom() {
     ? users.filter(u => u.id !== currentUserId && u.name.toLowerCase().includes(mentionQuery.toLowerCase())).slice(0, 6)
     : [];
 
+  const getClearKey = (roomId: number) => `rd_cleared_at_${roomId}_${currentUserId}`;
+
+  const clearRoomHistory = () => {
+    if (!activeRoom) return;
+    localStorage.setItem(getClearKey(activeRoom.id), new Date().toISOString());
+    setMessages([]);
+    toast({ title: "Chat history cleared", description: "Only new messages will be shown." });
+  };
+
+  const visibleMessages = (() => {
+    if (!activeRoom) return messages;
+    const cleared = localStorage.getItem(getClearKey(activeRoom.id));
+    if (!cleared) return messages;
+    const clearedAt = new Date(cleared);
+    return messages.filter((m: any) => new Date(m.createdAt) > clearedAt);
+  })();
+
   const sortRooms = (list: any[]) => {
     const pinned = list.filter(r => isRoomPinned(r.id));
     const rest = list.filter(r => !isRoomPinned(r.id));
@@ -363,7 +380,7 @@ export default function ChatRoom() {
   };
 
   const channels = sortRooms(rooms.filter((r: any) => r.isGroup));
-  const pinnedMessages = messages.filter((m: any) => isMsgPinned(m.id));
+  const pinnedMessages = visibleMessages.filter((m: any) => isMsgPinned(m.id));
 
   if (loading && rooms.length === 0) return <PageLoader />;
 
@@ -488,6 +505,11 @@ export default function ChatRoom() {
                     <Pin className="w-3.5 h-3.5" /> {pinnedMessages.length} Pinned
                   </button>
                 )}
+                <button onClick={clearRoomHistory}
+                  title="Clear chat history (only for you)"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-red-500/10 text-muted-foreground hover:text-red-400 rounded-lg text-sm font-medium transition-colors">
+                  <Trash2 className="w-4 h-4" /> Clear
+                </button>
                 <button onClick={startVideoMeeting}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors">
                   <Video className="w-4 h-4" /> Meeting
@@ -530,9 +552,9 @@ export default function ChatRoom() {
                   <ArrowDown className="w-3.5 h-3.5" /> Jump to latest
                 </button>
               )}
-              {messages.map((msg: any, i: number) => {
+              {visibleMessages.map((msg: any, i: number) => {
                 const isOwn = msg.senderId === currentUserId;
-                const showName = !isOwn && (i === 0 || messages[i - 1].senderId !== msg.senderId);
+                const showName = !isOwn && (i === 0 || visibleMessages[i - 1].senderId !== msg.senderId);
                 const pinned = isMsgPinned(msg.id);
                 return (
                   <div key={msg.id} className={`flex gap-3 group/msg py-0.5 ${isOwn ? "flex-row-reverse" : "flex-row"}`}>

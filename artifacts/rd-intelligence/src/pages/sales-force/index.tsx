@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   TrendingUp, Plus, Search, Filter, Download, LayoutGrid, List, Table2,
   ChevronDown, X, Users, Package, Target, AlertCircle, CheckCircle2, Clock,
-  BarChart3, PieChart, Building2, Eye, Star, AlertTriangle
+  BarChart3, PieChart, Building2, Eye, Star, AlertTriangle, Trash2
 } from "lucide-react";
 import { useListUsers } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -371,21 +371,32 @@ function AddAccountModal({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function AccountCard({ account, onClick }: { account: any; onClick: () => void }) {
+function AccountCard({ account, onClick, onDelete }: { account: any; onClick: () => void; onDelete: (e: React.MouseEvent) => void }) {
   const { score } = calcPriority(account);
   const urgency = URGENCY.find(u => u.value === account.urgencyLevel) || URGENCY[2];
   const approval = APPROVAL_STATUS.find(a => a.value === account.approvalStatus) || APPROVAL_STATUS[1];
+  const isOnHold = (account.status ?? "active") === "on_hold";
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       onClick={onClick}
-      className="glass-card rounded-2xl p-5 border border-white/5 hover:border-primary/20 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 group">
+      className="glass-card rounded-2xl p-5 border border-white/5 hover:border-primary/20 cursor-pointer transition-all hover:shadow-lg hover:shadow-primary/5 group relative">
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1 min-w-0">
           <h3 className="font-bold text-foreground truncate group-hover:text-primary transition-colors">{account.company}</h3>
           <p className="text-xs text-muted-foreground truncate mt-0.5">{account.productName}</p>
+          {isOnHold && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 mt-1">
+              <Clock className="w-2.5 h-2.5" /> On Hold
+            </span>
+          )}
         </div>
-        <PriorityBadge account={account} />
+        <div className="flex items-center gap-1.5">
+          <PriorityBadge account={account} />
+          <button onClick={onDelete} className="p-1 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100" title="Delete account">
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </div>
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs">
@@ -422,14 +433,20 @@ function AccountCard({ account, onClick }: { account: any; onClick: () => void }
   );
 }
 
-function AccountRow({ account, onClick }: { account: any; onClick: () => void }) {
+function AccountRow({ account, onClick, onDelete }: { account: any; onClick: () => void; onDelete: (e: React.MouseEvent) => void }) {
   const urgency = URGENCY.find(u => u.value === account.urgencyLevel) || URGENCY[2];
+  const isOnHold = (account.status ?? "active") === "on_hold";
   return (
-    <tr onClick={onClick} className="hover:bg-white/[0.03] cursor-pointer transition-colors border-b border-white/5 last:border-0">
+    <tr onClick={onClick} className="hover:bg-white/[0.03] cursor-pointer transition-colors border-b border-white/5 last:border-0 group">
       <td className="px-5 py-3">
         <div>
           <p className="font-medium text-foreground text-sm">{account.company}</p>
           <p className="text-xs text-muted-foreground">{account.productName}</p>
+          {isOnHold && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20 mt-1">
+              <Clock className="w-2.5 h-2.5" /> On Hold
+            </span>
+          )}
         </div>
       </td>
       <td className="px-5 py-3 text-xs text-muted-foreground">
@@ -446,6 +463,11 @@ function AccountRow({ account, onClick }: { account: any; onClick: () => void })
       </td>
       <td className="px-5 py-3"><UrgencyIndicator level={account.urgencyLevel} /></td>
       <td className="px-5 py-3"><PriorityBadge account={account} /></td>
+      <td className="px-5 py-3">
+        <button onClick={onDelete} className="p-1.5 rounded-lg text-muted-foreground hover:bg-red-500/10 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100" title="Delete">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </td>
     </tr>
   );
 }
@@ -509,6 +531,7 @@ function MatrixView({ accounts, onClick }: { accounts: any[]; onClick: (a: any) 
 const SORT_OPTIONS = [
   { value: "priority", label: "Priority Score" },
   { value: "company", label: "Company (A-Z)" },
+  { value: "recently_updated", label: "Recently Updated" },
   { value: "date_desc", label: "Date Added (Newest)" },
   { value: "date_asc", label: "Date Added (Oldest)" },
   { value: "volume_desc", label: "Volume (High-Low)" },
@@ -516,13 +539,21 @@ const SORT_OPTIONS = [
   { value: "product_type", label: "Product Type" },
 ];
 
+const STATUS_OPTS = [
+  { value: "all", label: "All Status" },
+  { value: "active", label: "Active" },
+  { value: "on_hold", label: "On Hold" },
+];
+
 function AccountsPage() {
   const queryClient = useQueryClient();
   const [, navigate] = useLocation();
+  const { toast } = useToast();
   const [view, setView] = useState<"list" | "portfolio" | "matrix">("list");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("priority");
   const [filterPt, setFilterPt] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
   const [showExport, setShowExport] = useState(false);
   const { theme } = useTheme();
   const isLight = theme === "light";
@@ -536,16 +567,30 @@ function AccountsPage() {
     },
   });
 
+  const handleDelete = useCallback(async (e: React.MouseEvent, id: number, company: string) => {
+    e.stopPropagation();
+    const token = localStorage.getItem("rd_token");
+    try {
+      await fetch(`${BASE}api/accounts/${id}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      queryClient.invalidateQueries({ queryKey: ["/api/accounts"] });
+      toast({ title: "Account deleted", description: `${company} has been removed.` });
+    } catch {
+      toast({ title: "Failed to delete account", variant: "destructive" });
+    }
+  }, [queryClient, toast]);
+
   const filtered = (accounts as any[])
     .filter(a => {
       const searchMatch = a.company.toLowerCase().includes(search.toLowerCase()) ||
         a.productName.toLowerCase().includes(search.toLowerCase());
       const ptMatch = filterPt === "all" || a.productType === filterPt;
-      return searchMatch && ptMatch;
+      const statusMatch = filterStatus === "all" || (a.status ?? "active") === filterStatus;
+      return searchMatch && ptMatch && statusMatch;
     })
     .sort((a: any, b: any) => {
       if (sort === "priority") return calcPriority(b).score - calcPriority(a).score;
       if (sort === "company") return a.company.localeCompare(b.company);
+      if (sort === "recently_updated") return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
       if (sort === "date_desc") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       if (sort === "date_asc") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
       if (sort === "volume_desc") return parseFloat(b.volume || 0) - parseFloat(a.volume || 0);
@@ -576,6 +621,13 @@ function AccountsPage() {
             {PRODUCT_TYPES.map(p => <option key={p.value} value={p.value} className="bg-card">{p.label}</option>)}
           </select>
 
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
+            className={cn("h-9 px-3 rounded-xl border text-sm focus:outline-none cursor-pointer",
+              isLight ? "bg-white border-slate-200 text-slate-700" : "bg-black/20 border-white/10 text-foreground"
+            )}>
+            {STATUS_OPTS.map(o => <option key={o.value} value={o.value} className="bg-card">{o.label}</option>)}
+          </select>
+
           <select value={sort} onChange={e => setSort(e.target.value)}
             className={cn("h-9 px-3 rounded-xl border text-sm focus:outline-none cursor-pointer",
               isLight ? "bg-white border-slate-200 text-slate-700" : "bg-black/20 border-white/10 text-foreground"
@@ -603,8 +655,8 @@ function AccountsPage() {
 
       <div className="flex items-center gap-3 text-xs text-muted-foreground">
         <span>{filtered.length} account{filtered.length !== 1 ? "s" : ""}</span>
-        {(search || filterPt !== "all") && (
-          <button onClick={() => { setSearch(""); setFilterPt("all"); }} className="text-primary hover:underline">Clear filters</button>
+        {(search || filterPt !== "all" || filterStatus !== "all") && (
+          <button onClick={() => { setSearch(""); setFilterPt("all"); setFilterStatus("all"); }} className="text-primary hover:underline">Clear filters</button>
         )}
       </div>
 
@@ -618,7 +670,7 @@ function AccountsPage() {
         </div>
       ) : view === "portfolio" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((a: any) => <AccountCard key={a.id} account={a} onClick={() => goToAccount(a)} />)}
+          {filtered.map((a: any) => <AccountCard key={a.id} account={a} onClick={() => goToAccount(a)} onDelete={(e) => handleDelete(e, a.id, a.company)} />)}
         </div>
       ) : view === "list" ? (
         <div className="glass-card rounded-2xl overflow-hidden">
@@ -631,10 +683,11 @@ function AccountsPage() {
                 <th className="px-5 py-3 text-left font-medium">Manager(s)</th>
                 <th className="px-5 py-3 text-left font-medium">Urgency</th>
                 <th className="px-5 py-3 text-left font-medium">Priority</th>
+                <th className="px-5 py-3 text-left font-medium"></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((a: any) => <AccountRow key={a.id} account={a} onClick={() => goToAccount(a)} />)}
+              {filtered.map((a: any) => <AccountRow key={a.id} account={a} onClick={() => goToAccount(a)} onDelete={(e) => handleDelete(e, a.id, a.company)} />)}
             </tbody>
           </table>
         </div>

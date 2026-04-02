@@ -8,6 +8,7 @@ export const productTypeSfEnum = pgEnum("product_type_sf", [
 ]);
 export const approvalStatusSfEnum = pgEnum("approval_status_sf", ["approved", "not_yet_approved", "cancelled"]);
 export const accountTaskStatusEnum = pgEnum("account_task_status", ["todo", "in_progress", "review", "done"]);
+export const accountActiveStatusEnum = pgEnum("account_active_status", ["active", "on_hold"]);
 
 export const accountsTable = pgTable("accounts", {
   id: serial("id").primaryKey(),
@@ -28,6 +29,7 @@ export const accountsTable = pgTable("accounts", {
   margin: text("margin"),
   approvalStatus: approvalStatusSfEnum("approval_status").default("not_yet_approved"),
   isActive: boolean("is_active").notNull().default(true),
+  status: accountActiveStatusEnum("status").notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
