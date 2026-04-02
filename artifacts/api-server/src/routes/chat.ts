@@ -8,7 +8,10 @@ import path from "path";
 import fs from "fs";
 
 const router = Router();
-const upload = multer({ dest: "uploads/chat/", limits: { fileSize: 50 * 1024 * 1024 } });
+const upload = multer({
+  dest: "uploads/chat/",
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 if (!fs.existsSync("uploads/chat")) fs.mkdirSync("uploads/chat", { recursive: true });
 
@@ -218,8 +221,20 @@ router.delete("/rooms/:roomId/messages/:messageId", requireAuth, async (req: Aut
   } catch (err) { console.error(err); res.status(500).json({ error: "InternalServerError" }); }
 });
 
-// Upload image or voice note
-router.post("/rooms/:roomId/upload", requireAuth, upload.single("file"), async (req: AuthRequest, res) => {
+// Upload any file (images, voice notes, documents — max 5 MB)
+router.post("/rooms/:roomId/upload", requireAuth, (req: AuthRequest, res, next) => {
+  upload.single("file")(req, res, (err) => {
+    if (err) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        res.status(413).json({ error: "FileTooLarge", message: "File exceeds the 5 MB limit." });
+      } else {
+        res.status(400).json({ error: "UploadError", message: err.message });
+      }
+      return;
+    }
+    next();
+  });
+}, async (req: AuthRequest, res) => {
   try {
     if (!req.file) { res.status(400).json({ error: "No file uploaded" }); return; }
     const roomId = parseInt(req.params.roomId);

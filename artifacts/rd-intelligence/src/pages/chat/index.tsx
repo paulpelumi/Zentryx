@@ -314,7 +314,21 @@ export default function ChatRoom() {
     formData.append("file", file);
     formData.append("messageType", messageType);
     try {
-      const msg = await api.postForm(`/chat/rooms/${activeRoom.id}/upload`, formData);
+      const res = await fetch(`${import.meta.env.BASE_URL}api/chat/rooms/${activeRoom.id}/upload`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (res.status === 413) {
+        toast({ title: "File too large", description: "Please choose a file under 5 MB.", variant: "destructive" });
+        return;
+      }
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "Upload failed", description: err.message || "Something went wrong.", variant: "destructive" });
+        return;
+      }
+      const msg = await res.json();
       setMessages(prev => [...prev.filter((m: any) => m.id !== msg.id), msg]);
     } catch { toast({ title: "Upload failed", variant: "destructive" }); }
   };
@@ -322,6 +336,11 @@ export default function ChatRoom() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Please choose a file under 5 MB.", variant: "destructive" });
+      e.target.value = "";
+      return;
+    }
     let type: string;
     if (file.type.startsWith("image/")) type = "image";
     else if (file.type.startsWith("audio/")) type = "voice_note";
@@ -573,7 +592,7 @@ export default function ChatRoom() {
                     <p className="text-[10px] text-muted-foreground">Tap to message</p>
                   )}
                 </div>
-                {person.lastMessageAt && (
+                {person.lastMessageAt && !isNaN(new Date(person.lastMessageAt).getTime()) && (
                   <span className="text-[9px] text-muted-foreground shrink-0">
                     {format(new Date(person.lastMessageAt), "h:mm a")}
                   </span>
@@ -722,7 +741,7 @@ export default function ChatRoom() {
                 )}
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
-                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.ppt,.pptx" className="hidden" />
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="*/*" className="hidden" />
                     <button onClick={() => fileInputRef.current?.click()}
                       className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/10 transition-colors" title="Attach image or document">
                       <Paperclip className="w-5 h-5" />
