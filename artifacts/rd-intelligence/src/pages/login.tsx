@@ -204,38 +204,44 @@ export default function Login() {
   );
 
   return (
-    <div ref={scrollRef} className="min-h-screen flex flex-col items-center justify-start py-8 relative overflow-y-auto bg-background">
-      <div className="absolute inset-0 z-0 pointer-events-none">
+    <div
+      ref={scrollRef}
+      className="fixed inset-0 overflow-y-auto bg-background"
+    >
+      {/* Background decoration */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10" />
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
       </div>
 
-      {/* Manual scroll buttons — only shown on the signup form */}
+      {/* Manual scroll buttons — only on signup, sticks to viewport */}
       {mode === "signup" && (
-        <div className="fixed right-4 bottom-6 z-50 flex flex-col gap-2">
+        <div className="fixed right-3 bottom-5 z-50 flex flex-col gap-2">
           <button
-            onClick={() => scrollBy(-160)}
-            className="w-10 h-10 rounded-full bg-primary/80 hover:bg-primary text-white flex items-center justify-center shadow-lg transition-all active:scale-95"
+            onClick={() => scrollBy(-180)}
+            className="w-9 h-9 rounded-full bg-primary/90 hover:bg-primary text-white flex items-center justify-center shadow-lg transition-all active:scale-95"
             title="Scroll up"
           >
-            <ChevronUp className="w-5 h-5" />
+            <ChevronUp className="w-4 h-4" />
           </button>
           <button
-            onClick={() => scrollBy(160)}
-            className="w-10 h-10 rounded-full bg-primary/80 hover:bg-primary text-white flex items-center justify-center shadow-lg transition-all active:scale-95"
+            onClick={() => scrollBy(180)}
+            className="w-9 h-9 rounded-full bg-primary/90 hover:bg-primary text-white flex items-center justify-center shadow-lg transition-all active:scale-95"
             title="Scroll down"
           >
-            <ChevronDown className="w-5 h-5" />
+            <ChevronDown className="w-4 h-4" />
           </button>
         </div>
       )}
 
+      {/* Card — centred with breathing room on all screens */}
+      <div className="relative z-10 flex flex-col items-center justify-start min-h-full py-6 px-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5 }}
-        className="relative z-10 w-full max-w-md p-8 sm:p-10 glass-panel rounded-3xl"
+        className="relative w-full max-w-md p-6 sm:p-8 glass-panel rounded-3xl"
       >
         {/* Logo */}
         <div className="flex flex-col items-center mb-7">
@@ -440,6 +446,7 @@ export default function Login() {
           </motion.div>
         </AnimatePresence>
       </motion.div>
+      </div>
     </div>
   );
 }
