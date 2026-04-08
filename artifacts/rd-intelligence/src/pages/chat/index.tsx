@@ -16,14 +16,33 @@ import { AnimatePresence, motion } from "framer-motion";
 const BASE = import.meta.env.BASE_URL;
 
 function useApi() {
-  const headers = () => ({ Authorization: `Bearer ${localStorage.getItem("rd_token")}` });
-  const get = (path: string) => fetch(`${BASE}api${path}`, { headers: headers() }).then(r => r.json());
-  const post = (path: string, body: any) => fetch(`${BASE}api${path}`, {
-    method: "POST", headers: { ...headers(), "Content-Type": "application/json" }, body: JSON.stringify(body),
-  }).then(r => r.json());
-  const postForm = (path: string, data: FormData) => fetch(`${BASE}api${path}`, { method: "POST", headers: headers(), body: data }).then(r => r.json());
-  const del = (path: string) => fetch(`${BASE}api${path}`, { method: "DELETE", headers: headers() }).then(r => r.json());
-  return { get, post, postForm, del };
+  const token = () => localStorage.getItem("rd_token");
+  const authHeader = () => ({ Authorization: `Bearer ${token()}` });
+
+  // Always bypass the browser cache so 304s never cause empty-body parse failures
+  const get = (path: string) =>
+    fetch(`${BASE}api${path}`, {
+      headers: { ...authHeader(), "Cache-Control": "no-cache" },
+      cache: "no-store",
+    }).then(r => {
+      if (!r.ok) return null;           // auth errors / 5xx — caller guards with Array.isArray
+      return r.json().catch(() => null); // empty body safety net
+    });
+
+  const post = (path: string, body: any) =>
+    fetch(`${BASE}api${path}`, {
+      method: "POST",
+      headers: { ...authHeader(), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }).then(r => r.json());
+
+  const postForm = (path: string, data: FormData) =>
+    fetch(`${BASE}api${path}`, { method: "POST", headers: authHeader(), body: data }).then(r => r.json());
+
+  const del = (path: string) =>
+    fetch(`${BASE}api${path}`, { method: "DELETE", headers: authHeader() }).then(r => r.json());
+
+  return { get, post, postForm, del, token };
 }
 
 function usePinnedRooms() {
@@ -255,8 +274,8 @@ export default function ChatRoom() {
 
   const loadMessages = useCallback((roomId: number) => {
     api.get(`/chat/rooms/${roomId}/messages?limit=100`).then((msgs: any) => {
-      // Guard: only accept a genuine array of message objects — ignore error responses / empty bodies
-      if (!Array.isArray(msgs) || (msgs.length > 0 && msgs[0]?.id === undefined)) return;
+      // Guard: only accept a genuine array — null / error responses are ignored
+      if (!Array.isArray(msgs)) return;
       const msgList: any[] = msgs;
       // Update the per-room cache so switching back restores history instantly
       msgCacheRef.current[roomId] = msgList;
@@ -335,7 +354,7 @@ export default function ChatRoom() {
     try {
       const res = await fetch(`${import.meta.env.BASE_URL}api/chat/rooms/${activeRoom.id}/upload`, {
         method: "POST",
-        credentials: "include",
+        headers: { Authorization: `Bearer ${localStorage.getItem("rd_token")}` },
         body: formData,
       });
       if (res.status === 413) {
@@ -630,6 +649,8 @@ export default function ChatRoom() {
                     <p className="text-[10px] text-muted-foreground truncate">
                       {person.lastPreviewType === "image" ? "📷 Image" : person.lastPreviewType === "voice_note" ? "🎤 Voice note" : person.lastPreview}
                     </p>
+                  ) : person.role ? (
+                    <p className="text-[10px] text-muted-foreground/70 truncate capitalize">{person.role}</p>
                   ) : (
                     <p className="text-[10px] text-muted-foreground">Tap to message</p>
                   )}
