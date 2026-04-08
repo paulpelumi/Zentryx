@@ -179,6 +179,11 @@ export default function ChatRoom() {
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [sidebarSearch, setSidebarSearch] = useState("");
   const [roomMeta, setRoomMeta] = useState<Record<number, { lastMessageAt: string; lastMessagePreview: string | null; lastMessageType: string | null; hasUnread: boolean }>>({});
+  const [peopleSort, setPeopleSort] = useState<"recent" | "role" | "alpha">("recent");
+  const [peopleSortOpen, setPeopleSortOpen] = useState(false);
+
+  // Cache messages per room so switching rooms restores instantly and bad fetches don't wipe history
+  const msgCacheRef = useRef<Record<number, any[]>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -249,14 +254,18 @@ export default function ChatRoom() {
   }, []);
 
   const loadMessages = useCallback((roomId: number) => {
-    api.get(`/chat/rooms/${roomId}/messages?limit=100`).then((msgs: any[]) => {
-      const msgList = Array.isArray(msgs) ? msgs : [];
+    api.get(`/chat/rooms/${roomId}/messages?limit=100`).then((msgs: any) => {
+      // Guard: only accept a genuine array of message objects — ignore error responses / empty bodies
+      if (!Array.isArray(msgs) || (msgs.length > 0 && msgs[0]?.id === undefined)) return;
+      const msgList: any[] = msgs;
+      // Update the per-room cache so switching back restores history instantly
+      msgCacheRef.current[roomId] = msgList;
       setMessages(prev => {
         const optimistic = prev.filter((m: any) => m._sending);
         const merged = [...msgList, ...optimistic.filter((o: any) => !msgList.find((m: any) => m.content === o.content))];
         return merged;
       });
-      // On first load after switching rooms, scroll to bottom (resume last position)
+      // On first load after switching rooms, scroll to bottom
       if (justSwitchedRoomRef.current) {
         justSwitchedRoomRef.current = false;
         requestAnimationFrame(() => {
@@ -264,13 +273,16 @@ export default function ChatRoom() {
         });
       }
       refreshRooms();
+    }).catch(() => {
+      // Network / parse error — silently keep whatever messages are already displayed
     });
   }, [currentUserId, refreshRooms]);
 
   const selectRoom = (room: any) => {
     justSwitchedRoomRef.current = true;
     setActiveRoom(room);
-    setMessages([]);
+    // Restore cached messages instantly to avoid a blank flash; fresh data arrives via loadMessages
+    setMessages(msgCacheRef.current[room.id] ?? []);
     setShowPinnedMsgs(false);
     if (pollRef.current) clearInterval(pollRef.current);
     loadMessages(room.id);
@@ -446,12 +458,15 @@ export default function ChatRoom() {
   const channels = sortRooms(rooms.filter((r: any) => r.isGroup));
   const dmRooms = rooms.filter((r: any) => !r.isGroup);
 
-  // Build people list: all users with DM room info, sorted by most recent DM then alphabetically
+  // Build people list: all users with DM room info, sorted by chosen mode
   const peopleList = users.filter((u: any) => u.id !== currentUserId).map((u: any) => {
     const dmRoom = dmRooms.find((r: any) => r.name === u.name || r.name === u.name.split(" ")[0]);
     const meta = dmRoom ? roomMeta[dmRoom.id] : null;
     return { ...u, dmRoom, lastMessageAt: meta?.lastMessageAt ?? null, lastPreview: meta?.lastMessagePreview ?? null, lastPreviewType: meta?.lastMessageType ?? null, hasUnread: meta?.hasUnread ?? false };
   }).sort((a, b) => {
+    if (peopleSort === "alpha") return a.name.localeCompare(b.name);
+    if (peopleSort === "role") return (a.role ?? "").localeCompare(b.role ?? "") || a.name.localeCompare(b.name);
+    // "recent" — most recent DM first, then alphabetical
     if (a.lastMessageAt && b.lastMessageAt) return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
     if (a.lastMessageAt) return -1;
     if (b.lastMessageAt) return 1;
@@ -566,9 +581,29 @@ export default function ChatRoom() {
             </>
           )}
 
-          {/* People — all org members sorted by recent DM activity */}
-          <div className="px-3 mb-1 mt-3">
+          {/* People — sort controls */}
+          <div className="px-3 mb-1 mt-3 flex items-center justify-between">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">People</p>
+            <div className="relative">
+              <button
+                onClick={() => setPeopleSortOpen(v => !v)}
+                className="text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-0.5 px-1.5 py-0.5 rounded-md hover:bg-white/5 transition-colors"
+                title="Sort people"
+              >
+                {peopleSort === "recent" ? "Recent" : peopleSort === "role" ? "Role" : "A–Z"}
+                <ChevronRight className="w-2.5 h-2.5 rotate-90" />
+              </button>
+              {peopleSortOpen && (
+                <div className="absolute right-0 top-full mt-1 z-50 bg-background border border-white/10 rounded-xl shadow-xl overflow-hidden text-xs w-32">
+                  {(["recent", "role", "alpha"] as const).map(opt => (
+                    <button key={opt} onClick={() => { setPeopleSort(opt); setPeopleSortOpen(false); }}
+                      className={`w-full text-left px-3 py-2 transition-colors hover:bg-white/5 ${peopleSort === opt ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                      {opt === "recent" ? "Recent chats" : opt === "role" ? "Job roles" : "Alphabetical"}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           {filteredPeople.length === 0 && (
             <p className="px-4 text-xs text-muted-foreground italic py-1">No users found</p>
