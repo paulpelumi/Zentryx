@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import {
-  weeklyReportsTable, weeklyActivitiesTable, notificationsTable, usersTable
+  weeklyReportsTable, weeklyActivitiesTable, notificationsTable, usersTable, dispatchRecordsTable
 } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
 
 const router = Router();
@@ -160,6 +160,82 @@ router.delete("/activities/:id", requireAuth, async (req: AuthRequest, res) => {
     res.status(500).json({ error: "InternalServerError" });
   }
 });
+
+// ──── Dispatch Records ────────────────────────────────────────────────────────
+
+async function withSentBy(records: any[], users: any[]) {
+  const userMap = new Map(users.map(u => [u.id, u]));
+  return records.map(r => ({
+    ...r,
+    sentByUser: r.sentByUserId ? (userMap.get(r.sentByUserId) ?? null) : null,
+  }));
+}
+
+router.get("/dispatch", requireAuth, async (_req: AuthRequest, res) => {
+  try {
+    const records = await db.select().from(dispatchRecordsTable).orderBy(desc(dispatchRecordsTable.createdAt));
+    const users = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
+    res.json(await withSentBy(records, users));
+  } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
+});
+
+router.post("/dispatch", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const b = req.body;
+    const [row] = await db.insert(dispatchRecordsTable).values({
+      sampleCode: b.sampleCode ?? "",
+      productDescription: b.productDescription ?? "",
+      customer: b.customer ?? "",
+      quantity: b.quantity != null ? String(b.quantity) : null,
+      sentByUserId: b.sentByUserId ? parseInt(b.sentByUserId) : null,
+      dispatchMethod: b.dispatchMethod ?? "",
+      productType: b.productType ?? null,
+      dateSent: b.dateSent ?? null,
+      recipientName: b.recipientName ?? "",
+      recipientPhone: b.recipientPhone ?? "",
+      recipientMail: b.recipientMail ?? "",
+      followUpMailSent: b.followUpMailSent ?? false,
+    }).returning();
+    const users = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
+    const [enriched] = await withSentBy([row], users);
+    res.status(201).json(enriched);
+  } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
+});
+
+router.put("/dispatch/:id", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const b = req.body;
+    const [row] = await db.update(dispatchRecordsTable).set({
+      sampleCode: b.sampleCode,
+      productDescription: b.productDescription,
+      customer: b.customer,
+      quantity: b.quantity != null ? String(b.quantity) : null,
+      sentByUserId: b.sentByUserId ? parseInt(b.sentByUserId) : null,
+      dispatchMethod: b.dispatchMethod,
+      productType: b.productType ?? null,
+      dateSent: b.dateSent ?? null,
+      recipientName: b.recipientName,
+      recipientPhone: b.recipientPhone,
+      recipientMail: b.recipientMail,
+      followUpMailSent: b.followUpMailSent ?? false,
+      updatedAt: new Date(),
+    }).where(eq(dispatchRecordsTable.id, id)).returning();
+    const users = await db.select({ id: usersTable.id, name: usersTable.name }).from(usersTable);
+    const [enriched] = await withSentBy([row], users);
+    res.json(enriched);
+  } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
+});
+
+router.delete("/dispatch/:id", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await db.delete(dispatchRecordsTable).where(eq(dispatchRecordsTable.id, id));
+    res.json({ success: true });
+  } catch { res.status(500).json({ error: "InternalServerError" }); }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
 
 router.post("/notify", requireAuth, async (req: AuthRequest, res) => {
   try {

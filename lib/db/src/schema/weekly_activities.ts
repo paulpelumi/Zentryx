@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, pgEnum } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, pgEnum, boolean, numeric } from "drizzle-orm/pg-core";
 
 export const weeklyActivityStatusEnum = pgEnum("weekly_activity_status", [
   "not_started", "ongoing", "completed"
@@ -39,5 +39,26 @@ export const weeklyActivitiesTable = pgTable("weekly_activities", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
+export const dispatchProductTypeEnum = pgEnum("dispatch_product_type", ["sweet", "savory"]);
+
+export const dispatchRecordsTable = pgTable("dispatch_records", {
+  id: serial("id").primaryKey(),
+  sampleCode: text("sample_code").notNull().default(""),
+  productDescription: text("product_description").notNull().default(""),
+  customer: text("customer").notNull().default(""),
+  quantity: numeric("quantity", { precision: 12, scale: 3 }),
+  sentByUserId: integer("sent_by_user_id"),
+  dispatchMethod: text("dispatch_method").notNull().default(""),
+  productType: dispatchProductTypeEnum("product_type"),
+  dateSent: text("date_sent"),
+  recipientName: text("recipient_name").notNull().default(""),
+  recipientPhone: text("recipient_phone").notNull().default(""),
+  recipientMail: text("recipient_mail").notNull().default(""),
+  followUpMailSent: boolean("follow_up_mail_sent").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 export type WeeklyReport = typeof weeklyReportsTable.$inferSelect;
 export type WeeklyActivity = typeof weeklyActivitiesTable.$inferSelect;
+export type DispatchRecord = typeof dispatchRecordsTable.$inferSelect;

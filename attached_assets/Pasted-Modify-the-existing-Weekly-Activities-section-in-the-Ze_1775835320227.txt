@@ -1,0 +1,85 @@
+Modify the existing "Weekly Activities" section in the Zetrynx application without changing the current UI styling, layout, color theme, spacing, or typography.
+
+1. Convert the "Weekly Activities" page into a tab-based layout with two tabs:
+
+   * Tab 1: "Weekly Activities Tracker" (this should contain the current existing content exactly as it is)
+   * Tab 2: "Dispatch Records"
+
+2. When "Dispatch Records" tab is selected, display a beautifully designed responsive table with modern UI styling consistent with the current Zetrynx theme.
+
+3. Above the table, add:
+
+   * Export to Excel (.xlsx) button
+   * Export to CSV (.csv) button
+   * Search input (search across all fields)
+   * Add New Dispatch Record button
+
+4. The Dispatch Records table must contain the following columns in this exact order:
+
+   * Sample Code
+   * Product Description
+   * Customer
+   * Quantity (g)
+   * Sent by
+   * Dispatch Method
+   * Product Type (Sweet/Savory)
+   * Date Sent
+   * Recipient Name
+   * Recipient Phone
+   * Recipient Mail
+   * Follow-up mail sent
+
+5. Data Entry Requirements:
+
+   * "Sent by" must be a searchable dropdown that pulls from existing Assignees list
+   * "Dispatch Method" should be dropdown (Courier, Hand Delivery, Logistics, Others)
+   * "Product Type" should be dropdown with options:
+     Sweet
+     Savory
+   * "Date Sent" must use a calendar date picker formatted as dd/mm/yyyy
+   * "Follow-up mail sent" must be a checkbox toggle
+   * "Quantity (g)" must accept numeric values only
+
+6. Add "Add Dispatch Record" modal form with:
+
+   * Clean two-column layout
+   * Proper spacing and alignment
+   * Save button
+   * Cancel button
+   * Form validation
+
+7. Table Features:
+
+   * Sortable columns
+   * Pagination
+   * Sticky header
+   * Hover row highlight
+   * Responsive for mobile and desktop
+   * Checkbox state visible in table
+
+8. Export Features:
+
+   * Excel export must generate .xlsx file
+   * CSV export must generate .csv file
+   * Export should include all rows
+   * Date must remain in dd/mm/yyyy format
+
+9. UI Requirements:
+
+   * Do NOT change existing Weekly Activities UI
+   * Maintain current Zetrynx theme colors
+   * Use same font family
+   * Use same card styling
+   * Smooth tab transition animation
+   * Use subtle shadow and rounded corners
+
+10. State Management:
+
+* Store dispatch records in database
+* Fetch records dynamically
+* Allow real-time updates after save
+* Maintain checkbox state
+
+11. Make sure the "Weekly Activities Tracker" tab loads by default.
+
+Implement using the same frontend framework currently used in the app and reuse existing UI components where possible.
