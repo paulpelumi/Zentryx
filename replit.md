@@ -129,8 +129,24 @@ artifacts-monorepo/
 - New rows default `assignedUserId: null` — any user can add activities for others
 - Columns: Assigned To, Project Title, Product Type, Status, Priority, Remarks
 - Notify Account Managers button
+- **Dispatch Records tab**: full CRUD, search, sort, pagination, Excel/CSV export, follow-up mail toggle
 
-### 10. Notifications & Activity
+### 10. Procurement Module (`/procurement`)
+4 tabs: **Vendors**, **Purchase Requests**, **Purchase Orders**, **Analytics**
+
+**Access control**: Admin/Manager/CEO/Head roles get full access. "procurement" role sees Procurement + Weekly Activities (not Sales Force, Projects, Business Dev). KAM/SKAM cannot see Procurement.
+
+**Vendors tab**: List/Card view toggle, search by name/contact/country, filter by category and status, sortable table. Columns: Vendor Name, Category, Country, Payment Terms, Rating (5-star display), Active POs count, Total Spend, Status badge. Add Vendor modal with all fields (name, category, contact info, country, address, payment terms, currency, rating 1-5, status, notes). Soft delete (sets status to Inactive).
+
+**Purchase Requests tab**: KPI cards (Total, Pending Approval, Approved This Month, Rejected This Month). Filterable table by status/priority. New Request modal. Click row → detail slide-over with full Approval Chain component (3-level vertical stepper showing approver name+initials, status icon, timestamp, comment). Action buttons: Draft → Submit for Approval; Pending+approver → Approve/Reject; Approved → Convert to PO. Reject requires mandatory comment field.
+
+**Purchase Orders tab**: KPI cards (Total Spend, Open POs, Overdue Deliveries, Spend This Month). Overdue deliveries highlighted in red if > 0. Create PO modal with vendor selector + inline line items (description, qty, unit, unit price). Click row → PO detail panel with: delivery progress stepper (Draft → Sent → Acknowledged → In Transit → Received), line items table, GRN receipts list. Action buttons: Draft → Send to Vendor; Sent/In Transit → Receive Goods modal; Received → Rate Vendor modal (delivery/quality/communication scores 1-5, updates vendor average rating). Excel export.
+
+**Analytics tab**: 4 KPI cards. Charts: Monthly Spend Trend (area chart, last 12 months), Spend by Category (pie/bar toggle), PO Status Distribution (donut), Top Vendors by Spend (horizontal bar). All charts: fullscreen expand, light/dark mode aware, Recharts.
+
+**Notifications**: PR submission notifies all admin/manager/CEO users. PR approval/rejection notifies requester. PO received notifies original PR requester.
+
+### 11. Notifications & Activity
 - Notification types: Deadline, Update, Reminder, Mention, System
 - Full activity audit log (tracks accounts, projects, business dev, etc.)
 
@@ -147,6 +163,13 @@ artifacts-monorepo/
 - `chat_room_members` — Room membership
 - `chat_messages` — Messages (text/image/voice_note)
 - `notifications`, `activity_logs` — Notifications and audit trail
+- `vendors` — Vendor registry (name, category, contact, payment terms, currency, rating, status)
+- `purchase_requests` — Internal PRs with priority/status/approval workflow
+- `purchase_request_approvals` — 3-level approval chain per PR
+- `purchase_orders` — POs with poNumber (PO-YYYY-XXXX), status, payment/delivery tracking
+- `purchase_order_items` — Line items per PO (description, qty, unit, unit price)
+- `purchase_order_receipts` — GRN records (received at, quantity, condition)
+- `vendor_performance` — Per-PO delivery/quality/communication scores
 - `accounts` — Sales Force account records
 - `account_tasks` — Kanban tasks per account
 - `account_production_orders` — Production order history per account

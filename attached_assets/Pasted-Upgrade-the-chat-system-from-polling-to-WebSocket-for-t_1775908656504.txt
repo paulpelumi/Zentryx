@@ -1,0 +1,19 @@
+Upgrade the chat system from polling to WebSocket for true real-time messaging. Do not change any UI, styling, component structure, or user-facing behavior — the only change should be how messages are delivered.
+Current behavior: The chat polls GET /api/chat/rooms/:id/messages every 3 seconds using a setInterval loop on the frontend.
+Target behavior: Messages appear instantly via a persistent WebSocket connection. The UI should look and behave identically to the user — same message bubbles, same layout, same file/voice note/image support, same channel and DM structure. Only the delivery mechanism changes.
+Specific instructions:
+
+In the Express API server (artifacts/api-server), add a WebSocket server using the ws npm package. Attach it to the existing HTTP server so it runs on the same port — do not create a new port or separate server.
+When a client connects via WebSocket, they should send an auth message containing their JWT token and the room ID they are joining. Validate the token server-side using the existing JWT verification logic before allowing the connection to proceed.
+Maintain a server-side map of roomId → Set<WebSocket clients>. When a new message is saved to the database (in the existing POST /api/chat/rooms/:id/messages handler), broadcast that message as a JSON payload to all connected clients in that room immediately after the DB insert — do not change the insert logic itself.
+On the frontend (artifacts/rd-intelligence), in the chat component that currently uses setInterval to poll for messages:
+
+Replace the polling interval with a useEffect that opens a new WebSocket(...) connection on mount and closes it on unmount.
+On receiving a message event from the WebSocket, append the new message to the existing messages state using the same data shape that the polling endpoint returns — do not change how messages are rendered.
+Keep the initial GET /api/chat/rooms/:id/messages fetch on room load to populate message history. WebSocket is only for real-time delivery of new messages after load.
+Handle WebSocket onclose and onerror with a reconnect attempt after 3 seconds so the connection is resilient.
+
+
+Do not touch: the message bubble components, the sidebar channel list, the voice note recorder, the image upload flow, the Jitsi meeting link button, the light/dark mode logic, or any CSS/Tailwind classes.
+Do not install any additional frontend libraries. Use the native browser WebSocket API only.
+After making changes, confirm that: (a) the ws package has been added to the API server's package.json, (b) the existing HTTP server instance is reused for WebSocket attachment, and (c) the polling setInterval has been fully removed from the frontend chat component with no orphaned timers."**

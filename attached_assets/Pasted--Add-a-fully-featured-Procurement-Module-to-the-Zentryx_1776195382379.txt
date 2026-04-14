@@ -1,0 +1,146 @@
+"Add a fully featured Procurement Module to the Zentryx app. This is a brand new module — do not modify any existing modules, components, routes, or UI patterns. Match the existing design system exactly: same Tailwind classes, same card styles, same table layouts, same light/dark mode handling, same sidebar navigation pattern, same Kanban, same export logic, same notification system.
+Context about the existing app: The app is a React + Vite + TailwindCSS + Zustand frontend with an Express 5 backend, PostgreSQL database via Drizzle ORM, Zod v4 validation, JWT auth, and an OpenAPI spec with Orval-generated React Query hooks. The monorepo structure is:
+* Frontend: artifacts/rd-intelligence/
+* Backend: artifacts/api-server/
+* DB schema: lib/db/
+* OpenAPI spec: lib/api-spec/
+* Generated hooks: lib/api-client-react/
+Study the Sales Force module (/sales-force) as the reference pattern for structure, layout, tabs, and style — the Procurement module should feel like a sibling of Sales Force, not a foreign addition. Also study the existing notification system, activity log, and how the Forecast tab sends notifications to staff, as Procurement will integrate with all of these.
+
+STEP 1 — DATABASE SCHEMA
+In lib/db/schema.ts, add the following new tables using Drizzle ORM. Follow the exact same column conventions (uuid primary keys, timestamps, snake_case) used in the existing schema:
+1. vendors — vendor registry
+    * id (uuid, pk), name, category (Ingredients / Packaging / Equipment / Services / Logistics / Other), contactName, contactEmail, contactPhone, country, address, paymentTerms (Net15 / Net30 / Net60 / COD), currency (NGN / USD / EUR / GBP), rating (integer 1–5), status (Active / Inactive / Blacklisted), notes, createdAt, updatedAt
+2. purchase_requests — internal purchase requests raised by any staff member
+    * id, title, description, requestedBy (FK → users), department (FK → departments), vendorId (FK → vendors, nullable), category (same as vendor category), priority (Low / Medium / High / Critical), status (Draft / Pending Approval / Approved / Rejected / Cancelled / Converted to PO), estimatedAmount, currency, requiredByDate, justification, attachmentUrl, createdAt, updatedAt
+3. purchase_request_approvals — multi-level approval chain per request
+    * id, purchaseRequestId (FK), approverId (FK → users), level (integer: 1, 2, 3), status (Pending / Approved / Rejected), comment, decidedAt, createdAt
+4. purchase_orders — generated from approved purchase requests
+    * id, poNumber (auto-generated: PO-YYYY-XXXX), purchaseRequestId (FK, nullable), vendorId (FK → vendors), raisedBy (FK → users), status (Draft / Sent to Vendor / Acknowledged / In Transit / Partially Received / Received / Closed / Cancelled), totalAmount, currency, paymentStatus (Unpaid / Partially Paid / Paid), paymentDue, deliveryAddress, deliveryDue, notes, createdAt, updatedAt
+5. purchase_order_items — line items per PO
+    * id, purchaseOrderId (FK), description, quantity, unit (kg / litres / units / cartons / bags / packs), unitPrice, totalPrice, productType (match existing Zentryx product types), notes
+6. purchase_order_receipts — goods received notes (GRN)
+    * id, purchaseOrderId (FK), receivedBy (FK → users), receivedAt, quantityReceived, condition (Good / Damaged / Partial), notes
+7. vendor_performance — auto-calculated or manually rated per PO completion
+    * id, vendorId (FK), purchaseOrderId (FK), deliveryScore (1–5), qualityScore (1–5), communicationScore (1–5), overallScore (computed average), reviewedBy (FK → users), notes, createdAt
+After adding schema, run pnpm --filter @workspace/db run push to apply.
+
+STEP 2 — BACKEND API ROUTES
+In artifacts/api-server/src/routes/, create procurement.ts. Register it in the main router as /api/procurement. Build the following endpoints, using the same middleware pattern (JWT auth, Zod validation) as existing routes:
+Vendors:
+* GET /procurement/vendors — list all, with filters: category, status, country, rating
+* POST /procurement/vendors — create vendor
+* GET /procurement/vendors/:id — get vendor detail with their PO history and performance scores
+* PUT /procurement/vendors/:id — update vendor
+* DELETE /procurement/vendors/:id — soft delete (set status to Inactive)
+Purchase Requests:
+* GET /procurement/requests — list all, filters: status, priority, department, requestedBy, dateRange
+* POST /procurement/requests — create new request (status: Draft)
+* GET /procurement/requests/:id — get with approval chain and comments
+* PUT /procurement/requests/:id — update (only if Draft or Rejected)
+* POST /procurement/requests/:id/submit — change status to Pending Approval, trigger notification to approvers
+* POST /procurement/requests/:id/approve — approver approves their level; if final level approved, status → Approved; trigger notification to requester
+* POST /procurement/requests/:id/reject — approver rejects with required comment; status → Rejected; notify requester
+* POST /procurement/requests/:id/convert-to-po — creates a Purchase Order from an Approved request
+Purchase Orders:
+* GET /procurement/orders — list all POs, filters: status, vendorId, paymentStatus, dateRange
+* POST /procurement/orders — create PO directly (without PR)
+* GET /procurement/orders/:id — get PO with line items, receipts, and vendor info
+* PUT /procurement/orders/:id — update PO (only if Draft)
+* POST /procurement/orders/:id/send — mark as Sent to Vendor, notify vendor contact via the existing notification + mailto system
+* POST /procurement/orders/:id/receive — log goods received (creates purchase_order_receipts entry), updates PO status
+* GET /procurement/orders/export — export filtered POs to CSV and XLSX using exceljs (same pattern as Sales Force export)
+Analytics:
+* GET /procurement/analytics — return: total spend by category (current month, YTD), PO status distribution, top 5 vendors by spend, average PO cycle time (created → received), pending approval count, overdue deliveries count, monthly spend trend (last 12 months)
+Notifications integration:
+* When a PR is submitted for approval: notify all users with Manager or Admin role in the relevant department
+* When a PR is approved or rejected: notify the requester
+* When a PO is marked Received: notify the original requester and the Finance department if it exists
+* When a delivery is overdue (deliveryDue has passed, status not Received): flag in analytics — do not auto-send notifications, but surface in the dashboard
+Add all new endpoints to lib/api-spec/openapi.yaml following the existing spec format, then run pnpm --filter @workspace/api-spec run codegen to regenerate the React Query hooks in lib/api-client-react/.
+
+STEP 3 — FRONTEND MODULE
+Create the Procurement module at artifacts/rd-intelligence/src/pages/Procurement/. Structure it with the following files, mirroring the Sales Force module's file organisation:
+* index.tsx — main page with tab navigation
+* VendorsTab.tsx
+* RequestsTab.tsx
+* OrdersTab.tsx
+* AnalyticsTab.tsx
+* components/ — VendorCard, RequestCard, POCard, ApprovalChain, VendorModal, RequestModal, POModal, ReceiveGoodsModal, VendorPerformanceModal
+Add to sidebar navigation: Insert a "Procurement" nav item in the existing sidebar, between Business Development and Chat. Use the same icon style as other nav items (lucide-react). Only show to users with role: Admin, Manager, Head of Department, or a custom role with the word "Procurement" in it.
+Tab 1 — Vendors
+Three view modes (List default, Card grid, Matrix) matching the Sales Force Accounts tab pattern exactly.
+List view columns: Vendor Name, Category, Country, Payment Terms, Rating (5-star display), Active POs (count), Total Spend (formatted), Status badge, Actions.
+Card view: same card style as Account Portfolio cards — vendor name large, category badge, rating stars, contact info, total spend, quick-action buttons.
+Matrix view: sortable comparison table with columns for all key metrics.
+Add Vendor button opens a modal with all vendor fields. Click any vendor → Vendor Detail page with 4 tabs:
+* Overview (contact info, payment terms, notes, edit form)
+* Purchase Orders (list of all POs with this vendor, filterable)
+* Performance (radar chart showing delivery / quality / communication scores across all completed POs, using Recharts — match the Analytics module's chart style)
+* Activity (timeline of all interactions: POs created, received, notes added)
+Tab 2 — Purchase Requests
+Top KPI cards (same style as Dashboard): Total Requests, Pending Approval, Approved This Month, Rejected This Month.
+Below: filterable table with columns: Title, Requester, Department, Category, Priority badge (colour-coded same as existing priority patterns), Estimated Amount, Required By date, Status badge, Actions.
+Priority colours: Critical = red badge, High = orange/amber badge, Medium = yellow badge, Low = green badge — use the same badge component pattern from Weekly Activities.
+Click any row → Request Detail slide-over or page with:
+* Request info (all fields, editable if Draft)
+* Approval Chain component: visual vertical stepper showing Level 1 → Level 2 → Level 3 approval nodes. Each node shows: approver name + avatar initials (same initials circle style as Team Directory), status icon (pending clock / green check / red X), timestamp if decided, and comment if rejected. This is the most important UI component in the module — make it clear and well-designed.
+* Comments/notes thread (same threaded post style as Account Status Reports, with @ mentions)
+* Action buttons contextual to status: Draft shows Submit for Approval; Pending Approval shows Approve / Reject (if current user is an approver at the relevant level); Approved shows Convert to Purchase Order.
+Tab 3 — Purchase Orders
+Top KPI cards: Total POs, Open POs, Overdue Deliveries (highlighted in red if > 0), Total Spend This Month.
+Filterable table: PO Number, Vendor, Raised By, Items (count), Total Amount, Payment Status badge, Delivery Due, Status badge, Actions.
+Click any PO → PO Detail page with:
+* Header: PO number, vendor name, status badge, total amount large
+* Line Items: editable table of items (description, qty, unit, unit price, total) — same resizable split-pane style as Account Production Orders
+* 3 charts panel: Spend by Product Type (donut), Items by Category (bar), Payment Status distribution (pie) — use Recharts, match Analytics chart style
+* Delivery tracking: timeline showing status history (Created → Sent → Acknowledged → In Transit → Received) as a horizontal progress stepper, same style as the project stage indicator
+* Receive Goods button (when status is Sent or In Transit): opens modal to log quantity received, condition, and notes — updates PO status accordingly
+* Rate Vendor button (appears after Received): opens performance rating modal for the vendor
+Export button (top right of Orders tab): same CSV + XLSX dropdown pattern as Sales Force Forecast export.
+Tab 4 — Analytics
+Match the existing Analytics page layout exactly. Use Recharts throughout.
+Top KPI row (4 cards): Total Spend This Month, POs Raised This Month, Pending Approvals, Overdue Deliveries.
+Charts:
+1. Monthly Spend Trend — area chart, last 12 months, Weekly/Monthly toggle (same as Dashboard Innovation Velocity)
+2. Spend by Category — donut chart with bar/pie/list toggle (same as Pipeline Distribution)
+3. Top Vendors by Spend — horizontal bar chart, top 8 vendors
+4. PO Status Distribution — donut chart (same toggle as above)
+5. Approval Cycle Time — bar chart showing average days from submission to approval by department
+6. Delivery Performance — grouped bar chart: On Time vs Late deliveries by vendor (last 6 months)
+All charts: fullscreen expand button, light/dark mode aware, Recharts only.
+
+STEP 4 — SYNC WITH EXISTING MODULES
+These integrations must work without modifying the existing modules' own code — add to the Procurement module only:
+1. Sales Force → Procurement sync: The existing "Notify Procurement" button in the Sales Forecast tab already sends a notification. In the Procurement Requests tab, add a filter "Source: From Sales Forecast" so procurement staff can see requests that were triggered from the Sales team. When a Sales forecast notification arrives (type: System, containing forecast data), surface it as a draft Purchase Request pre-filled with the product and volume data from the notification payload.
+2. Notification system: Use the existing POST /api/notifications endpoint and the existing notification bell UI — do not build a new one. All procurement events (PR submitted, approved, rejected, PO received, overdue) go through the same notifications table and display in the existing notification dropdown.
+3. Activity log: Write all procurement actions (vendor created, PR submitted, PO raised, goods received) to the existing activity_logs table using the same format as other modules. These will then appear in the existing Activity feed automatically.
+4. Team Directory: When selecting approvers for a purchase request approval chain, use the existing GET /api/users endpoint to fetch team members. Display them with the same avatar initials + name + role format used in Team Directory.
+5. Weekly Activities: Add "Procurement" as a valid activity type in the Weekly Activities tracker's Product Type or Status dropdowns — this allows procurement staff to log their weekly procurement activities in the same tracker other teams use.
+
+STEP 5 — ACCESS CONTROL
+Use the existing JWT middleware and role checking pattern. Apply the following rules:
+* View Procurement module: Admin, Manager, Head of Department, any role containing "Procurement" or "Finance"
+* Create Purchase Requests: all authenticated users (anyone can raise a request)
+* Approve/Reject requests: Admin, Manager, Head of Department only
+* Create/Edit Purchase Orders: Admin, Manager only
+* View Vendor Performance data: Admin, Manager, Head of Department
+* Delete vendors: Admin, Manager, Head of Department.
+
+STEP 6 — VALIDATION
+Use Zod v4 (matching existing zod/v4 import pattern) for all new API request bodies. Use drizzle-zod to derive insert schemas from the new tables where possible. All amount fields must be validated as positive numbers. Required dates must be in ISO 8601 format. All enum fields must use the exact string values defined in the schema.
+
+STEP 7 — FINAL CHECKS
+After building, verify:
+* All new DB tables pushed successfully
+* OpenAPI spec updated and codegen run — no TypeScript errors in generated hooks
+* Procurement nav item appears in sidebar and is role-gated correctly
+* All 4 tabs render without console errors in both light and dark mode
+* Vendor detail page loads with all 4 sub-tabs
+* Request detail shows approval chain stepper correctly
+* PO detail shows line items table and 3 charts
+* Export produces valid CSV and XLSX files
+* Notifications fire correctly for PR submit, approve, reject events
+* Activity log entries appear for all procurement actions
+* No existing module (Sales Force, Projects, Analytics, Chat, Weekly Activities) has been modified
+* All new components use only existing Tailwind utility classes — no new CSS files, no inline style objects unless matching existing patterns"

@@ -5,7 +5,7 @@ import {
   Search, LogOut, Menu, X, MessageSquare, Briefcase, Sun, Moon, Zap,
   ChevronDown, User, FlaskConical as Flask, CheckSquare, Building2,
   ArrowRight, Loader2, CalendarDays, UserCircle, TrendingUp, ClipboardList,
-  PanelLeftClose, PanelLeftOpen, Lock, Unlock
+  PanelLeftClose, PanelLeftOpen, Lock, Unlock, ShoppingCart
 } from "lucide-react";
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
@@ -25,6 +25,7 @@ const ALL_NAV_ITEMS = [
   { href: "/weekly-activities", label: "Weekly Activities", icon: ClipboardList },
   { href: "/business-dev", label: "Business Development", icon: Briefcase },
   { href: "/sales-force", label: "Sales Force", icon: TrendingUp },
+  { href: "/procurement", label: "Procurement", icon: ShoppingCart },
   { href: "/team", label: "Team Directory", icon: Users },
   { href: "/events", label: "Events", icon: CalendarDays },
   { href: "/activity", label: "Activity Feed", icon: Activity },
@@ -32,7 +33,7 @@ const ALL_NAV_ITEMS = [
   { href: "/profile", label: "My Profile", icon: UserCircle },
 ];
 
-const RESTRICTED_PATHS = ["/sales-force", "/projects", "/weekly-activities", "/business-dev"];
+const RESTRICTED_PATHS = ["/sales-force", "/projects", "/weekly-activities", "/business-dev", "/procurement"];
 
 function getBlockedPaths(role: string, jobPos: string): string[] {
   const r = (role || "viewer").toLowerCase();
@@ -44,9 +45,10 @@ function getBlockedPaths(role: string, jobPos: string): string[] {
   // NPD technologist sees everything except Sales Force
   if (r === "npd_technologist") return ["/sales-force"];
   // KAM / SKAM — can see Sales Force, but not the others
-  if (["key_account_manager", "senior_key_account_manager"].includes(r)) return ["/projects", "/weekly-activities", "/business-dev"];
-  // All other roles (viewer, procurement, graphics_designer, hr, quality_control, and any unknown)
-  // hide all four restricted sections
+  if (["key_account_manager", "senior_key_account_manager"].includes(r)) return ["/projects", "/weekly-activities", "/business-dev", "/procurement"];
+  // Procurement role sees procurement and weekly activities, not Sales Force
+  if (r === "procurement" || jp.includes("procurement")) return ["/sales-force", "/projects", "/business-dev"];
+  // All other roles (viewer, graphics_designer, hr, quality_control, and any unknown)
   return RESTRICTED_PATHS;
 }
 
