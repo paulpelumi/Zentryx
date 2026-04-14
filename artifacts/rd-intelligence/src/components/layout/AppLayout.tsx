@@ -10,7 +10,7 @@ import {
 import { useAuthStore } from "@/lib/auth";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
-import { useGetCurrentUser, useListNotifications } from "@workspace/api-client-react";
+import { useGetCurrentUser, useListNotifications, useMarkNotificationRead } from "@workspace/api-client-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const BASE = import.meta.env.BASE_URL;
@@ -50,6 +50,95 @@ function getBlockedPaths(role: string, jobPos: string): string[] {
   if (r === "procurement" || jp.includes("procurement")) return ["/sales-force", "/projects", "/business-dev"];
   // All other roles (viewer, graphics_designer, hr, quality_control, and any unknown)
   return RESTRICTED_PATHS;
+}
+
+function NotificationBell({ notifications, isLight }: { notifications: any[]; isLight: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const markRead = useMarkNotificationRead();
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleMark = (id: number) => markRead.mutate({ id });
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={cn("relative p-2 rounded-full transition-colors", isLight ? "hover:bg-slate-100 text-slate-600" : "hover:bg-white/10 text-muted-foreground hover:text-foreground")}
+      >
+        <Bell className="w-5 h-5" />
+        {unreadCount > 0 && (
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_rgba(255,0,0,0.8)] animate-pulse" />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: -8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -8 }}
+            transition={{ duration: 0.15 }}
+            className={cn(
+              "absolute right-0 top-full mt-2 w-80 rounded-2xl border z-50 overflow-hidden",
+              isLight
+                ? "border-white/50 shadow-[0_16px_48px_rgba(0,0,0,0.10),inset_0_1px_0_rgba(255,255,255,0.9)]"
+                : "glass-panel border-white/10 shadow-2xl",
+              isLight && "backdrop-blur-2xl saturate-200"
+            )}
+            style={isLight ? { background: "rgba(255,255,255,0.82)" } : undefined}
+          >
+            <div className={cn("px-4 py-3 border-b flex items-center justify-between", isLight ? "border-slate-100" : "border-white/5")}>
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Bell className="w-4 h-4 text-primary" /> Notifications
+                {unreadCount > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-destructive text-white font-bold">{unreadCount}</span>
+                )}
+              </p>
+              <Link href="/notifications" onClick={() => setOpen(false)}
+                className="text-xs text-primary hover:underline">View all</Link>
+            </div>
+            <div className="max-h-72 overflow-y-auto custom-scrollbar">
+              {notifications.length === 0 ? (
+                <div className="py-8 text-center text-muted-foreground text-sm">
+                  <Bell className="w-6 h-6 mx-auto mb-2 opacity-30" />
+                  No notifications yet
+                </div>
+              ) : notifications.slice(0, 8).map((n: any) => (
+                <button
+                  key={n.id}
+                  onClick={() => { handleMark(n.id); setOpen(false); }}
+                  className={cn(
+                    "w-full text-left px-4 py-3 border-b last:border-0 transition-colors",
+                    isLight ? "border-slate-50 hover:bg-slate-50" : "border-white/5 hover:bg-white/5",
+                    !n.isRead && (isLight ? "bg-primary/5" : "bg-primary/10")
+                  )}
+                >
+                  <div className="flex items-start gap-2.5">
+                    {!n.isRead && <span className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
+                    <div className={cn("flex-1 min-w-0", n.isRead && "pl-4")}>
+                      <p className="text-xs font-medium text-foreground leading-snug line-clamp-2">{n.message}</p>
+                      {n.createdAt && (
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(n.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function useAvatarColor(name: string) {
@@ -554,14 +643,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               {isLight ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
             </button>
 
-            <Link href="/notifications" className={cn("relative p-2 rounded-full transition-colors",
-              isLight ? "hover:bg-slate-100 text-slate-600" : "hover:bg-white/10 text-muted-foreground hover:text-foreground"
-            )}>
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-destructive rounded-full shadow-[0_0_8px_rgba(255,0,0,0.8)] animate-pulse" />
-              )}
-            </Link>
+            <NotificationBell notifications={notifications || []} isLight={isLight} />
 
             <UserMenu user={user} logout={logout} isLight={isLight} />
           </div>

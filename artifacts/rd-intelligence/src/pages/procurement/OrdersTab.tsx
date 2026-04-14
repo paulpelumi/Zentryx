@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
+import { useGetCurrentUser } from "@workspace/api-client-react";
 import * as XLSX from "xlsx";
 
 const BASE = import.meta.env.BASE_URL;
@@ -336,7 +337,7 @@ function PODetailPanel({ po, onClose, isLight }: { po: any; onClose: () => void;
 
 function NewPOModal({ onClose, isLight, vendors }: { onClose: () => void; isLight: boolean; vendors: any[] }) {
   const qc = useQueryClient();
-  const [form, setForm] = useState({ vendorId: "", currency: "ngn", deliveryAddress: "", deliveryDue: "", paymentDue: "", notes: "" });
+  const [form, setForm] = useState({ poNumber: "", vendorId: "", currency: "ngn", deliveryAddress: "", deliveryDue: "", paymentDue: "", notes: "" });
   const [items, setItems] = useState<any[]>([{ description: "", quantity: "", unit: "units", unitPrice: "" }]);
   const [saving, setSaving] = useState(false);
   const f = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
@@ -378,6 +379,10 @@ function NewPOModal({ onClose, isLight, vendors }: { onClose: () => void; isLigh
         </div>
         <div className="p-6 space-y-5">
           <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">PO Number *</label>
+              <input className={inputCls} value={form.poNumber} onChange={e => f("poNumber", e.target.value)} placeholder="Enter PO number manually (e.g. PO-2024-001)…" />
+            </div>
             <div className="col-span-2">
               <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Vendor *</label>
               <select className={cn(inputCls, "appearance-none")} value={form.vendorId} onChange={e => f("vendorId", e.target.value)}>
@@ -446,7 +451,7 @@ function NewPOModal({ onClose, isLight, vendors }: { onClose: () => void; isLigh
         <div className={cn("sticky bottom-0 px-6 py-4 border-t flex justify-end gap-3",
           isLight ? "bg-white border-slate-100" : "bg-[#0f0f1a] border-white/10")}>
           <button onClick={onClose} className="px-5 py-2 rounded-xl text-sm text-muted-foreground hover:bg-white/5">Cancel</button>
-          <button onClick={save} disabled={saving || !form.vendorId}
+          <button onClick={save} disabled={saving || !form.vendorId || !form.poNumber}
             className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90 disabled:opacity-50">
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Create PO
           </button>
@@ -459,11 +464,15 @@ function NewPOModal({ onClose, isLight, vendors }: { onClose: () => void; isLigh
 export default function OrdersTab() {
   const { theme } = useTheme();
   const isLight = theme === "light";
+  const { data: currentUser } = useGetCurrentUser();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterPayment, setFilterPayment] = useState("all");
   const [showNew, setShowNew] = useState(false);
   const [selectedPO, setSelectedPO] = useState<any>(null);
+
+  const isProcurementDept = ((currentUser as any)?.department ?? "").toLowerCase().includes("procurement") ||
+    ["admin","manager","ceo"].includes((currentUser as any)?.role ?? "");
 
   const { data: orders = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/procurement/orders"],
@@ -556,10 +565,12 @@ export default function OrdersTab() {
             isLight ? "border-slate-200 text-slate-600 hover:bg-slate-50" : "border-white/10 text-muted-foreground hover:bg-white/5")}>
           <Download className="w-3.5 h-3.5" /> Export
         </button>
-        <button onClick={() => setShowNew(true)}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90">
-          <Plus className="w-3.5 h-3.5" /> New PO
-        </button>
+        {isProcurementDept && (
+          <button onClick={() => setShowNew(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90">
+            <Plus className="w-3.5 h-3.5" /> New PO
+          </button>
+        )}
       </div>
 
       {/* Table */}

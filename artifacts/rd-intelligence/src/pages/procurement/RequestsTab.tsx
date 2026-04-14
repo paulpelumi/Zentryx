@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Plus, Search, Loader2, X, Check, Clock, AlertCircle, CheckCircle2,
-  XCircle, ChevronRight, Filter, FileText, TrendingUp, Users, ArrowRight
+  XCircle, ChevronRight, Filter, FileText, TrendingUp, Users, ArrowRight,
+  Trash2, AlertTriangle, RotateCcw
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
@@ -33,9 +34,10 @@ function priorityMeta(p: string) { return PRIORITIES.find(x => x.value === p) ??
 function statusMeta(s: string) { return STATUSES.find(x => x.value === s) ?? STATUSES[0]; }
 
 function ApprovalChain({ approvals }: { approvals: any[] }) {
-  const levels = [1, 2, 3];
   const { theme } = useTheme();
   const isLight = theme === "light";
+  const existingLevels = [...new Set(approvals.map((a: any) => a.level))].sort();
+  const levels = existingLevels.length ? existingLevels : [1];
 
   return (
     <div className="flex flex-col gap-2">
@@ -43,8 +45,6 @@ function ApprovalChain({ approvals }: { approvals: any[] }) {
         const levelApprovals = approvals.filter((a: any) => a.level === level);
         const approved = levelApprovals.some(a => a.status === "approved");
         const rejected = levelApprovals.some(a => a.status === "rejected");
-        const pending = levelApprovals.some(a => a.status === "pending");
-        const decided = levelApprovals.find(a => a.status !== "pending");
 
         const iconCls = approved ? "text-emerald-400 bg-emerald-500/10" : rejected ? "text-red-400 bg-red-500/10" : "text-amber-400 bg-amber-500/10";
         const Icon = approved ? CheckCircle2 : rejected ? XCircle : Clock;
@@ -86,15 +86,19 @@ function ApprovalChain({ approvals }: { approvals: any[] }) {
   );
 }
 
-function RequestDetailPanel({ pr, onClose, isLight, currentUserId, userRole }: any) {
+function RequestDetailPanel({ pr, onClose, isLight, currentUserId, userRole, currentUserDept, onDeleted }: any) {
   const qc = useQueryClient();
   const [rejectComment, setRejectComment] = useState("");
   const [showReject, setShowReject] = useState(false);
   const [acting, setActing] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const canApprove = ["admin","manager","ceo"].includes(userRole) &&
     pr.status === "pending_approval" &&
     pr.approvals?.some((a: any) => a.approverId === currentUserId && a.status === "pending");
+
+  const isProcurementDept = (currentUserDept ?? "").toLowerCase().includes("procurement");
+  const canDelete = isProcurementDept && !["converted_to_po"].includes(pr.status);
 
   async function action(endpoint: string, body: any = {}) {
     setActing(true);
@@ -103,6 +107,18 @@ function RequestDetailPanel({ pr, onClose, isLight, currentUserId, userRole }: a
         method: "POST", headers: authH(), body: JSON.stringify(body),
       });
       qc.invalidateQueries({ queryKey: ["/api/procurement/requests"] });
+      onClose();
+    } finally { setActing(false); }
+  }
+
+  async function deletePR() {
+    setActing(true);
+    try {
+      await fetch(`${BASE}api/procurement/requests/${pr.id}`, {
+        method: "DELETE", headers: authH(),
+      });
+      qc.invalidateQueries({ queryKey: ["/api/procurement/requests"] });
+      if (onDeleted) onDeleted();
       onClose();
     } finally { setActing(false); }
   }
@@ -137,7 +153,15 @@ function RequestDetailPanel({ pr, onClose, isLight, currentUserId, userRole }: a
             <div><p className="text-xs text-muted-foreground mb-0.5">Currency</p><p className="font-medium uppercase">{pr.currency}</p></div>
             <div><p className="text-xs text-muted-foreground mb-0.5">Estimated Amount</p><p className="font-semibold text-primary">{pr.estimatedAmount ? Number(pr.estimatedAmount).toLocaleString(undefined, { maximumFractionDigits: 2 }) : "—"}</p></div>
             <div><p className="text-xs text-muted-foreground mb-0.5">Required By</p><p className="font-medium">{pr.requiredByDate || "—"}</p></div>
+            {pr.requiredQuantityKg && <div><p className="text-xs text-muted-foreground mb-0.5">Required Qty (KG)</p><p className="font-medium">{pr.requiredQuantityKg}</p></div>}
           </div>
+          {(pr.vendorDetailsName || pr.vendorDetailsAddress) && (
+            <div className={cn("p-3 rounded-xl border", isLight ? "border-slate-100 bg-slate-50" : "border-white/5 bg-white/3")}>
+              <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Vendor Details</p>
+              {pr.vendorDetailsName && <p className="text-sm font-medium">{pr.vendorDetailsName}</p>}
+              {pr.vendorDetailsAddress && <p className="text-xs text-muted-foreground mt-0.5">{pr.vendorDetailsAddress}</p>}
+            </div>
+          )}
           {pr.description && (
             <div>
               <p className="text-xs text-muted-foreground mb-1.5 font-medium">Description</p>
@@ -193,18 +217,37 @@ function RequestDetailPanel({ pr, onClose, isLight, currentUserId, userRole }: a
               {acting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />} Convert to PO
             </button>
           )}
+          {canDelete && !showDeleteConfirm && (
+            <button onClick={() => setShowDeleteConfirm(true)}
+              className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium text-red-400 border border-red-500/20 hover:bg-red-500/10">
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+          )}
+          {showDeleteConfirm && (
+            <div className="w-full flex items-center gap-2 p-2 rounded-xl bg-red-500/10 border border-red-500/20">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+              <span className="text-xs text-red-400 flex-1">Delete this request? This cannot be undone.</span>
+              <button onClick={deletePR} disabled={acting}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50">
+                {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : "Delete"}
+              </button>
+              <button onClick={() => setShowDeleteConfirm(false)} className="px-3 py-1.5 rounded-lg text-xs text-muted-foreground hover:bg-white/5">Cancel</button>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function NewRequestModal({ onClose, isLight }: { onClose: () => void; isLight: boolean }) {
+export function NewRequestModal({ onClose, isLight, extraDefaults }: { onClose: () => void; isLight: boolean; extraDefaults?: Record<string, any> }) {
   const qc = useQueryClient();
   const { data: currentUser } = useGetCurrentUser();
   const [form, setForm] = useState({
     title: "", description: "", category: "ingredients", priority: "medium",
     estimatedAmount: "", currency: "ngn", requiredByDate: "", justification: "",
+    requiredQuantityKg: "", vendorDetailsName: "", vendorDetailsAddress: "",
+    ...extraDefaults,
   });
   const [saving, setSaving] = useState(false);
   const f = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
@@ -216,7 +259,11 @@ function NewRequestModal({ onClose, isLight }: { onClose: () => void; isLight: b
     try {
       await fetch(`${BASE}api/procurement/requests`, {
         method: "POST", headers: authH(),
-        body: JSON.stringify({ ...form, requestedById: (currentUser as any)?.id }),
+        body: JSON.stringify({
+          ...form,
+          requestedById: (currentUser as any)?.id,
+          departmentId: (currentUser as any)?.departmentId ?? null,
+        }),
       });
       qc.invalidateQueries({ queryKey: ["/api/procurement/requests"] });
       onClose();
@@ -264,9 +311,28 @@ function NewRequestModal({ onClose, isLight }: { onClose: () => void; isLight: b
               </select>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Required By Date</label>
+              <input className={inputCls} type="date" value={form.requiredByDate} onChange={e => f("requiredByDate", e.target.value)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Required Quantity (KG)</label>
+              <input className={inputCls} type="number" value={form.requiredQuantityKg} onChange={e => f("requiredQuantityKg", e.target.value)} placeholder="0.00" />
+            </div>
+          </div>
           <div>
-            <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Required By Date</label>
-            <input className={inputCls} type="date" value={form.requiredByDate} onChange={e => f("requiredByDate", e.target.value)} />
+            <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wide">Vendor Details</p>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Vendor Name</label>
+                <input className={inputCls} value={form.vendorDetailsName} onChange={e => f("vendorDetailsName", e.target.value)} placeholder="Vendor company name…" />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Vendor Address</label>
+                <input className={inputCls} value={form.vendorDetailsAddress} onChange={e => f("vendorDetailsAddress", e.target.value)} placeholder="Vendor address…" />
+              </div>
+            </div>
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Description</label>
@@ -299,6 +365,10 @@ export default function RequestsTab() {
   const [filterPriority, setFilterPriority] = useState("all");
   const [showModal, setShowModal] = useState(false);
   const [selectedPR, setSelectedPR] = useState<any>(null);
+  const [showRejectedDrawer, setShowRejectedDrawer] = useState(false);
+
+  const currentUserDept = (currentUser as any)?.department ?? "";
+  const isProcurementDept = currentUserDept.toLowerCase().includes("procurement");
 
   const { data: requests = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/procurement/requests"],
@@ -307,6 +377,17 @@ export default function RequestsTab() {
       return r.json();
     },
   });
+
+  const { data: rejectedRaw, refetch: refetchRejected } = useQuery<any[]>({
+    queryKey: ["/api/procurement/requests/rejected-deleted"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}api/procurement/requests/rejected-deleted`, { headers: authH() });
+      const d = await r.json();
+      return Array.isArray(d) ? d : (d?.data ?? []);
+    },
+    enabled: showRejectedDrawer,
+  });
+  const rejectedList = Array.isArray(rejectedRaw) ? rejectedRaw : [];
 
   const filtered = requests.filter(r => {
     const matchSearch = !search || r.title?.toLowerCase().includes(search.toLowerCase()) || r.requestedBy?.name?.toLowerCase().includes(search.toLowerCase());
@@ -367,6 +448,11 @@ export default function RequestsTab() {
           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90">
           <Plus className="w-3.5 h-3.5" /> New Request
         </button>
+        <button onClick={() => { setShowRejectedDrawer(true); refetchRejected(); }}
+          className={cn("flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium border transition-colors",
+            isLight ? "border-slate-200 text-slate-600 hover:bg-slate-50" : "border-white/10 text-muted-foreground hover:bg-white/5")}>
+          <RotateCcw className="w-3.5 h-3.5" /> Rejected Requests
+        </button>
       </div>
 
       {/* Table */}
@@ -421,7 +507,59 @@ export default function RequestsTab() {
           isLight={isLight}
           currentUserId={(currentUser as any)?.id}
           userRole={(currentUser as any)?.role}
+          currentUserDept={currentUserDept}
         />
+      )}
+
+      {/* Rejected Requests Drawer */}
+      {showRejectedDrawer && (
+        <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-end p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowRejectedDrawer(false)} />
+          <div className={cn("relative w-full sm:max-w-lg h-[80vh] sm:max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border shadow-2xl z-10",
+            isLight ? "bg-white border-slate-200" : "glass-panel border-white/10")}>
+            <div className={cn("sticky top-0 px-5 py-4 border-b flex items-center justify-between",
+              isLight ? "bg-white border-slate-100" : "bg-[#0f0f1a] border-white/10")}>
+              <div>
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400" /> Rejected Requests
+                </h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Rejected and deleted purchase requests</p>
+              </div>
+              <button onClick={() => setShowRejectedDrawer(false)} className="p-1.5 rounded-lg text-muted-foreground hover:bg-white/5"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="p-4 space-y-2">
+              {rejectedList.length === 0 ? (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  <RotateCcw className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                  No rejected or deleted requests found.
+                </div>
+              ) : rejectedList.map((r: any) => {
+                const sm = statusMeta(r.isDeleted ? "cancelled" : r.status);
+                return (
+                  <div key={r.id} className={cn("p-3 rounded-xl border", isLight ? "border-slate-100 bg-slate-50" : "border-white/5 bg-white/3")}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{r.title}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className={cn("text-xs px-2 py-0.5 rounded-full", r.isDeleted ? "bg-slate-500/10 text-slate-400" : sm.cls)}>
+                            {r.isDeleted ? "Deleted" : sm.label}
+                          </span>
+                          {r.vendorName && <span className="text-xs text-muted-foreground">{r.vendorName}</span>}
+                          {r.requester && <span className="text-xs text-muted-foreground">by {r.requester.name}</span>}
+                        </div>
+                        {r.updatedAt && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {r.isDeleted ? "Deleted" : "Rejected"} {format(new Date(r.isDeleted ? r.deletedAt : r.updatedAt), "MMM d, yyyy")}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

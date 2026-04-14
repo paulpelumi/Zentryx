@@ -23,7 +23,7 @@ export default function ProcurementPage() {
   const [activeTab, setActiveTab] = useState<TabId>("vendors");
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 space-y-6">
+    <div className="space-y-5">
       {/* Page Header */}
       <div className="flex items-start justify-between">
         <div>

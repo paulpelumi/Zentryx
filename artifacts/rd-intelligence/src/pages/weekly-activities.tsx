@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft, ChevronRight, Plus, Trash2, Bell, Check,
   Loader2, ChevronDown, Users, X, Send, FileSpreadsheet,
-  FileText, Search, ArrowUpDown, ArrowUp, ArrowDown, Package
+  FileText, Search, ArrowUpDown, ArrowUp, ArrowDown, Package, ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
+import { NewRequestModal } from "@/pages/procurement/RequestsTab";
 import * as XLSX from "xlsx";
 
 const BASE = import.meta.env.BASE_URL;
@@ -779,7 +780,8 @@ function DispatchRecords({ users, isLight }: { users: any[]; isLight: boolean })
 // ─── Main Export ──────────────────────────────────────────────────────────────
 export default function WeeklyActivities() {
   const now = new Date();
-  const [activeTab, setActiveTab] = useState<"tracker" | "dispatch">("tracker");
+  const [activeTab, setActiveTab] = useState<"tracker" | "dispatch" | "purchase_requests">("tracker");
+  const [showPRModal, setShowPRModal] = useState(false);
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
@@ -948,7 +950,7 @@ export default function WeeklyActivities() {
     "px-0.5 py-1 text-xs border-0 bg-transparent text-foreground w-full focus:outline-none focus:ring-1 focus:ring-primary/40 rounded placeholder:text-muted-foreground/40"
   );
 
-  const tabCls = (tab: "tracker" | "dispatch") => cn(
+  const tabCls = (tab: string) => cn(
     "px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
     activeTab === tab
       ? "bg-primary text-white shadow-md shadow-primary/20"
@@ -966,13 +968,16 @@ export default function WeeklyActivities() {
       </div>
 
       {/* Tab Switcher */}
-      <div className={cn("flex gap-2 p-1 rounded-2xl border w-fit",
+      <div className={cn("flex gap-2 p-1 rounded-2xl border w-fit flex-wrap",
         isLight ? "bg-slate-50 border-slate-200" : "bg-white/3 border-white/8")}>
         <button className={tabCls("tracker")} onClick={() => setActiveTab("tracker")}>
           Weekly Activities Tracker
         </button>
         <button className={tabCls("dispatch")} onClick={() => setActiveTab("dispatch")}>
           Dispatch Records
+        </button>
+        <button className={tabCls("purchase_requests")} onClick={() => setActiveTab("purchase_requests")}>
+          <ShoppingBag className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" />Purchase Requests
         </button>
       </div>
 
@@ -1256,7 +1261,124 @@ export default function WeeklyActivities() {
         <DispatchRecords users={users} isLight={isLight} />
       )}
 
+      {/* ── Tab: Purchase Requests ── */}
+      {activeTab === "purchase_requests" && (
+        <PurchaseRequestsSection isLight={isLight} onOpenModal={() => setShowPRModal(true)} />
+      )}
+
       {showNotify && <NotifyModal onClose={() => setShowNotify(false)} users={users} />}
+      {showPRModal && <NewRequestModal onClose={() => setShowPRModal(false)} isLight={isLight} />}
+    </div>
+  );
+}
+
+function PurchaseRequestsSection({ isLight, onOpenModal }: { isLight: boolean; onOpenModal: () => void }) {
+  const [search, setSearch] = useState("");
+  const { data: prs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/procurement/requests", "npd"],
+    queryFn: async () => {
+      const r = await fetch(`${BASE}api/procurement/requests`, { headers: authHeaders(), cache: "no-store" });
+      if (!r.ok) throw new Error("Failed to fetch purchase requests");
+      const data = await r.json();
+      return (data || []).filter((pr: any) =>
+        (pr.department ?? "").toLowerCase().includes("npd") ||
+        (pr.requester?.department ?? "").toLowerCase().includes("npd")
+      );
+    },
+  });
+
+  const filtered = useMemo(() => {
+    if (!search) return prs;
+    const s = search.toLowerCase();
+    return prs.filter((pr: any) =>
+      (pr.title ?? "").toLowerCase().includes(s) ||
+      (pr.vendorName ?? "").toLowerCase().includes(s) ||
+      (pr.requester?.name ?? "").toLowerCase().includes(s)
+    );
+  }, [prs, search]);
+
+  const STATUS_META: Record<string, { label: string; cls: string }> = {
+    pending:      { label: "Pending",       cls: "bg-amber-500/10 text-amber-400" },
+    approved:     { label: "Approved",      cls: "bg-emerald-500/10 text-emerald-400" },
+    rejected:     { label: "Rejected",      cls: "bg-red-500/10 text-red-400" },
+    in_progress:  { label: "In Progress",   cls: "bg-blue-500/10 text-blue-400" },
+    completed:    { label: "Completed",     cls: "bg-teal-500/10 text-teal-400" },
+    cancelled:    { label: "Cancelled",     cls: "bg-slate-500/10 text-slate-400" },
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className={cn("flex items-center gap-2 px-3 py-2 rounded-xl border text-sm flex-1 min-w-[180px] max-w-xs",
+          isLight ? "bg-white border-slate-200" : "bg-black/20 border-white/10")}>
+          <Search className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+          <input
+            className="bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50 w-full text-sm"
+            placeholder="Search purchase requests…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+        </div>
+        <button
+          onClick={onOpenModal}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium bg-primary text-white hover:bg-primary/90">
+          <Plus className="w-3.5 h-3.5" /> New Request
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className={cn("rounded-2xl border overflow-hidden", isLight ? "bg-white border-slate-200" : "glass-card border-white/10")}>
+        {isLoading ? (
+          <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="py-16 text-center">
+            <ShoppingBag className="w-10 h-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="text-sm text-muted-foreground">{search ? "No requests match your search." : "No NPD purchase requests yet."}</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[600px]">
+              <thead>
+                <tr className={cn("border-b text-xs", isLight ? "bg-slate-50 border-slate-100 text-slate-500" : "bg-white/3 border-white/5 text-muted-foreground")}>
+                  <th className="px-4 py-3 text-left font-medium">Title</th>
+                  <th className="px-4 py-3 text-left font-medium">Vendor</th>
+                  <th className="px-4 py-3 text-left font-medium">Priority</th>
+                  <th className="px-4 py-3 text-left font-medium">Status</th>
+                  <th className="px-4 py-3 text-left font-medium">Requester</th>
+                  <th className="px-4 py-3 text-left font-medium">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((pr: any) => {
+                  const sm = STATUS_META[pr.status] || { label: pr.status, cls: "bg-slate-500/10 text-slate-400" };
+                  return (
+                    <tr key={pr.id} className={cn("border-b last:border-0 transition-colors",
+                      isLight ? "border-slate-50 hover:bg-slate-50" : "border-white/5 hover:bg-white/3")}>
+                      <td className="px-4 py-3 font-medium text-foreground max-w-[200px] truncate">{pr.title}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">{pr.vendorName || "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className={cn("text-xs px-2 py-0.5 rounded-full capitalize font-medium",
+                          pr.priority === "high" ? "bg-red-500/10 text-red-400" :
+                          pr.priority === "medium" ? "bg-amber-500/10 text-amber-400" : "bg-slate-500/10 text-slate-400")}>
+                          {pr.priority || "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", sm.cls)}>{sm.label}</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{pr.requester?.name || "—"}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">
+                        {pr.createdAt ? new Date(pr.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

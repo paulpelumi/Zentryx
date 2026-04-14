@@ -11,7 +11,6 @@ const BASE = import.meta.env.BASE_URL;
 function authH() { return { Authorization: `Bearer ${localStorage.getItem("rd_token")}`, "Content-Type": "application/json" }; }
 
 const CATEGORIES = ["ingredients","packaging","equipment","services","logistics","other"];
-const PAYMENT_TERMS = [{ value: "net15", label: "Net 15" },{ value: "net30", label: "Net 30" },{ value: "net60", label: "Net 60" },{ value: "cod", label: "COD" }];
 const CURRENCIES = ["ngn","usd","eur","gbp"];
 const STATUSES = [{ value: "active", label: "Active", cls: "text-emerald-400 bg-emerald-500/10" },{ value: "inactive", label: "Inactive", cls: "text-slate-400 bg-slate-500/10" },{ value: "blacklisted", label: "Blacklisted", cls: "text-red-400 bg-red-500/10" }];
 
@@ -30,7 +29,7 @@ function StarRating({ rating }: { rating: number }) {
 
 const EMPTY_FORM = {
   name: "", category: "ingredients", contactName: "", contactEmail: "", contactPhone: "",
-  country: "", address: "", paymentTerms: "net30", currency: "ngn", rating: 3, status: "active", notes: "",
+  country: "", address: "", paymentTerms: "", currency: "ngn", rating: 3, status: "active", notes: "",
 };
 
 function VendorModal({ vendor, onClose, isLight }: { vendor?: any; onClose: () => void; isLight: boolean }) {
@@ -100,9 +99,7 @@ function VendorModal({ vendor, onClose, isLight }: { vendor?: any; onClose: () =
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Payment Terms</label>
-            <select className={cn(inputCls, "appearance-none")} value={form.paymentTerms} onChange={e => f("paymentTerms", e.target.value)}>
-              {PAYMENT_TERMS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
+            <input className={inputCls} value={form.paymentTerms} onChange={e => f("paymentTerms", e.target.value)} placeholder="e.g. Net 30, COD, 50% upfront…" />
           </div>
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1.5 block">Currency</label>
@@ -284,7 +281,7 @@ export default function VendorsTab() {
                       </td>
                       <td className="px-4 py-3"><span className={cn("text-xs px-2 py-0.5 rounded-full", isLight ? "bg-slate-100 text-slate-600" : "bg-white/5 text-muted-foreground")}>{categoryLabel(v.category)}</span></td>
                       <td className="px-4 py-3 text-sm text-foreground">{v.country || "—"}</td>
-                      <td className="px-4 py-3 text-xs text-muted-foreground uppercase">{v.paymentTerms?.replace("net", "Net ")}</td>
+                      <td className="px-4 py-3 text-xs text-muted-foreground">{v.paymentTerms || "—"}</td>
                       <td className="px-4 py-3"><StarRating rating={v.rating} /></td>
                       <td className="px-4 py-3 text-center text-sm">{v.activePOs ?? 0}</td>
                       <td className="px-4 py-3 text-sm font-mono">{v.totalSpend ? Number(v.totalSpend).toLocaleString(undefined, { maximumFractionDigits: 0 }) : "0"}</td>

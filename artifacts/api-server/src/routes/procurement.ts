@@ -5,7 +5,7 @@ import {
   purchaseOrdersTable, purchaseOrderItemsTable, purchaseOrderReceiptsTable,
   vendorPerformanceTable, usersTable, notificationsTable, departmentsTable,
 } from "@workspace/db";
-import { eq, and, desc, asc, sql, inArray, ne, gte, lte } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, ne, gte, lte, isNull } from "drizzle-orm";
 import { requireAuth, AuthRequest } from "../lib/auth";
 
 const router = Router();
@@ -38,6 +38,34 @@ async function getManagerIds(): Promise<number[]> {
   const managers = await db.select({ id: usersTable.id }).from(usersTable)
     .where(sql`${usersTable.role} IN ('admin','manager','ceo')`);
   return managers.map(m => m.id);
+}
+
+async function getNpdL1ApproverIds(): Promise<number[]> {
+  const users = await db.select({ id: usersTable.id, department: usersTable.department, role: usersTable.role, jobPosition: usersTable.jobPosition }).from(usersTable);
+  return users
+    .filter(u => {
+      const dept = (u.department ?? "").toLowerCase();
+      const role = (u.role ?? "").toLowerCase();
+      const jp = (u.jobPosition ?? "").toLowerCase();
+      const isNpd = dept.includes("npd") || dept.includes("new product");
+      const isManager = ["admin", "manager", "ceo"].includes(role) || jp.includes("manager") || jp.includes("head") || jp.includes("director");
+      return isNpd && isManager;
+    })
+    .map(u => u.id);
+}
+
+async function getProcurementL2ApproverIds(): Promise<number[]> {
+  const users = await db.select({ id: usersTable.id, department: usersTable.department, role: usersTable.role, jobPosition: usersTable.jobPosition }).from(usersTable);
+  return users
+    .filter(u => {
+      const dept = (u.department ?? "").toLowerCase();
+      const role = (u.role ?? "").toLowerCase();
+      const jp = (u.jobPosition ?? "").toLowerCase();
+      const isProcurement = dept.includes("procurement");
+      const isManagerOrOfficer = ["admin", "manager", "ceo", "procurement"].includes(role) || jp.includes("manager") || jp.includes("officer") || jp.includes("head");
+      return isProcurement && isManagerOrOfficer;
+    })
+    .map(u => u.id);
 }
 
 async function enrichPR(pr: any, userMap: Map<number, any>) {
@@ -160,18 +188,52 @@ router.delete("/vendors/:id", requireAuth, async (req: AuthRequest, res) => {
 // PURCHASE REQUESTS
 // ══════════════════════════════════════════════════════════════════════════════
 
+router.get("/requests/rejected-deleted", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const allPrs = await db.select().from(purchaseRequestsTable).orderBy(desc(purchaseRequestsTable.updatedAt));
+    const rejectedOrDeleted = allPrs.filter(pr => pr.status === "rejected" || pr.deletedAt !== null);
+    const userMap = await getUserMap();
+    const departments = await db.select().from(departmentsTable);
+    const deptMap = new Map(departments.map(d => [d.id, d]));
+    const vendors = await db.select({ id: vendorsTable.id, name: vendorsTable.name }).from(vendorsTable);
+    const vendorNameMap = new Map(vendors.map(v => [v.id, v.name]));
+
+    const sorted = rejectedOrDeleted.sort((a, b) => {
+      const aTime = (a.deletedAt ?? a.updatedAt)?.getTime() ?? 0;
+      const bTime = (b.deletedAt ?? b.updatedAt)?.getTime() ?? 0;
+      if (bTime !== aTime) return bTime - aTime;
+      const aVendor = vendorNameMap.get(a.vendorId ?? 0) ?? "";
+      const bVendor = vendorNameMap.get(b.vendorId ?? 0) ?? "";
+      return aVendor.localeCompare(bVendor);
+    });
+
+    const enriched = await Promise.all(sorted.map(async pr => {
+      const approvals = await db.select().from(purchaseRequestApprovalsTable)
+        .where(eq(purchaseRequestApprovalsTable.purchaseRequestId, pr.id));
+      const requester = userMap.get(pr.requestedById);
+      const dept = pr.departmentId ? deptMap.get(pr.departmentId) : null;
+      return {
+        ...pr, isDeleted: pr.deletedAt !== null,
+        requester: requester ? { id: requester.id, name: requester.name } : null,
+        department: dept ?? null,
+        vendorName: vendorNameMap.get(pr.vendorId ?? 0) ?? null,
+        approvals: approvals.map(a => ({ ...a, approver: userMap.get(a.approverId) ?? null })),
+      };
+    }));
+    res.json(enriched);
+  } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
+});
+
 router.get("/requests", requireAuth, async (req: AuthRequest, res) => {
   try {
     const { status, priority, departmentId, requestedById } = req.query as any;
-    const conditions: any[] = [];
+    const conditions: any[] = [isNull(purchaseRequestsTable.deletedAt)];
     if (status) conditions.push(eq(purchaseRequestsTable.status, status));
     if (priority) conditions.push(eq(purchaseRequestsTable.priority, priority));
     if (departmentId) conditions.push(eq(purchaseRequestsTable.departmentId, parseInt(departmentId)));
     if (requestedById) conditions.push(eq(purchaseRequestsTable.requestedById, parseInt(requestedById)));
 
-    let prs = conditions.length
-      ? await db.select().from(purchaseRequestsTable).where(and(...conditions)).orderBy(desc(purchaseRequestsTable.createdAt))
-      : await db.select().from(purchaseRequestsTable).orderBy(desc(purchaseRequestsTable.createdAt));
+    let prs = await db.select().from(purchaseRequestsTable).where(and(...conditions)).orderBy(desc(purchaseRequestsTable.createdAt));
 
     const userMap = await getUserMap();
     const departments = await db.select().from(departmentsTable);
@@ -202,6 +264,9 @@ router.post("/requests", requireAuth, async (req: AuthRequest, res) => {
       category: b.category ?? "other", priority: b.priority ?? "medium", status: "draft",
       estimatedAmount: b.estimatedAmount ? String(b.estimatedAmount) : null, currency: b.currency ?? "ngn",
       requiredByDate: b.requiredByDate ?? null, justification: b.justification ?? "", attachmentUrl: b.attachmentUrl ?? null,
+      requiredQuantityKg: b.requiredQuantityKg ?? null,
+      vendorDetailsName: b.vendorDetailsName ?? null,
+      vendorDetailsAddress: b.vendorDetailsAddress ?? null,
     }).returning();
     res.status(201).json(pr);
   } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
@@ -228,7 +293,11 @@ router.put("/requests/:id", requireAuth, async (req: AuthRequest, res) => {
     const [pr] = await db.update(purchaseRequestsTable).set({
       title: b.title, description: b.description, category: b.category, priority: b.priority,
       estimatedAmount: b.estimatedAmount ? String(b.estimatedAmount) : null, currency: b.currency,
-      requiredByDate: b.requiredByDate, justification: b.justification, vendorId: b.vendorId ?? null, updatedAt: new Date(),
+      requiredByDate: b.requiredByDate, justification: b.justification, vendorId: b.vendorId ?? null,
+      requiredQuantityKg: b.requiredQuantityKg ?? null,
+      vendorDetailsName: b.vendorDetailsName ?? null,
+      vendorDetailsAddress: b.vendorDetailsAddress ?? null,
+      updatedAt: new Date(),
     }).where(eq(purchaseRequestsTable.id, id)).returning();
     const userMap = await getUserMap();
     res.json(await enrichPR(pr, userMap));
@@ -244,15 +313,46 @@ router.post("/requests/:id/submit", requireAuth, async (req: AuthRequest, res) =
       .returning();
     if (!pr) { res.status(400).json({ error: "Cannot submit" }); return; }
 
-    // Create level-1 approval slot for all managers
-    const managerIds = await getManagerIds();
-    if (managerIds.length) {
-      await db.insert(purchaseRequestApprovalsTable).values(managerIds.map(mid => ({
-        purchaseRequestId: id, approverId: mid, level: 1, status: "pending" as const,
-      })));
-      await notifyUsers(managerIds, "Purchase Request Pending Approval",
-        `A new purchase request "${pr.title}" requires your approval.`);
+    // Determine requester's department
+    const departments = await db.select().from(departmentsTable);
+    const requesterDeptRecord = pr.departmentId ? departments.find(d => d.id === pr.departmentId) : null;
+    const requesterDeptName = (requesterDeptRecord?.name ?? "").toLowerCase();
+
+    const isNpdDept = requesterDeptName.includes("npd") || requesterDeptName.includes("new product");
+    const isProcurementDept = requesterDeptName.includes("procurement");
+
+    if (isNpdDept) {
+      // Level 1: NPD managers
+      const l1Ids = await getNpdL1ApproverIds();
+      if (l1Ids.length) {
+        await db.insert(purchaseRequestApprovalsTable).values(l1Ids.map(mid => ({
+          purchaseRequestId: id, approverId: mid, level: 1, status: "pending" as const,
+        })));
+        await notifyUsers(l1Ids, "Purchase Request Pending Approval",
+          `A new purchase request "${pr.title}" requires your Level 1 approval.`);
+      }
+    } else if (isProcurementDept) {
+      // Procurement dept: skip Level 1, go straight to Level 2
+      const l2Ids = await getProcurementL2ApproverIds();
+      if (l2Ids.length) {
+        await db.insert(purchaseRequestApprovalsTable).values(l2Ids.map(mid => ({
+          purchaseRequestId: id, approverId: mid, level: 2, status: "pending" as const,
+        })));
+        await notifyUsers(l2Ids, "Purchase Request Pending Approval",
+          `A new purchase request "${pr.title}" requires your approval.`);
+      }
+    } else {
+      // Fallback: use Level 2 (Procurement managers)
+      const l2Ids = await getProcurementL2ApproverIds();
+      if (l2Ids.length) {
+        await db.insert(purchaseRequestApprovalsTable).values(l2Ids.map(mid => ({
+          purchaseRequestId: id, approverId: mid, level: 2, status: "pending" as const,
+        })));
+        await notifyUsers(l2Ids, "Purchase Request Pending Approval",
+          `A new purchase request "${pr.title}" requires your approval.`);
+      }
     }
+
     const userMap = await getUserMap();
     res.json(await enrichPR(pr, userMap));
   } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
@@ -264,6 +364,7 @@ router.post("/requests/:id/approve", requireAuth, async (req: AuthRequest, res) 
     const userId = (req as any).user?.id;
     const { comment } = req.body;
 
+    // Mark the current approver's slot as approved
     await db.update(purchaseRequestApprovalsTable).set({
       status: "approved", comment: comment ?? "", decidedAt: new Date(),
     }).where(and(
@@ -272,13 +373,49 @@ router.post("/requests/:id/approve", requireAuth, async (req: AuthRequest, res) 
       eq(purchaseRequestApprovalsTable.status, "pending"),
     ));
 
-    const [pr] = await db.update(purchaseRequestsTable)
-      .set({ status: "approved", updatedAt: new Date() })
-      .where(eq(purchaseRequestsTable.id, id)).returning();
+    // Get all approvals for this PR
+    const allApprovals = await db.select().from(purchaseRequestApprovalsTable)
+      .where(eq(purchaseRequestApprovalsTable.purchaseRequestId, id));
 
-    await notifyUsers([pr.requestedById], "Purchase Request Approved", `Your purchase request "${pr.title}" has been approved.`);
+    // Determine current approver's level
+    const currentApproval = allApprovals.find(a => a.approverId === userId);
+    const currentLevel = currentApproval?.level ?? 1;
+
+    // Check if all approvals at the current level are done (approved or rejected)
+    const currentLevelApprovals = allApprovals.filter(a => a.level === currentLevel);
+    const currentLevelApproved = currentLevelApprovals.every(a => a.status === "approved");
+    const currentLevelRejected = currentLevelApprovals.some(a => a.status === "rejected");
+
+    const [prCurrent] = await db.select().from(purchaseRequestsTable).where(eq(purchaseRequestsTable.id, id));
+
+    if (currentLevelRejected) {
+      // Already handled by reject endpoint
+    } else if (currentLevelApproved) {
+      const hasLevel2 = allApprovals.some(a => a.level === 2);
+
+      if (currentLevel === 1 && !hasLevel2) {
+        // Level 1 approved → create Level 2 (Procurement approvers)
+        const l2Ids = await getProcurementL2ApproverIds();
+        if (l2Ids.length) {
+          await db.insert(purchaseRequestApprovalsTable).values(l2Ids.map(mid => ({
+            purchaseRequestId: id, approverId: mid, level: 2, status: "pending" as const,
+          })));
+          await notifyUsers(l2Ids, "Purchase Request Pending Level 2 Approval",
+            `Purchase request "${prCurrent.title}" has passed Level 1 and needs your approval.`);
+        }
+      } else {
+        // Level 2 (or only level) approved → fully approved
+        const [pr] = await db.update(purchaseRequestsTable)
+          .set({ status: "approved", updatedAt: new Date() })
+          .where(eq(purchaseRequestsTable.id, id)).returning();
+        await notifyUsers([pr.requestedById], "Purchase Request Approved",
+          `Your purchase request "${pr.title}" has been fully approved.`);
+      }
+    }
+
     const userMap = await getUserMap();
-    res.json(await enrichPR(pr, userMap));
+    const [updatedPr] = await db.select().from(purchaseRequestsTable).where(eq(purchaseRequestsTable.id, id));
+    res.json(await enrichPR(updatedPr, userMap));
   } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
 });
 
@@ -304,6 +441,20 @@ router.post("/requests/:id/reject", requireAuth, async (req: AuthRequest, res) =
     await notifyUsers([pr.requestedById], "Purchase Request Rejected", `Your purchase request "${pr.title}" was rejected. Reason: ${comment}`);
     const userMap = await getUserMap();
     res.json(await enrichPR(pr, userMap));
+  } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
+});
+
+router.delete("/requests/:id", requireAuth, async (req: AuthRequest, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const userId = (req as any).user?.id;
+    const [pr] = await db.select().from(purchaseRequestsTable).where(eq(purchaseRequestsTable.id, id));
+    if (!pr) { res.status(404).json({ error: "NotFound" }); return; }
+    if (pr.deletedAt) { res.status(400).json({ error: "Already deleted" }); return; }
+    await db.update(purchaseRequestsTable).set({
+      deletedAt: new Date(), deletedById: userId, updatedAt: new Date(),
+    }).where(eq(purchaseRequestsTable.id, id));
+    res.json({ success: true });
   } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
 });
 
@@ -355,7 +506,7 @@ router.post("/orders", requireAuth, async (req: AuthRequest, res) => {
   try {
     const b = req.body;
     const userId = (req as any).user?.id;
-    const poNumber = generatePoNumber();
+    const poNumber = b.poNumber?.trim() || generatePoNumber();
     const [po] = await db.insert(purchaseOrdersTable).values({
       poNumber, purchaseRequestId: b.purchaseRequestId ?? null,
       vendorId: parseInt(b.vendorId), raisedById: userId, status: "draft",
