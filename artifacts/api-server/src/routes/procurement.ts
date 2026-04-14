@@ -574,6 +574,67 @@ router.get("/analytics", requireAuth, async (_req: AuthRequest, res) => {
       categorySpend[cat] = (categorySpend[cat] || 0) + (parseFloat(String(item.totalPrice ?? 0)) || 0);
     });
 
+    // ── Approval Cycle Time: avg days from PR created → approved, by department ──
+    const allApprovals = await db.select().from(purchaseRequestApprovalsTable)
+      .where(eq(purchaseRequestApprovalsTable.status, "approved"));
+    const departments = await db.select().from(departmentsTable);
+    const deptMap = new Map(departments.map(d => [d.id, d.name]));
+
+    // Build map: prId → approved approval (any level)
+    const approvalByPR = new Map<number, typeof allApprovals[0]>();
+    allApprovals.forEach(a => {
+      const existing = approvalByPR.get(a.purchaseRequestId);
+      if (!existing || (a.decidedAt && existing.decidedAt && a.decidedAt > existing.decidedAt)) {
+        approvalByPR.set(a.purchaseRequestId, a);
+      }
+    });
+
+    const deptCycleSums: Record<string, { totalDays: number; count: number }> = {};
+    allPRs.forEach(pr => {
+      const approval = approvalByPR.get(pr.id);
+      if (!approval?.decidedAt) return;
+      const deptName = pr.departmentId ? (deptMap.get(pr.departmentId) ?? "Unknown") : "Unknown";
+      const diffMs = new Date(approval.decidedAt).getTime() - new Date(pr.createdAt).getTime();
+      const diffDays = Math.max(0, diffMs / (1000 * 60 * 60 * 24));
+      if (!deptCycleSums[deptName]) deptCycleSums[deptName] = { totalDays: 0, count: 0 };
+      deptCycleSums[deptName].totalDays += diffDays;
+      deptCycleSums[deptName].count++;
+    });
+    const approvalCycleTime = Object.entries(deptCycleSums)
+      .map(([dept, v]) => ({ dept, avgDays: Math.round((v.totalDays / v.count) * 10) / 10 }))
+      .sort((a, b) => b.avgDays - a.avgDays);
+
+    // ── Delivery Performance: On Time vs Late per vendor (last 6 months) ──
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const recentPos = allPos.filter(po => new Date(po.createdAt) >= sixMonthsAgo);
+    const allReceipts = await db.select().from(purchaseOrderReceiptsTable);
+    const receiptsByPO = new Map<number, typeof allReceipts[0][]>();
+    allReceipts.forEach(r => {
+      const arr = receiptsByPO.get(r.purchaseOrderId) ?? [];
+      arr.push(r);
+      receiptsByPO.set(r.purchaseOrderId, arr);
+    });
+
+    const vendorDelivery: Record<number, { name: string; onTime: number; late: number }> = {};
+    recentPos.forEach(po => {
+      if (!po.deliveryDue) return;
+      const receipts = receiptsByPO.get(po.id) ?? [];
+      if (receipts.length === 0) return; // not yet received — skip
+      const firstReceipt = receipts.sort((a, b) => new Date(a.receivedAt).getTime() - new Date(b.receivedAt).getTime())[0];
+      const receivedAt = new Date(firstReceipt.receivedAt);
+      const dueDate = new Date(po.deliveryDue);
+      const isOnTime = receivedAt <= dueDate;
+      if (!vendorDelivery[po.vendorId]) {
+        vendorDelivery[po.vendorId] = { name: (vendorMap.get(po.vendorId) as string) ?? "Unknown", onTime: 0, late: 0 };
+      }
+      if (isOnTime) vendorDelivery[po.vendorId].onTime++;
+      else vendorDelivery[po.vendorId].late++;
+    });
+    const deliveryPerformance = Object.values(vendorDelivery)
+      .filter(v => v.onTime + v.late > 0)
+      .sort((a, b) => (b.onTime + b.late) - (a.onTime + a.late))
+      .slice(0, 8);
+
     res.json({
       totalSpendMonth,
       posThisMonth: thisMonthPos.length,
@@ -583,6 +644,8 @@ router.get("/analytics", requireAuth, async (_req: AuthRequest, res) => {
       topVendors,
       monthlyTrend,
       categorySpend: Object.entries(categorySpend).map(([category, spend]) => ({ category, spend })),
+      approvalCycleTime,
+      deliveryPerformance,
     });
   } catch (e) { console.error(e); res.status(500).json({ error: "InternalServerError" }); }
 });
